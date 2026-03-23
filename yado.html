@@ -796,8 +796,7 @@ function save(){
 
 function saveToGAS(){
   const data = {action:'save',bks,unassigned,nextNo,roomStatus,checkoutData};
-  const encoded = encodeURIComponent(JSON.stringify(data));
-  fetch(GAS_URL + '?action=save&data=' + encoded)
+  fetch(GAS_URL, {method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(data)})
     .then(r=>r.json()).then(d=>{if(d.status==='ok') showToast('☁️ クラウドに保存しました');})
     .catch(e=>console.log('GAS save error:', e));
 }

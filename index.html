@@ -17,8 +17,9 @@
   --sun:#d64b3a;--sun-bg:#fff2f0;--sun-cell:#fef6f5;
   --sat:#2a5fa8;--sat-bg:#f0f4ff;--sat-cell:#f5f7ff;
   --hd:#1e1810;
-  --rakuten:#cc0000;--jalan:#007a35;--yahoo:#cc0033;--yukoyuko:#d97000;--hp:#2a5fa8;
-  --tel:#6b4c9a;--sms:#20b2aa;--insta:#c13584;--kuchi:#888;
+  --rakuten:#cc0000;--jalan:#007a35;--yahoo:#cc0033;--yukoyuko:#d97000;
+  --direct:#4a6fa5;
+  --hp:#2a5fa8;--tel:#6b4c9a;--sms:#20b2aa;--insta:#c13584;--kuchi:#888;
   --unassigned:#e8a000;--green:#2a7a4b;--red:#d64b3a;--gold:#c8a060;
   --shadow:rgba(20,15,8,.12);
 }
@@ -218,10 +219,13 @@ td.c.bk:hover{filter:brightness(1.08)}
 /* OTA色 */
 .bk-rakuten{background:#cc0000!important}.bk-jalan{background:#007a35!important}
 .bk-yahoo{background:#cc0033!important}.bk-yukoyuko{background:#d97000!important}
-.bk-hp{background:#2a5fa8!important}.bk-tel{background:#6b4c9a!important}
-.bk-sms{background:#20b2aa!important}.bk-insta{background:#c13584!important}.bk-kuchi{background:#888888!important}
+.bk-direct{background:#4a6fa5!important}
+.bk-hp{background:#4a6fa5!important}.bk-tel{background:#4a6fa5!important}
+.bk-sms{background:#4a6fa5!important}.bk-insta{background:#4a6fa5!important}.bk-kuchi{background:#4a6fa5!important}
+/* バッジ色（台帳・未割当用は経路が分かるよう元色を維持） */
 .ota-badge.bk-rakuten{background:#cc0000}.ota-badge.bk-jalan{background:#007a35}
 .ota-badge.bk-yahoo{background:#cc0033}.ota-badge.bk-yukoyuko{background:#d97000}
+.ota-badge.bk-direct{background:#4a6fa5}
 .ota-badge.bk-hp{background:#2a5fa8}.ota-badge.bk-tel{background:#6b4c9a}
 .ota-badge.bk-sms{background:#20b2aa}.ota-badge.bk-insta{background:#c13584}.ota-badge.bk-kuchi{background:#888888}
 
@@ -243,8 +247,7 @@ td.c.bk:hover{filter:brightness(1.08)}
   </div>
   <div class="hdr-r">
     <button class="btn btn-green btn-sm" onclick="loadFromGAS()">☁️ 読込</button>
-    <button class="btn btn-sm" style="background:var(--red);color:#fff" onclick="openDirectInput()">＋ 直接予約</button>
-    <button class="btn btn-gold btn-sm" onclick="openManual(null,null)">＋ 手動入力</button>
+    <button class="btn btn-gold btn-sm" onclick="openManual(null,null)">＋ 予約入力</button>
   </div>
 </div>
 
@@ -279,8 +282,7 @@ td.c.bk:hover{filter:brightness(1.08)}
     <div class="leg"><div class="ldot" style="background:var(--jalan)"></div>じゃらん</div>
     <div class="leg"><div class="ldot" style="background:var(--yahoo)"></div>Yahoo</div>
     <div class="leg"><div class="ldot" style="background:var(--yukoyuko)"></div>ゆこゆこ</div>
-    <div class="leg"><div class="ldot" style="background:var(--hp)"></div>HP</div>
-    <div class="leg"><div class="ldot" style="background:var(--tel)"></div>直接</div>
+    <div class="leg"><div class="ldot" style="background:var(--direct)"></div>直接予約</div>
     <div style="font-size:10px;color:var(--ink3);margin-left:4px">※日付をクリックで部屋状態表示</div>
   </div>
   <div class="twrap"><table id="tbl"></table></div>
@@ -395,6 +397,23 @@ td.c.bk:hover{filter:brightness(1.08)}
   <div class="room-grid" id="rg-special"></div>
 </div>
 
+<!-- 部屋状態詳細モーダル -->
+<div class="ov" id="roomDetailMod">
+  <div class="modal" style="max-width:380px">
+    <div class="mttl" id="roomDetailTtl">部屋状態</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px" id="roomStatusBtns"></div>
+    <div class="fg" id="roomClosedNoteWrap" style="display:none">
+      <label class="fl">🚫 使用不可の理由・メモ</label>
+      <textarea class="fta" id="roomClosedNote" placeholder="例：エアコン故障・修理待ち　など" style="min-height:70px"></textarea>
+      <div style="font-size:10px;color:var(--ink3);margin-top:3px">※ 解除するまで保持されます</div>
+    </div>
+    <div class="mact">
+      <button class="btn btn-out" onclick="closeRoomDetail()">閉じる</button>
+      <button class="btn btn-gold" onclick="saveRoomDetail()">保存</button>
+    </div>
+  </div>
+</div>
+
 <!-- 清掃指示書 -->
 <div class="sec" id="sec-cleaning">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -414,9 +433,19 @@ td.c.bk:hover{filter:brightness(1.08)}
     <div style="font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700">🧾 精算・伝票</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <input type="date" id="checkoutDate" class="fi" style="width:auto;font-size:12px;padding:6px 10px" onchange="renderCheckout()">
+      <button class="btn btn-out btn-sm" onclick="toggleMonthly()" id="btnMonthly">📊 月次集計</button>
       <button class="btn btn-gold btn-sm" onclick="window.print()">🖨️ 印刷</button>
       <button class="btn btn-out btn-sm" onclick="copyCheckoutMsg()">📋 LINE</button>
     </div>
+  </div>
+  <!-- 月次集計パネル -->
+  <div id="monthlyPanel" style="display:none;background:var(--paper);border-radius:10px;padding:14px;margin-bottom:14px;box-shadow:0 2px 8px var(--shadow)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="font-family:'Shippori Mincho',serif;font-size:14px;font-weight:700">📊 月次集計</div>
+      <select id="monthlyYear" class="fsel" style="width:auto;font-size:12px;padding:5px 8px" onchange="renderMonthly()"></select>
+      <select id="monthlyMonth" class="fsel" style="width:auto;font-size:12px;padding:5px 8px" onchange="renderMonthly()"></select>
+    </div>
+    <div id="monthlyContent"></div>
   </div>
   <div id="checkoutSummary" style="background:var(--paper);border-radius:8px;padding:12px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow);display:flex;gap:12px;flex-wrap:wrap;font-size:12px"></div>
   <div id="checkoutContent"></div>
@@ -637,8 +666,8 @@ const ROOMS = [
 ];
 const GRP_LABEL = {honkan:'本館近く',kawazoi:'川沿い',special:'特別室'};
 const SRC_LABEL = {rakuten:'楽天',jalan:'じゃらん',yahoo:'Yahoo/一休',yukoyuko:'ゆこゆこ',hp:'HP',tel:'電話',sms:'SMS',insta:'インスタ',kuchi:'口頭・紹介'};
-const SRC_HEX = {rakuten:'#cc0000',jalan:'#007a35',yahoo:'#cc0033',yukoyuko:'#d97000',hp:'#2a5fa8',tel:'#6b4c9a',sms:'#20b2aa',insta:'#c13584',kuchi:'#888888'};
-const SRC_CSS = {rakuten:'bk-rakuten',jalan:'bk-jalan',yahoo:'bk-yahoo',yukoyuko:'bk-yukoyuko',hp:'bk-hp',tel:'bk-tel',sms:'bk-sms',insta:'bk-insta',kuchi:'bk-kuchi'};
+const SRC_HEX = {rakuten:'#cc0000',jalan:'#007a35',yahoo:'#cc0033',yukoyuko:'#d97000',hp:'#4a6fa5',tel:'#4a6fa5',sms:'#4a6fa5',insta:'#4a6fa5',kuchi:'#4a6fa5'};
+const SRC_CSS = {rakuten:'bk-rakuten',jalan:'bk-jalan',yahoo:'bk-yahoo',yukoyuko:'bk-yukoyuko',hp:'bk-direct',tel:'bk-direct',sms:'bk-direct',insta:'bk-direct',kuchi:'bk-direct'};
 const SRC_TO_PAY = {rakuten:'ota_rakuten',jalan:'ota_jalan',yahoo:'ota_yahoo',yukoyuko:'ota_yukoyuko'};
 const WD = ['日','月','火','水','木','金','土'];
 const GAS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbzF31TnwuXl41p_peRR8mC1scY--NUeXsHFmGr31TF3JmGvkWbB5RtdcMNSOzyXJpdoUw/exec';
@@ -846,7 +875,9 @@ function render(){
       const wc=wd===0?'sun':wd===6?'sat':'';
       if(bk&&bk.isStart!==false){
         const span=Math.min(bk.nights||1,days-d+1);
-        const hex=SRC_HEX[bk.src]||'#888';
+        // 直接予約はアサイン帳上は統一色、バッジ表示のみ経路を表示
+        const isOta=['rakuten','jalan','yahoo','yukoyuko'].includes(bk.src||'');
+        const hex=isOta?(SRC_HEX[bk.src]||'#888'):'#4a6fa5';
         const lbl=SRC_LABEL[bk.src]||bk.src||'';
         const paxStr=paxSummary(bk);
         h+=`<td class="c bk ${wc}${isT?' tod':''}" colspan="${span}" style="background:${hex}" data-room="${room.no}" data-ds="${ds}" onclick="editBkEl(this)">
@@ -1043,16 +1074,19 @@ function saveBk(){
       const newKey=room+'_'+ds;
       if(bks[newKey]&&bks[newKey].isStart!==false)clearSpan(newKey);
       data.room=room;
+      data.ciDate=ds; // キーと一致させる
       bks[newKey]=data;
       markSpan(room,ds,nights,newKey);
     }else if(room){
       const newKey=room+'_'+ds;
       if(newKey!==editKey&&bks[newKey]&&bks[newKey].isStart!==false)clearSpan(newKey);
       data.room=room;
+      data.ciDate=ds; // キーと一致させる
       bks[newKey]=data;
       if(newKey!==editKey)delete bks[editKey];
       markSpan(room,ds,nights,newKey);
     }else{
+      data.ciDate=ds; // キーと一致させる
       bks[editKey]=data;
       markSpan(oldRoom,ds,nights,editKey);
     }
@@ -1547,9 +1581,17 @@ function renderRooms(){
   ['honkan','kawazoi','special'].forEach(type=>{
     const grid=document.getElementById('rg-'+type);if(!grid)return;
     grid.innerHTML=ROOMS.filter(r=>r.type===type).map(r=>{
-      const autoSt=getAutoStatus(r.no);
       const manualSt=roomStatus[r.no]||'empty';
-      const st=(manualSt==='cleaned'||manualSt==='closed')?manualSt:(autoSt||manualSt);
+      const autoSt=getAutoStatus(r.no);
+      // 使用不可は手動設定を最優先で維持
+      let st;
+      if(manualSt==='closed'){
+        st='closed';
+      }else if(manualSt==='cleaned'||manualSt==='occupied'){
+        st=manualSt;
+      }else{
+        st=autoSt||manualSt;
+      }
       const si=STATUS_INFO[st];
       const todayBk=bks[r.no+'_'+todayStr];
       let nextInfo='',coInfo='';
@@ -1566,31 +1608,87 @@ function renderRooms(){
           if(ds<=todayStr&&todayStr<coStr){coInfo=`CO: ${coStr}　${(bk.name||'').substring(0,6)}`;break;}
         }
       }
-      // 布団枚数（清掃後に設定された枚数）
+      // 清掃後布団枚数（全部屋表示）
       const futonSet=roomStatus['futon_'+r.no]||'';
+      const closedNote=roomStatus['closedNote_'+r.no]||'';
       const displayInfo=coInfo||nextInfo;
-      return `<div class="room-card ${si.cls}" onclick="cycleStatusManual('${r.no}','${st}')">
+      return `<div class="room-card ${si.cls}" onclick="openRoomDetail('${r.no}')">
         <div class="room-card-no">${r.no}</div>
         <div class="room-card-status">${si.emoji} ${si.label}</div>
         ${displayInfo?`<div class="room-card-info">${esc(displayInfo)}</div>`:''}
-        ${futonSet?`<div class="room-card-futon">🛏 布団 ${futonSet}枚</div>`:''}
+        <div class="room-card-futon">🛏 清掃後布団: ${futonSet?futonSet+'枚':'未設定'}</div>
         ${st==='empty'&&todayBk?`<div class="room-card-info" style="color:#2a5fa8;font-weight:600">CI待ち</div>`:''}
+        ${st==='closed'&&closedNote?`<div class="room-card-info" style="color:#c0392b;white-space:normal;line-height:1.4">📋 ${esc(closedNote)}</div>`:''}
       </div>`;
     }).join('');
   });
 }
+let currentRoomNo=null;
+function openRoomDetail(roomNo){
+  currentRoomNo=roomNo;
+  loadRoomStatus();
+  const st=roomStatus[roomNo]||'empty';
+  const note=roomStatus['closedNote_'+roomNo]||'';
+  document.getElementById('roomDetailTtl').textContent=`🏠 ${roomNo}号室 — 状態変更`;
+  const btns=document.getElementById('roomStatusBtns');
+  btns.innerHTML=STATUS_LIST.map(s=>{
+    const si=STATUS_INFO[s];
+    const active=(st===s);
+    return `<button class="btn ${active?'btn-gold':'btn-out'}" style="font-size:12px" onclick="selectRoomStatus('${s}',this)">${si.emoji} ${si.label}</button>`;
+  }).join('');
+  document.getElementById('roomClosedNoteWrap').style.display=st==='closed'?'block':'none';
+  document.getElementById('roomClosedNote').value=note;
+  document.getElementById('roomDetailMod').classList.add('on');
+}
+function selectRoomStatus(st,el){
+  document.querySelectorAll('#roomStatusBtns .btn').forEach(b=>{b.classList.remove('btn-gold');b.classList.add('btn-out');});
+  el.classList.remove('btn-out');el.classList.add('btn-gold');
+  document.getElementById('roomClosedNoteWrap').style.display=st==='closed'?'block':'none';
+}
+function saveRoomDetail(){
+  if(!currentRoomNo)return;
+  const activeBtns=document.querySelectorAll('#roomStatusBtns .btn-gold');
+  if(!activeBtns.length)return;
+  const newSt=activeBtns[0].textContent.trim();
+  // ボタンテキストからstatus keyを逆引き
+  const st=STATUS_LIST.find(s=>activeBtns[0].getAttribute('onclick').includes("'"+s+"'"));
+  if(!st)return;
+  // 使用不可以外は通常の上書き、使用不可は持続（他の自動ステータスより優先）
+  roomStatus[currentRoomNo]=st;
+  if(st==='closed'){
+    roomStatus['closedNote_'+currentRoomNo]=document.getElementById('roomClosedNote').value.trim();
+  }else{
+    delete roomStatus['closedNote_'+currentRoomNo];
+  }
+  saveRoomStatus();closeRoomDetail();renderRooms();
+}
+function closeRoomDetail(){document.getElementById('roomDetailMod').classList.remove('on');currentRoomNo=null;}
+
 function cycleStatusManual(roomNo,currentSt){
-  const flow={'occupied':'empty','cleaning':'cleaned','cleaned':'occupied','empty':'closed','closed':'empty'};
-  roomStatus[roomNo]=flow[currentSt]||'empty';
-  saveRoomStatus();renderRooms();
+  // 使用不可の場合はモーダルを開く
+  openRoomDetail(roomNo);
 }
 
 // ===== 清掃指示書 =====
+// 非表示にした部屋（日付別）
+let cleaningHidden={};  // {dateStr: Set(roomNo)}
+
 function initCleanDate(){const el=document.getElementById('cleanDate');if(el&&!el.value){const n=new Date();el.value=fmt(n.getFullYear(),n.getMonth()+1,n.getDate());}}
+
+function hideCleanRoom(dateStr,room){
+  if(!cleaningHidden[dateStr])cleaningHidden[dateStr]=new Set();
+  cleaningHidden[dateStr].add(room);
+  renderCleaning();
+}
+function restoreCleanRoom(dateStr,room){
+  if(cleaningHidden[dateStr])cleaningHidden[dateStr].delete(room);
+  renderCleaning();
+}
 
 function renderCleaning(){
   initCleanDate();
   const dateStr=document.getElementById('cleanDate').value;if(!dateStr)return;
+  const hiddenSet=cleaningHidden[dateStr]||new Set();
   const coRooms=[];
   Object.entries(bks).forEach(([key,bk])=>{
     if(bk.isStart===false)return;
@@ -1608,21 +1706,43 @@ function renderCleaning(){
   const content=document.getElementById('cleaningContent');
   if(!coRooms.length){content.innerHTML='<div class="empty-msg">この日のチェックアウトはありません</div>';return;}
   coRooms.sort((a,b)=>a.room.localeCompare(b.room));
-  content.innerHTML=coRooms.map(({room,bk})=>{
+
+  // 非表示の部屋があれば復元ボタンエリアを表示
+  const hiddenRooms=coRooms.filter(({room})=>hiddenSet.has(room));
+  const visibleRooms=coRooms.filter(({room})=>!hiddenSet.has(room));
+
+  let hiddenHtml='';
+  if(hiddenRooms.length){
+    hiddenHtml=`<div style="background:#fff8e1;border:1.5px solid #ffc107;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px">
+      <span style="font-weight:700;color:#856404">⚠️ 今日は掃除しない部屋：</span>
+      <span style="color:var(--ink2)">${hiddenRooms.map(({room})=>`${room}号室`).join('、')}</span>
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+        ${hiddenRooms.map(({room})=>`<button class="btn btn-out btn-sm" onclick="restoreCleanRoom('${dateStr}','${room}')">↩ ${room}号室を戻す</button>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  const cardsHtml=visibleRooms.map(({room,bk})=>{
     const nextBk=ciRooms[room];
     const grp=ROOMS.find(r=>r.no===room);
     const grpLabel=grp?GRP_LABEL[grp.type]:'';
     const safeRoom=room.replace(/[^a-zA-Z0-9]/g,'_');
+    // 清掃後布団枚数（次のお客様向け）
     const savedFuton=roomStatus['futon_'+room]||'';
     const savedNote=roomStatus['futonNote_'+room]||'';
     const futonOptions=[0,1,2,3,4,5,6].map(n=>`<option value="${n}" ${savedFuton===String(n)?'selected':''}>${n}枚</option>`).join('');
+    // 清掃前布団枚数（現状の枚数：前泊客の布団数）
+    const prevFuton=bk.futon||'';
+    const savedPreFuton=roomStatus['preFuton_'+room]||prevFuton||'';
+    const preFutonOptions=[0,1,2,3,4,5,6].map(n=>`<option value="${n}" ${savedPreFuton===String(n)?'selected':''}>${n}枚</option>`).join('');
     return `<div class="clean-card" id="cc_${safeRoom}">
       <div class="clean-card-hd">
         <span class="clean-room-no">${room}</span>
-        <div>
+        <div style="flex:1">
           <div style="font-size:12px;font-weight:700">${grpLabel}</div>
-          <div class="clean-type">CO: ${bk.co||'10:00'}　前泊: ${bk.name||''}様</div>
+          <div class="clean-type">CO: ${bk.co||'10:00'}　前泊: ${esc(bk.name||'')}様</div>
         </div>
+        <button class="btn btn-out btn-sm" style="font-size:11px;color:var(--red);border-color:var(--red)" onclick="hideCleanRoom('${dateStr}','${room}')" title="今日は掃除しない">🗑 今日は掃除しない</button>
       </div>
       <div class="clean-rows">
         ${nextBk?`<div class="clean-row">
@@ -1630,9 +1750,18 @@ function renderCleaning(){
           <span class="clean-val">${nextBk.ci||'15:00'}　${esc(nextBk.name||'')}様</span>
         </div>`:'<div style="font-size:11px;color:var(--ink3);padding:4px 0">次の予約なし（空室準備）</div>'}
         <div class="clean-row">
-          <span class="clean-label">布団枚数</span>
+          <span class="clean-label" style="color:#c0392b">清掃前<br>布団枚数</span>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <select class="futon-select" id="preFuton_${safeRoom}" onchange="savePreFuton('${room}',this.value)" style="border-color:#e0b0b0">
+              <option value="">確認中</option>${preFutonOptions}
+            </select>
+            <span style="font-size:10px;color:var(--ink3)">（現在の枚数）</span>
+          </div>
+        </div>
+        <div class="clean-row">
+          <span class="clean-label" style="color:#2a7a4b">清掃後<br>布団枚数</span>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <select class="futon-select" id="futon_${safeRoom}" onchange="saveFutonSetting('${room}',this.value,null)">
+            <select class="futon-select" id="futon_${safeRoom}" onchange="saveFutonSetting('${room}',this.value,null)" style="border-color:#a8d5b5">
               <option value="">選択</option>${futonOptions}
             </select>
             <input class="futon-note" id="futonNote_${safeRoom}" value="${esc(savedNote)}" placeholder="ベッド追加・その他メモ" onchange="saveFutonSetting('${room}',null,this.value)">
@@ -1642,6 +1771,17 @@ function renderCleaning(){
       </div>
     </div>`;
   }).join('');
+
+  content.innerHTML=hiddenHtml+cardsHtml;
+  if(!visibleRooms.length&&hiddenRooms.length){
+    content.innerHTML+=`<div class="empty-msg" style="color:var(--ink3)">本日の清掃対象部屋はすべて非表示です</div>`;
+  }
+}
+
+function savePreFuton(room,val){
+  roomStatus['preFuton_'+room]=val;
+  saveRoomStatus();
+  showToast('💾 清掃前布団枚数を保存しました');
 }
 
 function saveFutonSetting(room,futon,note){
@@ -1657,13 +1797,14 @@ function saveFutonSetting(room,futon,note){
 function copyCleaningMsg(){
   initCleanDate();
   const dateStr=document.getElementById('cleanDate').value;if(!dateStr){alert('日付を選択してください');return;}
+  const hiddenSet=cleaningHidden[dateStr]||new Set();
   const coRooms=[];
   Object.entries(bks).forEach(([key,bk])=>{
     if(bk.isStart===false)return;
     const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
     const coD=new Date(ds);coD.setDate(coD.getDate()+(bk.nights||1));
     const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
-    if(coStr===dateStr)coRooms.push({room,bk});
+    if(coStr===dateStr&&!hiddenSet.has(room))coRooms.push({room,bk});
   });
   const ciRooms={};
   Object.entries(bks).forEach(([key,bk])=>{
@@ -1674,23 +1815,35 @@ function copyCleaningMsg(){
   coRooms.sort((a,b)=>a.room.localeCompare(b.room));
   const [y,mo,d]=dateStr.split('-');
   let msg=`🧹 清掃指示書 ${y}年${parseInt(mo)}月${parseInt(d)}日\n━━━━━━━━━━━━━━━\n`;
-  if(!coRooms.length){msg+='この日のチェックアウトはありません\n';}
+  if(!coRooms.length){msg+='この日の清掃対象部屋はありません\n';}
   else{
     coRooms.forEach(({room,bk})=>{
       const next=ciRooms[room];
       const safeRoom=room.replace(/[^a-zA-Z0-9]/g,'_');
+      // 清掃前
+      const preFutonEl=document.getElementById('preFuton_'+safeRoom);
+      const preFuton=preFutonEl?preFutonEl.value:(roomStatus['preFuton_'+room]||bk.futon||'');
+      // 清掃後
       const futonEl=document.getElementById('futon_'+safeRoom);
       const noteEl=document.getElementById('futonNote_'+safeRoom);
       const futon=futonEl?futonEl.value:(roomStatus['futon_'+room]||'');
       const note=noteEl?noteEl.value:(roomStatus['futonNote_'+room]||'');
-      msg+=`\n【${room}号室】\nCO時刻: ${bk.co||'10:00'}\n`;
+      msg+=`\n【${room}号室】\n`;
+      msg+=`CO時刻: ${bk.co||'10:00'}\n`;
+      msg+=`清掃前布団枚数: ${preFuton?preFuton+'枚':'確認してください'}\n`;
       if(next){
-        msg+=`CI時刻: ${next.ci||'15:00'}\n`;
-        msg+=`布団枚数: ${futon?futon+'枚':'要確認'}${note?' ('+note+')':''}\n`;
+        msg+=`CI時刻: ${next.ci||'15:00'}　${next.name||''}様\n`;
+        msg+=`清掃後布団枚数: ${futon?futon+'枚':'要確認'}${note?' ('+note+')':''}\n`;
         if(next.pet)msg+=`ペット: ${next.pet}\n`;
-      }else{msg+=`次の予約なし（空室準備）\n`;}
+      }else{
+        msg+=`次の予約なし（空室準備）\n`;
+        msg+=`清掃後布団枚数: ${futon?futon+'枚':'要確認'}${note?' ('+note+')':''}\n`;
+      }
     });
   }
+  // 今日は掃除しない部屋も記載
+  const hiddenList=[...hiddenSet];
+  if(hiddenList.length){msg+=`\n※本日掃除なし: ${hiddenList.map(r=>r+'号室').join('、')}\n`;}
   msg+='\nよろしくお願いします🙏';
   try{
     const ta=document.getElementById('cleaningCopyText');ta.value=msg;ta.select();document.execCommand('copy');
@@ -1702,6 +1855,104 @@ function copyCleaningMsg(){
 
 // ===== 精算・伝票 =====
 function saveCheckoutData(){localStorage.setItem('yado_co',JSON.stringify(checkoutData));}
+
+// ===== 月次集計 =====
+function toggleMonthly(){
+  const panel=document.getElementById('monthlyPanel');
+  const btn=document.getElementById('btnMonthly');
+  const isOpen=panel.style.display!=='none';
+  panel.style.display=isOpen?'none':'block';
+  btn.style.background=isOpen?'':('var(--hd)');
+  btn.style.color=isOpen?'':'var(--gold)';
+  if(!isOpen){
+    // セレクト初期化
+    const yn=document.getElementById('monthlyYear');
+    const mn=document.getElementById('monthlyMonth');
+    if(!yn.options.length){
+      const now=new Date();
+      for(let y=now.getFullYear()-1;y<=now.getFullYear()+1;y++){
+        yn.add(new Option(y+'年',y));
+      }
+      yn.value=now.getFullYear();
+      for(let m=1;m<=12;m++) mn.add(new Option(m+'月',m));
+      mn.value=now.getMonth()+1;
+    }
+    renderMonthly();
+  }
+}
+
+function renderMonthly(){
+  const y=parseInt(document.getElementById('monthlyYear').value);
+  const mo=parseInt(document.getElementById('monthlyMonth').value);
+  if(!y||!mo)return;
+  const startStr=fmt(y,mo,1);
+  const endD=new Date(y,mo,0);
+  const endStr=fmt(y,mo,endD.getDate());
+
+  const PAY_LABELS={cash:'現金',card:'カード',ota_rakuten:'楽天',ota_jalan:'じゃらん',ota_yahoo:'Yahoo/一休',ota_yukoyuko:'ゆこゆこ',paypay:'PayPay',dpay:'d払い'};
+  const keys=Object.keys(PAY_LABELS);
+  let totals={};keys.forEach(k=>totals[k]=0);
+  let grandTotal=0,paidCount=0,unpaidCount=0,unpaidTotal=0,roomNights=0;
+
+  Object.entries(bks).forEach(([key,bk])=>{
+    if(bk.isStart===false)return;
+    const idx=key.indexOf('_');const ds=key.substring(idx+1);
+    if(ds<startStr||ds>endStr)return;
+    const cd=checkoutData[key]||{extraItems:[],paid:false};
+    if(!cd.payMethod&&SRC_TO_PAY[bk.src])cd.payMethod=SRC_TO_PAY[bk.src];
+    const base=parseInt(bk.price||0);
+    const isOta=['rakuten','jalan','yahoo','yukoyuko'].includes(bk.src||'');
+    const petFee=isOta&&bk.pet&&bk.pet!==''?1000*(bk.nights||1):0;
+    const extra=(cd.extraItems||[]).reduce((s,e)=>s+parseInt(e.price||0),0);
+    const total=base+petFee+extra;
+    roomNights+=(bk.nights||1);
+    if(cd.paid){
+      const pm=cd.payMethod||'cash';
+      if(totals[pm]!==undefined)totals[pm]+=total;
+      grandTotal+=total;paidCount++;
+    }else{unpaidTotal+=total;unpaidCount++;}
+  });
+
+  const otaAll=totals.ota_rakuten+totals.ota_jalan+totals.ota_yahoo+totals.ota_yukoyuko;
+  const directTotal=totals.cash+totals.card+totals.paypay+totals.dpay;
+
+  const row=(label,val,color='',bold=false)=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px">
+    <span style="color:${color||'var(--ink2)'}">${label}</span>
+    <span style="font-family:'DM Mono',monospace;font-weight:${bold?'700':'500'};color:${color||'var(--ink)'}">${val.toLocaleString()}円</span>
+  </div>`;
+  const subrow=(label,val,color)=>`<div style="display:flex;justify-content:space-between;padding:3px 0 3px 16px;font-size:12px;border-bottom:1px dashed var(--border)">
+    <span style="color:${color||'var(--ink3)'}">${label}</span>
+    <span style="font-family:'DM Mono',monospace;color:${color||'var(--ink2)'}">${val.toLocaleString()}円</span>
+  </div>`;
+
+  document.getElementById('monthlyContent').innerHTML=`
+    <div style="font-size:11px;color:var(--ink2);margin-bottom:10px">
+      集計対象: ${y}年${mo}月のCI日ベース  /  精算済みのみ集計  /  客室数: ${paidCount}件・${roomNights}泊
+    </div>
+    <div style="background:#f8f5ef;border-radius:8px;padding:10px 14px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:6px;letter-spacing:.06em">■ 現地精算（直接受取）</div>
+      ${subrow('現金',totals.cash,'#1a1510')}
+      ${subrow('カード',totals.card)}
+      ${subrow('PayPay',totals.paypay)}
+      ${subrow('d払い',totals.dpay)}
+      ${row('直計合計',directTotal,'#2a7a4b',true)}
+      <div style="font-size:11px;font-weight:700;color:var(--ink2);margin-top:10px;margin-bottom:6px;letter-spacing:.06em">■ OTA事前精算（各社振込）</div>
+      ${subrow('楽天トラベル',totals.ota_rakuten,'#cc0000')}
+      ${subrow('じゃらん',totals.ota_jalan,'#007a35')}
+      ${subrow('Yahoo/一休',totals.ota_yahoo,'#cc0033')}
+      ${subrow('ゆこゆこ',totals.ota_yukoyuko,'#d97000')}
+      ${row('OTA合計',otaAll,'#2a5fa8',true)}
+    </div>
+    <div style="background:var(--hd);border-radius:8px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="color:var(--gold);font-weight:700;font-size:13px">月次 総合計（精算済）</span>
+      <span style="color:#fff;font-family:'DM Mono',monospace;font-size:20px;font-weight:700">${grandTotal.toLocaleString()}円</span>
+    </div>
+    ${unpaidCount?`<div style="background:#fff3e0;border:1.5px solid #ffc107;border-radius:8px;padding:10px 14px;font-size:12px">
+      <span style="color:#856404;font-weight:700">⚠️ 未精算: ${unpaidCount}件　${unpaidTotal.toLocaleString()}円</span>
+      <span style="color:var(--ink3);font-size:11px;margin-left:8px">（上記集計には含まれていません）</span>
+    </div>`:'<div style="font-size:11px;color:var(--green)">✅ 未精算なし</div>'}
+  `;
+}
 
 function initCheckoutDate(){
   const el=document.getElementById('checkoutDate');

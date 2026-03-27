@@ -755,7 +755,8 @@ GitHub Pages: https://nsmpwdgsnn-sudo.github.io/yado/
     </div>
     <div class="mact">
       <button class="btn-del2" id="btnDel" onclick="delBk()" style="display:none">削除</button>
-      <button class="btn btn-out" onclick="closeManual()">キャンセル</button>
+      <button class="btn btn-out btn-sm" id="btnCancel" onclick="cancelBk()" style="display:none;background:#fff3e0;border-color:#e8a000;color:#856404">🚫 キャンセル</button>
+      <button class="btn btn-out" onclick="closeManual()">閉じる</button>
       <button class="btn btn-gold" onclick="saveBk()">保存</button>
     </div>
   </div>
@@ -930,6 +931,7 @@ function load(){
     if(u)unassigned=JSON.parse(u);
     if(c)checkoutData=JSON.parse(c);
     normalizeDates();
+    repairBks(); // 孤立スパンを自動修復
   }catch(e){console.error(e);}
 }
 function exportData(){
@@ -1132,6 +1134,7 @@ function openManual(room,ds){
   document.getElementById('fSrc').value='tel';
   document.getElementById('fPet').value='';
   document.getElementById('btnDel').style.display='none';
+  document.getElementById('btnCancel').style.display='none';
   document.getElementById('manualMod').setAttribute('data-uindex','');
   // ボタン初期化
   document.querySelectorAll('.src-btn').forEach(b=>b.classList.remove('on'));
@@ -1172,6 +1175,7 @@ function editBk(room,ds){
   document.getElementById('fOtaNo').value=bk.otaNo||'';
   document.getElementById('fMemo').value=bk.memo||'';
   document.getElementById('btnDel').style.display='block';
+  document.getElementById('btnCancel').style.display='inline-flex';
   document.getElementById('manualMod').setAttribute('data-uindex','');
   // srcボタン
   document.querySelectorAll('.src-btn').forEach(b=>b.classList.remove('on'));
@@ -1268,7 +1272,39 @@ function delBk(){
   if(!confirm('この予約を削除しますか？'))return;
   clearSpan(editKey);
   delete bks[editKey];
+  repairBks();
   save();closeManual();render();renderUnassigned();renderLedger();
+  showToast('🗑️ 削除しました');
+}
+
+// キャンセル処理：アサイン帳・台帳・未割当すべて一括削除
+function cancelBk(){
+  if(!editKey)return;
+  const bk=bks[editKey];
+  if(!bk)return;
+  const name=bk.name||'この予約';
+  if(!confirm(`【${name}】様の予約をキャンセルします。\nアサイン帳・予約台帳から完全に削除されます。よろしいですか？`))return;
+  // アサイン帳から削除（スパン含む）
+  clearSpan(editKey);
+  delete bks[editKey];
+  repairBks();
+  save();closeManual();render();renderUnassigned();renderLedger();
+  showToast('🚫 キャンセル処理が完了しました');
+}
+
+// 孤立したisStart===falseのスパンを修復（親キーが存在しないものを削除）
+function repairBks(){
+  const toDelete=[];
+  Object.entries(bks).forEach(([key,bk])=>{
+    if(bk.isStart===false){
+      const pk=bk.parentKey;
+      if(!pk||!bks[pk]||bks[pk].isStart===false){
+        toDelete.push(key);
+      }
+    }
+  });
+  toDelete.forEach(k=>delete bks[k]);
+  if(toDelete.length>0)console.log(`🔧 孤立スパン ${toDelete.length}件を修復しました`);
 }
 
 // ===== 未割当 =====
@@ -2480,7 +2516,7 @@ function openKinmuRecord(){
   document.getElementById('kDelBtn').style.display='none';
   const today=new Date();
   document.getElementById('kDate').value=fmt(today.getFullYear(),today.getMonth()+1,today.getDate());
-  document.getElementById('kStart').value='09:00';
+  document.getElementById('kStart').value='08:00';
   document.getElementById('kEnd').value='13:00';
   document.getElementById('kTransport').value='1';
   document.getElementById('kBath').value='0';
@@ -2498,7 +2534,7 @@ function openEditKinmuRecord(id){
   const sel=document.getElementById('kStaff');
   sel.innerHTML=kinmuStaff.map(s=>`<option value="${s.id}" ${s.id===rec.staffId?'selected':''}>${s.name}</option>`).join('');
   document.getElementById('kDate').value=rec.date;
-  document.getElementById('kStart').value=rec.start||'09:00';
+  document.getElementById('kStart').value=rec.start||'08:00';
   document.getElementById('kEnd').value=rec.end||'13:00';
   document.getElementById('kTransport').value=rec.transport?'1':'0';
   document.getElementById('kBath').value=rec.bath?'1':'0';

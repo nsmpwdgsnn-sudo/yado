@@ -455,6 +455,59 @@ td.c.bk:hover{filter:brightness(1.08)}
 <!-- 設定 -->
 <div class="sec" id="sec-settings">
   <div style="font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700;margin-bottom:16px">⚙️ 設定</div>
+
+  <!-- ===== 更新・運用手順書 ===== -->
+  <div style="background:#fffdf0;border:2px solid var(--gold);border-radius:10px;padding:16px;margin-bottom:16px;box-shadow:0 2px 8px var(--shadow)">
+    <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:#7a5c1e">📋 システム更新・運用マニュアル</div>
+
+    <!-- ファイル更新手順 -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;background:var(--hd);color:var(--gold);border-radius:6px;padding:4px 10px;margin-bottom:8px;display:inline-block">🔄 ファイルを更新したときの手順</div>
+      <div style="font-size:12px;line-height:2;color:var(--ink)">
+        <div>① <strong>GitHubにアップロード</strong></div>
+        <div style="padding-left:16px;font-size:11px;color:var(--ink2)">
+          <a href="https://github.com/nsmpwdgsnn-sudo/yado" target="_blank" style="color:var(--hp)">github.com/nsmpwdgsnn-sudo/yado</a> を開く<br>
+          → ファイル一覧の index.html をクリック → 右上の「Upload files」(↑アイコン) → 新ファイルをドロップ → 「Commit changes」
+        </div>
+        <div style="margin-top:6px">② <strong>iPhoneのChromeで開く</strong></div>
+        <div style="padding-left:16px;font-size:11px;color:var(--ink2)">
+          <a href="https://nsmpwdgsnn-sudo.github.io/yado/" target="_blank" style="color:var(--hp)">https://nsmpwdgsnn-sudo.github.io/yado/</a>
+        </div>
+        <div style="margin-top:6px">③ <strong>画面が古いままならキャッシュクリア</strong></div>
+        <div style="padding-left:16px;font-size:11px;color:var(--ink2)">
+          Chrome右上「…」→「設定」→「プライバシーとセキュリティ」→「閲覧履歴データの削除」<br>
+          →「キャッシュされた画像とファイル」にチェック → 「データを削除」→ ページを再読み込み
+        </div>
+        <div style="margin-top:6px">④ <strong>設定タブでGAS URLを確認・入力して「保存」</strong></div>
+        <div style="margin-top:6px">⑤ <strong>「☁️ 読込」ボタンでデータを読み込む</strong></div>
+      </div>
+    </div>
+
+    <!-- Claudeへの依頼方法 -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;background:var(--hd);color:var(--gold);border-radius:6px;padding:4px 10px;margin-bottom:8px;display:inline-block">🤖 Claudeに改善を頼むときの定型文</div>
+      <div id="claudePromptBox" style="background:#f5f0e8;border-radius:6px;padding:10px;font-size:11px;font-family:'DM Mono',monospace;line-height:1.8;color:var(--ink);white-space:pre-wrap">以下のシステムを改善してください。
+GitHub Pages: https://nsmpwdgsnn-sudo.github.io/yado/
+ソース(最新): https://raw.githubusercontent.com/nsmpwdgsnn-sudo/yado/main/index.html
+
+改善内容：
+（ここに改善したい内容を書く）</div>
+      <button onclick="copyClaudePrompt()" class="btn btn-out btn-sm" style="margin-top:6px;width:100%;justify-content:center">📋 この定型文をコピー</button>
+    </div>
+
+    <!-- GitHubアップロード詳細 -->
+    <div>
+      <div style="font-size:11px;font-weight:700;background:var(--hd);color:var(--gold);border-radius:6px;padding:4px 10px;margin-bottom:8px;display:inline-block">📂 GitHubアップロード詳細手順</div>
+      <div style="font-size:11px;line-height:2;color:var(--ink2)">
+        1. <a href="https://github.com/nsmpwdgsnn-sudo/yado" target="_blank" style="color:var(--hp)">リポジトリを開く</a><br>
+        2. ファイル一覧の「index.html」をクリック<br>
+        3. 右上の ↑「Upload files」ボタンをクリック<br>
+        4. Claudeからダウンロードした新しい index.html をドラッグ＆ドロップ<br>
+        5. 下の「Commit changes」ボタンをクリック<br>
+        6. 1〜2分待ってからサイトを再読み込み（それでも古ければキャッシュクリア）
+      </div>
+    </div>
+  </div>
   <div style="background:var(--paper);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow)">
     <div style="font-size:13px;font-weight:700;margin-bottom:8px">☁️ クラウド同期（GAS）</div>
     <div style="font-size:11px;color:var(--ink2);margin-bottom:8px">URLが変わった場合はここで更新できます。</div>
@@ -875,10 +928,11 @@ function render(){
       const wc=wd===0?'sun':wd===6?'sat':'';
       if(bk&&bk.isStart!==false){
         const span=Math.min(bk.nights||1,days-d+1);
-        // 直接予約はアサイン帳上は統一色、バッジ表示のみ経路を表示
         const isOta=['rakuten','jalan','yahoo','yukoyuko'].includes(bk.src||'');
-        const hex=isOta?(SRC_HEX[bk.src]||'#888'):'#4a6fa5';
-        const lbl=SRC_LABEL[bk.src]||bk.src||'';
+        // srcが未設定・不明な場合も直接予約色にフォールバック
+        const knownOtaColors={rakuten:'#cc0000',jalan:'#007a35',yahoo:'#cc0033',yukoyuko:'#d97000'};
+        const hex=isOta?(knownOtaColors[bk.src]||'#888'):'#4a6fa5';
+        const lbl=SRC_LABEL[bk.src]||bk.src||'直接';
         const paxStr=paxSummary(bk);
         h+=`<td class="c bk ${wc}${isT?' tod':''}" colspan="${span}" style="background:${hex}" data-room="${room.no}" data-ds="${ds}" onclick="editBkEl(this)">
           <div class="bi"><span class="bn">${esc(bk.name)}</span>
@@ -1246,7 +1300,14 @@ function parseOta(){
     if(m){d.ciDate=normDate(m[1])||m[1];if(m[2])d.ci=m[2];}
     m=text.match(/泊数\s*[：:]\s*(\d+)/)||text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
     m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/)||text.match(/大人(\d+)人/);if(m)d.paxAdult=m[1];
-    m=text.match(/現地徴収額[^：:]*[：:]\s*([\d,]+)円/)||text.match(/合計\(A\)\s*[：:]\s*([\d,]+)円/)||text.match(/合計[：:]\s*([\d,]+)円/);if(m)d.price=m[1].replace(/,/g,'');
+    // 事前カード決済の場合：合計(A)の金額を使用（現地徴収額は0円になるため）
+    const isPrepaid=text.includes('事前カード決済');
+    if(isPrepaid){
+      m=text.match(/合計\(A\)\s*[：:]\s*([\d,]+)円/);if(m)d.price=m[1].replace(/,/g,'');
+    }
+    if(!d.price){
+      m=text.match(/現地徴収額[^：:]*[：:]\s*([\d,]+)円/)||text.match(/合計\(A\)\s*[：:]\s*([\d,]+)円/)||text.match(/合計[：:]\s*([\d,]+)円/);if(m)d.price=m[1].replace(/,/g,'');
+    }
     m=text.match(/宿泊者連絡先\s*[：:]\s*(\S+)/)||text.match(/(0\d{1,4}[-\s]?\d{2,4}[-\s]?\d{3,4})/);if(m)d.tel=m[1];
     m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
   }else if(currentOta==='jalan'){
@@ -1266,7 +1327,21 @@ function parseOta(){
     m=text.match(/C\/IN可能時間\s*[：:]\s*(\d{1,2}:\d{2})/)||text.match(/チェックイン.*?(\d{1,2}:\d{2})/);if(m)d.ci=m[1];
     m=text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
     m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/);if(m)d.paxAdult=m[1];
-    const allPrices=text.match(/[\d,]+円/g);if(allPrices){const prices=allPrices.map(p=>parseInt(p.replace(/[^\d]/g,'')));d.price=String(Math.max(...prices));}
+    // 事前決済：「支払金額」を優先取得（\7,380 形式・円形式どちらも対応）
+    m=text.match(/支払金額\s*[：:]\s*\\([\d,]+)/)||text.match(/支払金額　*[：:]\s*\\([\d,]+)/);
+    if(!m)m=text.match(/支払金額\s*　*：?\s*　*\\([\d,]+)/);
+    if(!m){
+      // 「支払金額　　　　　　　　　　　　：　\7,380[消費税込]」のような形式
+      const sm=text.match(/支払金額[^\n]*\\\s*([\d,]+)/);if(sm)m=['',sm[1]];
+    }
+    if(m&&m[1]){d.price=m[1].replace(/[^\d]/g,'');}
+    else{
+      m=text.match(/支払金額\s*　*[：:]?\s*　*([\d,]+)\[消費税込\]/);
+      if(m){d.price=m[1].replace(/,/g,'');}
+      else{
+        const allPrices=text.match(/[\d,]+円/g);if(allPrices){const prices=allPrices.map(p=>parseInt(p.replace(/[^\d]/g,'')));d.price=String(Math.max(...prices));}
+      }
+    }
     m=text.match(/電話番号\s*[：:]\s*(\S+)/)||text.match(/(0\d{1,4}[-\s]?\d{2,4}[-\s]?\d{3,4})/);if(m)d.tel=m[1];
     m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
   }else if(currentOta==='yukoyuko'){
@@ -1556,22 +1631,24 @@ function saveRoomStatus(){localStorage.setItem('yado_rs',JSON.stringify(roomStat
 function getAutoStatus(roomNo){
   const today=new Date();const todayStr=fmt(today.getFullYear(),today.getMonth()+1,today.getDate());
   const todayEntry=bks[roomNo+'_'+todayStr];
-  const yesterday=new Date(today);yesterday.setDate(today.getDate()-1);
-  const yStr=fmt(yesterday.getFullYear(),yesterday.getMonth()+1,yesterday.getDate());
-  const ybk=bks[roomNo+'_'+yStr];
-  if(todayEntry&&todayEntry.isStart===false)return 'occupied';
-  const isCoToday=ybk&&ybk.isStart!==false&&!todayEntry;
   const isCiToday=todayEntry&&todayEntry.isStart!==false;
-  if(isCoToday)return 'cleaning';
-  if(isCiToday)return 'empty';
+
+  // 全予約を走査してCO日・宿泊中を正確に判定
+  let isCoToday=false;
   for(const [key,bk] of Object.entries(bks)){
     if(bk.isStart===false)continue;
     const idx=key.indexOf('_');const room=key.substring(0,idx);if(room!==roomNo)continue;
     const ds=key.substring(idx+1);
-    const coD=new Date(ds);coD.setDate(coD.getDate()+(bk.nights||1));
+    const nights=bk.nights||1;
+    const coD=new Date(ds+'T00:00:00');coD.setDate(coD.getDate()+nights);
     const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
+    // 宿泊中：CI日<=今日 かつ 今日<CO日
     if(ds<=todayStr&&todayStr<coStr)return 'occupied';
+    // CO日が今日
+    if(coStr===todayStr)isCoToday=true;
   }
+  if(isCoToday&&!isCiToday)return 'cleaning';
+  if(isCiToday)return 'empty';
   return null;
 }
 
@@ -1649,18 +1726,19 @@ function saveRoomDetail(){
   if(!currentRoomNo)return;
   const activeBtns=document.querySelectorAll('#roomStatusBtns .btn-gold');
   if(!activeBtns.length)return;
-  const newSt=activeBtns[0].textContent.trim();
-  // ボタンテキストからstatus keyを逆引き
+  // ボタンのonclick属性からstatus keyを逆引き
   const st=STATUS_LIST.find(s=>activeBtns[0].getAttribute('onclick').includes("'"+s+"'"));
   if(!st)return;
-  // 使用不可以外は通常の上書き、使用不可は持続（他の自動ステータスより優先）
   roomStatus[currentRoomNo]=st;
   if(st==='closed'){
     roomStatus['closedNote_'+currentRoomNo]=document.getElementById('roomClosedNote').value.trim();
   }else{
     delete roomStatus['closedNote_'+currentRoomNo];
   }
-  saveRoomStatus();closeRoomDetail();renderRooms();
+  saveRoomStatus();
+  showToast('✅ 部屋状態を保存しました');
+  closeRoomDetail();
+  renderRooms();
 }
 function closeRoomDetail(){document.getElementById('roomDetailMod').classList.remove('on');currentRoomNo=null;}
 
@@ -1690,12 +1768,37 @@ function renderCleaning(){
   const dateStr=document.getElementById('cleanDate').value;if(!dateStr)return;
   const hiddenSet=cleaningHidden[dateStr]||new Set();
   const coRooms=[];
+  // 当日COの部屋
   Object.entries(bks).forEach(([key,bk])=>{
     if(bk.isStart===false)return;
     const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
-    const coD=new Date(ds);coD.setDate(coD.getDate()+(bk.nights||1));
+    const coD=new Date(ds+'T00:00:00');coD.setDate(coD.getDate()+(bk.nights||1));
     const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
-    if(coStr===dateStr)coRooms.push({room,bk,ds});
+    if(coStr===dateStr)coRooms.push({room,bk,ds,carryOver:false});
+  });
+  // 前日以前COで非表示にされていた持ち越し部屋（cleaningHiddenから復元対象）
+  // ※持ち越し部屋は別日のhiddenSetに残っているものを検出
+  const pastCarryOvers=[];
+  Object.entries(cleaningHidden).forEach(([pastDate,hidSet])=>{
+    if(pastDate>=dateStr)return;
+    hidSet.forEach(room=>{
+      // その部屋が今日COではなく、当日COリストにもない場合は持ち越し候補
+      const alreadyInToday=coRooms.some(r=>r.room===room);
+      if(!alreadyInToday){
+        // 該当部屋の予約を探す
+        for(const [key,bk] of Object.entries(bks)){
+          if(bk.isStart===false)continue;
+          const ki=key.indexOf('_');const kr=key.substring(0,ki);if(kr!==room)continue;
+          const ds=key.substring(ki+1);
+          const coD=new Date(ds+'T00:00:00');coD.setDate(coD.getDate()+(bk.nights||1));
+          const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
+          if(coStr===pastDate){
+            pastCarryOvers.push({room,bk,ds,carryOver:true,coDate:pastDate});
+            break;
+          }
+        }
+      }
+    });
   });
   const ciRooms={};
   Object.entries(bks).forEach(([key,bk])=>{
@@ -1703,13 +1806,17 @@ function renderCleaning(){
     const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
     if(ds===dateStr)ciRooms[room]=bk;
   });
-  const content=document.getElementById('cleaningContent');
-  if(!coRooms.length){content.innerHTML='<div class="empty-msg">この日のチェックアウトはありません</div>';return;}
-  coRooms.sort((a,b)=>a.room.localeCompare(b.room));
 
-  // 非表示の部屋があれば復元ボタンエリアを表示
+  // 全対象部屋（当日CO＋持ち越し）を結合
+  const allCleanRooms=[...coRooms,...pastCarryOvers];
+
+  const content=document.getElementById('cleaningContent');
+  if(!allCleanRooms.length){content.innerHTML='<div class="empty-msg">この日の清掃対象部屋はありません</div>';return;}
+  allCleanRooms.sort((a,b)=>a.room.localeCompare(b.room));
+
+  // 非表示の部屋（当日分）
   const hiddenRooms=coRooms.filter(({room})=>hiddenSet.has(room));
-  const visibleRooms=coRooms.filter(({room})=>!hiddenSet.has(room));
+  const visibleRooms=allCleanRooms.filter(({room,carryOver})=>carryOver||!hiddenSet.has(room));
 
   let hiddenHtml='';
   if(hiddenRooms.length){
@@ -1722,27 +1829,34 @@ function renderCleaning(){
     </div>`;
   }
 
-  const cardsHtml=visibleRooms.map(({room,bk})=>{
+  const cardsHtml=visibleRooms.map(({room,bk,carryOver,coDate})=>{
     const nextBk=ciRooms[room];
     const grp=ROOMS.find(r=>r.no===room);
     const grpLabel=grp?GRP_LABEL[grp.type]:'';
     const safeRoom=room.replace(/[^a-zA-Z0-9]/g,'_');
-    // 清掃後布団枚数（次のお客様向け）
     const savedFuton=roomStatus['futon_'+room]||'';
     const savedNote=roomStatus['futonNote_'+room]||'';
     const futonOptions=[0,1,2,3,4,5,6].map(n=>`<option value="${n}" ${savedFuton===String(n)?'selected':''}>${n}枚</option>`).join('');
-    // 清掃前布団枚数（現状の枚数：前泊客の布団数）
     const prevFuton=bk.futon||'';
     const savedPreFuton=roomStatus['preFuton_'+room]||prevFuton||'';
     const preFutonOptions=[0,1,2,3,4,5,6].map(n=>`<option value="${n}" ${savedPreFuton===String(n)?'selected':''}>${n}枚</option>`).join('');
-    return `<div class="clean-card" id="cc_${safeRoom}">
+
+    // カードの色とラベルを区別
+    const cardBorderColor=carryOver?'#e57373':'#64b5f6';
+    const cardBg=carryOver?'#fff8f8':'#f8fbff';
+    const statusBadge=carryOver
+      ?`<span style="background:#e57373;color:#fff;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700">📦 持ち越し清掃（${coDate}CO）</span>`
+      :`<span style="background:#64b5f6;color:#fff;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700">🚪 本日CO（お客様在室の可能性あり）</span>`;
+
+    return `<div class="clean-card" id="cc_${safeRoom}" style="border-color:${cardBorderColor};background:${cardBg}">
       <div class="clean-card-hd">
         <span class="clean-room-no">${room}</span>
         <div style="flex:1">
           <div style="font-size:12px;font-weight:700">${grpLabel}</div>
           <div class="clean-type">CO: ${bk.co||'10:00'}　前泊: ${esc(bk.name||'')}様</div>
+          <div style="margin-top:4px">${statusBadge}</div>
         </div>
-        <button class="btn btn-out btn-sm" style="font-size:11px;color:var(--red);border-color:var(--red)" onclick="hideCleanRoom('${dateStr}','${room}')" title="今日は掃除しない">🗑 今日は掃除しない</button>
+        ${!carryOver?`<button class="btn btn-out btn-sm" style="font-size:11px;color:var(--red);border-color:var(--red)" onclick="hideCleanRoom('${dateStr}','${room}')" title="今日は掃除しない">🗑 今日は掃除しない</button>`:''}
       </div>
       <div class="clean-rows">
         ${nextBk?`<div class="clean-row">
@@ -2090,6 +2204,19 @@ function resetAll(){
     save();render();renderUnassigned();renderLedger();renderSettings();
     showToast('✅ リセットしました');
   };
+}
+
+// ===== Claude定型文コピー =====
+function copyClaudePrompt(){
+  const el=document.getElementById('claudePromptBox');
+  const text=el?el.textContent:'';
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(()=>showToast('📋 定型文をコピーしました！'));
+  }else{
+    const ta=document.createElement('textarea');
+    ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    showToast('📋 定型文をコピーしました！');
+  }
 }
 
 // ===== 初期化 =====

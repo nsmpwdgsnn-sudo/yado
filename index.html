@@ -1220,29 +1220,27 @@ function saveBk(){
     // 編集
     const oldBk=bks[editKey];
     data.no=oldBk.no;
-    clearSpan(editKey);
-    const idx=editKey.indexOf('_');const oldRoom=editKey.substring(0,idx);
-    if(room&&room!==oldRoom){
-      // 部屋変更
-      const newKey=room+'_'+ds;
+    clearSpan(editKey);        // 古いスパンを先に全消し
+    delete bks[editKey];       // 古いキーを必ず削除（部屋変更時に二重表示になるバグを修正）
+
+    const newKey=room?room+'_'+ds:editKey;
+    const actualRoom=room||(editKey.indexOf('_')>0?editKey.substring(0,editKey.indexOf('_')):'');
+
+    if(room){
+      // 移動先に別の予約があれば先にクリア
       if(bks[newKey]&&bks[newKey].isStart!==false)clearSpan(newKey);
+      if(bks[newKey])delete bks[newKey];
       data.room=room;
-      data.ciDate=ds; // キーと一致させる
+      data.ciDate=ds;
       bks[newKey]=data;
-      markSpan(room,ds,nights,newKey);
-    }else if(room){
-      const newKey=room+'_'+ds;
-      if(newKey!==editKey&&bks[newKey]&&bks[newKey].isStart!==false)clearSpan(newKey);
-      data.room=room;
-      data.ciDate=ds; // キーと一致させる
-      bks[newKey]=data;
-      if(newKey!==editKey)delete bks[editKey];
       markSpan(room,ds,nights,newKey);
     }else{
-      data.ciDate=ds; // キーと一致させる
-      bks[editKey]=data;
-      markSpan(oldRoom,ds,nights,editKey);
+      // 部屋変更なし（日程のみ変更など）
+      data.ciDate=ds;
+      bks[newKey]=data;
+      markSpan(actualRoom,ds,nights,newKey);
     }
+    repairBks();
   }else if(room){
     // 新規 部屋あり
     data.no=genReceiptNo();

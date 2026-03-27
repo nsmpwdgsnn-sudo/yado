@@ -264,6 +264,7 @@ td.c.bk:hover{filter:brightness(1.08)}
   <div class="tab" onclick="showTab('rooms')">🏠 部屋状態</div>
   <div class="tab" onclick="showTab('cleaning')">🧹 清掃指示</div>
   <div class="tab" onclick="showTab('checkout')">🧾 精算</div>
+  <div class="tab" onclick="showTab('kinmu')">👷 勤怠・給与</div>
   <div class="tab" onclick="showTab('settings')">⚙️ 設定</div>
 </div>
 
@@ -452,6 +453,81 @@ td.c.bk:hover{filter:brightness(1.08)}
   <textarea id="checkoutCopyText" style="position:fixed;left:-9999px;opacity:0"></textarea>
 </div>
 
+<!-- 勤怠・給与 -->
+<div class="sec" id="sec-kinmu">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+    <div style="font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700">👷 勤怠・給与管理</div>
+    <button class="btn btn-gold btn-sm" onclick="openKinmuRecord()">＋ 勤務記録</button>
+  </div>
+
+  <!-- 月ナビ -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    <button class="btn btn-out btn-sm" onclick="mvKinmuMonth(-1)">◀</button>
+    <div id="kinmuMonthLabel" style="font-family:'Shippori Mincho',serif;font-size:17px;font-weight:700;min-width:120px;text-align:center"></div>
+    <button class="btn btn-out btn-sm" onclick="mvKinmuMonth(1)">▶</button>
+    <button class="btn btn-red btn-sm" onclick="goKinmuThisMonth()">今月</button>
+    <button class="btn btn-out btn-sm" onclick="toggleKinmuPayslip()" id="btnKinmuPayslip">💴 給与明細</button>
+    <button class="btn btn-out btn-sm" onclick="window.print()">🖨️ 印刷</button>
+  </div>
+
+  <!-- 月次サマリー -->
+  <div id="kinmuSummary" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px"></div>
+
+  <!-- 勤怠一覧 or 給与明細（切替） -->
+  <div id="kinmuMain"></div>
+</div>
+
+<!-- 勤務記録モーダル -->
+<div class="ov" id="kinmuMod">
+  <div class="modal">
+    <div class="mttl" id="kinmuModTtl">勤務記録を追加</div>
+    <div class="fg">
+      <label class="fl">スタッフ</label>
+      <select class="fsel" id="kStaff"></select>
+    </div>
+    <div class="fg">
+      <label class="fl">勤務日</label>
+      <input class="fi" id="kDate" type="date">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg">
+        <label class="fl">開始時刻</label>
+        <input class="fi" id="kStart" type="time" value="09:00" oninput="updateKinmuPreview()">
+      </div>
+      <div class="fg">
+        <label class="fl">終了時刻</label>
+        <input class="fi" id="kEnd" type="time" value="13:00" oninput="updateKinmuPreview()">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg">
+        <label class="fl">交通費</label>
+        <select class="fsel" id="kTransport" onchange="updateKinmuPreview()">
+          <option value="1">あり（500円）</option>
+          <option value="0">なし</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">お風呂掃除手当</label>
+        <select class="fsel" id="kBath" onchange="updateKinmuPreview()">
+          <option value="0">なし</option>
+          <option value="1">あり（1,000円）</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">備考</label>
+      <input class="fi" id="kMemo" placeholder="特記事項など">
+    </div>
+    <div id="kCalcPreview" style="background:#f8f5ef;border-radius:6px;padding:10px;font-size:12px;margin-bottom:4px;line-height:1.8"></div>
+    <div class="mact">
+      <button class="btn-del2" id="kDelBtn" onclick="deleteKinmuRecord()" style="display:none">削除</button>
+      <button class="btn btn-out" onclick="closeKinmuMod()">キャンセル</button>
+      <button class="btn btn-gold" onclick="saveKinmuRecord()">保存</button>
+    </div>
+  </div>
+</div>
+
 <!-- 設定 -->
 <div class="sec" id="sec-settings">
   <div style="font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700;margin-bottom:16px">⚙️ 設定</div>
@@ -535,6 +611,23 @@ GitHub Pages: https://nsmpwdgsnn-sudo.github.io/yado/
       <input type="file" id="importFile" accept=".json" onchange="importData(event)" style="display:none">
     </label>
     <button class="btn btn-red" onclick="resetAll()" style="width:100%;justify-content:center">🗑️ 全データをリセット</button>
+  </div>
+
+  <!-- 勤怠設定 -->
+  <div style="background:var(--paper);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow)">
+    <div style="font-size:13px;font-weight:700;margin-bottom:10px">👷 スタッフ・給与設定</div>
+    <div id="kinmuStaffSettingList"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+      <div class="fg">
+        <label class="fl">交通費（1日）</label>
+        <input class="fi" id="kinmuTransportFee" type="number" value="500">
+      </div>
+      <div class="fg">
+        <label class="fl">お風呂掃除手当（1回）</label>
+        <input class="fi" id="kinmuBathFee" type="number" value="1000">
+      </div>
+    </div>
+    <button class="btn btn-gold" onclick="saveKinmuSettings()" style="width:100%;justify-content:center;margin-top:8px">💾 保存</button>
   </div>
 </div>
 
@@ -875,7 +968,7 @@ function showToast(msg){
 // ===== タブ =====
 function showTab(id){
   document.querySelectorAll('.tab').forEach((t,i)=>{
-    t.classList.toggle('on',['assign','unassigned','import','ledger','rooms','cleaning','checkout','settings'][i]===id);
+    t.classList.toggle('on',['assign','unassigned','import','ledger','rooms','cleaning','checkout','kinmu','settings'][i]===id);
   });
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
   document.getElementById('sec-'+id).classList.add('on');
@@ -883,6 +976,7 @@ function showTab(id){
   if(id==='rooms')renderRooms();
   if(id==='cleaning')renderCleaning();
   if(id==='checkout')renderCheckout();
+  if(id==='kinmu')renderKinmuMonthly();
   if(id==='settings')renderSettings();
 }
 
@@ -2183,6 +2277,7 @@ function renderSettings(){
   const bc=document.getElementById('bksCount');if(bc)bc.textContent=Object.values(bks).filter(b=>b.isStart!==false).length;
   const uc=document.getElementById('uaCount');if(uc)uc.textContent=unassigned.length;
   initGasUrlInput();
+  renderKinmuStaffSettings();
 }
 
 function resetAll(){
@@ -2206,6 +2301,296 @@ function resetAll(){
   };
 }
 
+// ===== 勤怠・給与管理 =====
+let kinmuRecords=[];
+let kinmuStaff=[
+  {id:'A',name:'スタッフA',hourlyWage:1050},
+  {id:'B',name:'スタッフB',hourlyWage:1050}
+];
+let kinmuSettings={transportFee:500,bathFee:1000};
+let kinmuCY,kinmuCM;
+let editingKinmuId=null;
+let kinmuPayslipMode=false;
+
+function loadKinmu(){
+  try{
+    const r=localStorage.getItem('yado_kinmu');
+    const s=localStorage.getItem('yado_kstaff');
+    const g=localStorage.getItem('yado_ksettings');
+    if(r)kinmuRecords=JSON.parse(r);
+    if(s)kinmuStaff=JSON.parse(s);
+    if(g)kinmuSettings=JSON.parse(g);
+  }catch(e){console.error(e);}
+}
+function saveKinmu(){
+  localStorage.setItem('yado_kinmu',JSON.stringify(kinmuRecords));
+  localStorage.setItem('yado_kstaff',JSON.stringify(kinmuStaff));
+  localStorage.setItem('yado_ksettings',JSON.stringify(kinmuSettings));
+}
+
+function calcKinmuHours(start,end){
+  if(!start||!end)return 0;
+  const [sh,sm]=start.split(':').map(Number);
+  const [eh,em]=end.split(':').map(Number);
+  return Math.max(0,((eh*60+em)-(sh*60+sm))/60);
+}
+function fmtKinmuHours(h){
+  const hh=Math.floor(h);const mm=Math.round((h-hh)*60);
+  return mm>0?`${hh}時間${mm}分`:`${hh}時間`;
+}
+function getKinmuStaff(id){return kinmuStaff.find(s=>s.id===id)||{name:'不明',hourlyWage:1050};}
+function calcKinmuPay(rec){
+  const staff=getKinmuStaff(rec.staffId);
+  const hours=calcKinmuHours(rec.start,rec.end);
+  const wage=Math.round(hours*staff.hourlyWage);
+  const transport=rec.transport?kinmuSettings.transportFee:0;
+  const bath=rec.bath?kinmuSettings.bathFee:0;
+  return{hours,wage,transport,bath,total:wage+transport+bath};
+}
+function getKinmuMonthRecs(y,m){
+  const prefix=`${y}-${String(m).padStart(2,'0')}`;
+  return kinmuRecords.filter(r=>r.date&&r.date.startsWith(prefix));
+}
+
+function mvKinmuMonth(n){
+  kinmuCM+=n;
+  if(kinmuCM<1){kinmuCM=12;kinmuCY--;}else if(kinmuCM>12){kinmuCM=1;kinmuCY++;}
+  renderKinmuMonthly();
+}
+function goKinmuThisMonth(){
+  const n=new Date();kinmuCY=n.getFullYear();kinmuCM=n.getMonth()+1;
+  renderKinmuMonthly();
+}
+function toggleKinmuPayslip(){
+  kinmuPayslipMode=!kinmuPayslipMode;
+  document.getElementById('btnKinmuPayslip').style.background=kinmuPayslipMode?'var(--hd)':'';
+  document.getElementById('btnKinmuPayslip').style.color=kinmuPayslipMode?'var(--gold)':'';
+  renderKinmuMonthly();
+}
+
+function renderKinmuMonthly(){
+  document.getElementById('kinmuMonthLabel').textContent=`${kinmuCY}年 ${kinmuCM}月`;
+  const recs=getKinmuMonthRecs(kinmuCY,kinmuCM);
+  const WD=['日','月','火','水','木','金','土'];
+  const badgeColors={A:'#c8a060',B:'#2a5fa8'};
+
+  // サマリー
+  document.getElementById('kinmuSummary').innerHTML=kinmuStaff.map(staff=>{
+    const sr=recs.filter(r=>r.staffId===staff.id);
+    const totH=sr.reduce((s,r)=>s+calcKinmuHours(r.start,r.end),0);
+    const totW=sr.reduce((s,r)=>s+calcKinmuPay(r).wage,0);
+    const totT=sr.reduce((s,r)=>s+calcKinmuPay(r).transport,0);
+    const totB=sr.reduce((s,r)=>s+calcKinmuPay(r).bath,0);
+    const total=totW+totT+totB;
+    const bc=badgeColors[staff.id]||'#888';
+    return `<div style="background:var(--paper);border-radius:8px;padding:12px;border:1.5px solid var(--border);box-shadow:0 2px 6px var(--shadow)">
+      <div style="font-size:11px;margin-bottom:4px"><span style="background:${bc};color:#fff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">${staff.name}</span></div>
+      <div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:700;color:var(--red)">${total.toLocaleString()}円</div>
+      <div style="font-size:10px;color:var(--ink3);margin-top:3px;line-height:1.7">
+        ${sr.length}日出勤　${fmtKinmuHours(totH)}<br>
+        時給計 ${totW.toLocaleString()}円　交通費 ${totT.toLocaleString()}円　風呂手当 ${totB.toLocaleString()}円
+      </div>
+    </div>`;
+  }).join('');
+
+  const main=document.getElementById('kinmuMain');
+
+  if(kinmuPayslipMode){
+    // 給与明細モード
+    if(!recs.length){main.innerHTML='<div style="text-align:center;padding:24px;color:var(--ink3)">この月の勤務記録はありません</div>';return;}
+    main.innerHTML=kinmuStaff.map(staff=>{
+      const sr=[...recs.filter(r=>r.staffId===staff.id)].sort((a,b)=>a.date.localeCompare(b.date));
+      if(!sr.length)return '';
+      const totH=sr.reduce((s,r)=>s+calcKinmuHours(r.start,r.end),0);
+      const totW=sr.reduce((s,r)=>s+calcKinmuPay(r).wage,0);
+      const totT=sr.reduce((s,r)=>s+calcKinmuPay(r).transport,0);
+      const totB=sr.reduce((s,r)=>s+calcKinmuPay(r).bath,0);
+      const total=totW+totT+totB;
+      const bc=badgeColors[staff.id]||'#888';
+      const rows=sr.map(r=>{
+        const p=calcKinmuPay(r);
+        const wd=WD[new Date(r.date).getDay()];
+        return `<tr><td>${r.date.substring(5)}(${wd})</td><td>${r.start}〜${r.end}</td>
+          <td style="text-align:right">${fmtKinmuHours(p.hours)}</td>
+          <td style="text-align:right">${p.wage.toLocaleString()}円</td>
+          <td style="text-align:center">${r.transport?'○':'–'}</td>
+          <td style="text-align:center">${r.bath?'○':'–'}</td></tr>`;
+      }).join('');
+      return `<div style="background:var(--paper);border:1.5px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;box-shadow:0 2px 8px var(--shadow)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="background:${bc};color:#fff;border-radius:4px;padding:3px 10px;font-size:12px;font-weight:700">${staff.name}</span>
+          <span style="font-family:'Shippori Mincho',serif;font-size:14px;font-weight:700">${kinmuCY}年${kinmuCM}月 給与明細</span>
+        </div>
+        <div style="font-size:11px;color:var(--ink2);margin-bottom:8px">対象期間：${kinmuCY}年${kinmuCM}月1日〜月末　支払日：翌月初勤務日</div>
+        <div style="overflow:auto;margin-bottom:10px">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;background:var(--paper)">
+            <thead><tr style="background:var(--hd);color:#f5f0e8"><th style="padding:5px 6px">日付</th><th style="padding:5px 6px">時間</th><th style="padding:5px 6px">勤務時間</th><th style="padding:5px 6px">時給計</th><th style="padding:5px 6px">交通費</th><th style="padding:5px 6px">風呂手当</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div style="background:#f8f5ef;border-radius:8px;padding:10px 12px">
+          <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--ink2)">出勤日数</span><span style="font-family:'DM Mono',monospace">${sr.length}日</span></div>
+          <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--ink2)">総勤務時間</span><span style="font-family:'DM Mono',monospace">${fmtKinmuHours(totH)}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--ink2)">時給（${staff.hourlyWage.toLocaleString()}円）</span><span style="font-family:'DM Mono',monospace">${totW.toLocaleString()}円</span></div>
+          <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--ink2)">交通費（${kinmuSettings.transportFee}円×${sr.filter(r=>r.transport).length}日）</span><span style="font-family:'DM Mono',monospace">${totT.toLocaleString()}円</span></div>
+          <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--ink2)">風呂手当（${kinmuSettings.bathFee}円×${sr.filter(r=>r.bath).length}回）</span><span style="font-family:'DM Mono',monospace">${totB.toLocaleString()}円</span></div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0 2px;font-size:15px;font-weight:700;border-top:2px solid var(--border2);margin-top:4px"><span>支給合計</span><span style="font-family:'DM Mono',monospace;color:var(--red)">${total.toLocaleString()}円</span></div>
+        </div>
+        <div style="font-size:10px;color:var(--ink3);margin-top:8px">妙見楽園荘　（確認印：　　　　　　）</div>
+      </div>`;
+    }).join('');
+  }else{
+    // 勤怠一覧モード
+    if(!recs.length){main.innerHTML='<div style="text-align:center;padding:24px;color:var(--ink3)">この月の勤務記録はありません<br><span style="font-size:11px">「＋ 勤務記録」ボタンから追加してください</span></div>';return;}
+    main.innerHTML=kinmuStaff.map(staff=>{
+      const sr=[...recs.filter(r=>r.staffId===staff.id)].sort((a,b)=>a.date.localeCompare(b.date));
+      if(!sr.length)return '';
+      const bc=badgeColors[staff.id]||'#888';
+      const rows=sr.map(r=>{
+        const p=calcKinmuPay(r);
+        const d=new Date(r.date);
+        const wd=WD[d.getDay()];
+        const wdColor=d.getDay()===0?'color:#d64b3a':d.getDay()===6?'color:#2a5fa8':'';
+        return `<tr onclick="openEditKinmuRecord('${r.id}')" style="cursor:pointer">
+          <td><span style="${wdColor}">${r.date.substring(5)}(${wd})</span></td>
+          <td style="font-family:'DM Mono',monospace;font-size:11px">${r.start}〜${r.end}</td>
+          <td style="font-family:'DM Mono',monospace">${fmtKinmuHours(p.hours)}</td>
+          <td style="font-family:'DM Mono',monospace">${p.wage.toLocaleString()}円</td>
+          <td style="text-align:center">${r.transport?'✅':'–'}</td>
+          <td style="text-align:center">${r.bath?'✅':'–'}</td>
+          <td style="font-size:10px;color:var(--ink3)">${r.memo||''}</td>
+        </tr>`;
+      }).join('');
+      return `<div style="background:var(--paper);border:1.5px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow)">
+        <div style="margin-bottom:10px"><span style="background:${bc};color:#fff;border-radius:4px;padding:3px 10px;font-size:12px;font-weight:700">${staff.name}</span></div>
+        <div style="overflow:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;background:var(--paper)">
+            <thead><tr style="background:var(--hd);color:#f5f0e8"><th style="padding:6px 5px">日付</th><th style="padding:6px 5px">時間</th><th style="padding:6px 5px">勤務時間</th><th style="padding:6px 5px">時給計</th><th style="padding:6px 5px">交通費</th><th style="padding:6px 5px">風呂手当</th><th style="padding:6px 5px">備考</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function openKinmuRecord(){
+  editingKinmuId=null;
+  document.getElementById('kinmuModTtl').textContent='勤務記録を追加';
+  document.getElementById('kDelBtn').style.display='none';
+  const today=new Date();
+  document.getElementById('kDate').value=fmt(today.getFullYear(),today.getMonth()+1,today.getDate());
+  document.getElementById('kStart').value='09:00';
+  document.getElementById('kEnd').value='13:00';
+  document.getElementById('kTransport').value='1';
+  document.getElementById('kBath').value='0';
+  document.getElementById('kMemo').value='';
+  const sel=document.getElementById('kStaff');
+  sel.innerHTML=kinmuStaff.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  updateKinmuPreview();
+  document.getElementById('kinmuMod').classList.add('on');
+}
+function openEditKinmuRecord(id){
+  const rec=kinmuRecords.find(r=>r.id===id);if(!rec)return;
+  editingKinmuId=id;
+  document.getElementById('kinmuModTtl').textContent='勤務記録を編集';
+  document.getElementById('kDelBtn').style.display='inline-flex';
+  const sel=document.getElementById('kStaff');
+  sel.innerHTML=kinmuStaff.map(s=>`<option value="${s.id}" ${s.id===rec.staffId?'selected':''}>${s.name}</option>`).join('');
+  document.getElementById('kDate').value=rec.date;
+  document.getElementById('kStart').value=rec.start||'09:00';
+  document.getElementById('kEnd').value=rec.end||'13:00';
+  document.getElementById('kTransport').value=rec.transport?'1':'0';
+  document.getElementById('kBath').value=rec.bath?'1':'0';
+  document.getElementById('kMemo').value=rec.memo||'';
+  updateKinmuPreview();
+  document.getElementById('kinmuMod').classList.add('on');
+}
+function closeKinmuMod(){document.getElementById('kinmuMod').classList.remove('on');editingKinmuId=null;}
+
+function updateKinmuPreview(){
+  const staffId=document.getElementById('kStaff').value;
+  const start=document.getElementById('kStart').value;
+  const end=document.getElementById('kEnd').value;
+  const transport=document.getElementById('kTransport').value==='1';
+  const bath=document.getElementById('kBath').value==='1';
+  const staff=getKinmuStaff(staffId);
+  const hours=calcKinmuHours(start,end);
+  const wage=Math.round(hours*staff.hourlyWage);
+  const transFee=transport?kinmuSettings.transportFee:0;
+  const bathFee=bath?kinmuSettings.bathFee:0;
+  const total=wage+transFee+bathFee;
+  document.getElementById('kCalcPreview').innerHTML=
+    `<span style="color:var(--ink2)">勤務時間：</span><strong>${fmtKinmuHours(hours)}</strong>　`+
+    `<span style="color:var(--ink2)">時給計：</span><strong>${wage.toLocaleString()}円</strong><br>`+
+    `<span style="color:var(--ink2)">交通費：</span><strong>${transFee.toLocaleString()}円</strong>　`+
+    `<span style="color:var(--ink2)">風呂手当：</span><strong>${bathFee.toLocaleString()}円</strong>　`+
+    `<span style="color:var(--ink2)">合計：</span><strong style="color:var(--red);font-size:14px">${total.toLocaleString()}円</strong>`;
+}
+function saveKinmuRecord(){
+  const staffId=document.getElementById('kStaff').value;
+  const date=document.getElementById('kDate').value;
+  if(!date){alert('勤務日を入力してください');return;}
+  const rec={
+    id:editingKinmuId||('k'+Date.now()),
+    staffId,date,
+    start:document.getElementById('kStart').value,
+    end:document.getElementById('kEnd').value,
+    transport:document.getElementById('kTransport').value==='1',
+    bath:document.getElementById('kBath').value==='1',
+    memo:document.getElementById('kMemo').value.trim()
+  };
+  if(editingKinmuId){
+    const idx=kinmuRecords.findIndex(r=>r.id===editingKinmuId);
+    if(idx>=0)kinmuRecords[idx]=rec;
+  }else{
+    kinmuRecords.push(rec);
+  }
+  saveKinmu();closeKinmuMod();renderKinmuMonthly();
+  showToast('✅ 保存しました');
+}
+function deleteKinmuRecord(){
+  if(!editingKinmuId)return;
+  if(!confirm('この記録を削除しますか？'))return;
+  kinmuRecords=kinmuRecords.filter(r=>r.id!==editingKinmuId);
+  saveKinmu();closeKinmuMod();renderKinmuMonthly();
+  showToast('🗑️ 削除しました');
+}
+
+function renderKinmuStaffSettings(){
+  const el=document.getElementById('kinmuStaffSettingList');if(!el)return;
+  el.innerHTML=kinmuStaff.map((s,i)=>{
+    const bc=i===0?'#c8a060':'#2a5fa8';
+    return `<div style="background:#f8f5ef;border-radius:8px;padding:10px;margin-bottom:8px;border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <span style="background:${bc};color:#fff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">${s.id}</span>
+        <strong style="font-size:13px">${s.name}</strong>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="fg"><label class="fl">名前</label><input class="fi" id="ksName${i}" value="${s.name}"></div>
+        <div class="fg"><label class="fl">時給（円）</label><input class="fi" id="ksWage${i}" type="number" value="${s.hourlyWage}"></div>
+      </div>
+    </div>`;
+  }).join('');
+  const tf=document.getElementById('kinmuTransportFee');
+  const bf=document.getElementById('kinmuBathFee');
+  if(tf)tf.value=kinmuSettings.transportFee;
+  if(bf)bf.value=kinmuSettings.bathFee;
+}
+function saveKinmuSettings(){
+  kinmuStaff.forEach((s,i)=>{
+    const n=document.getElementById('ksName'+i);
+    const w=document.getElementById('ksWage'+i);
+    if(n&&n.value.trim())s.name=n.value.trim();
+    if(w)s.hourlyWage=parseInt(w.value)||s.hourlyWage;
+  });
+  const tf=document.getElementById('kinmuTransportFee');
+  const bf=document.getElementById('kinmuBathFee');
+  if(tf)kinmuSettings.transportFee=parseInt(tf.value)||500;
+  if(bf)kinmuSettings.bathFee=parseInt(bf.value)||1000;
+  saveKinmu();showToast('✅ スタッフ設定を保存しました');renderKinmuStaffSettings();
+}
+
 // ===== Claude定型文コピー =====
 function copyClaudePrompt(){
   const el=document.getElementById('claudePromptBox');
@@ -2222,7 +2607,8 @@ function copyClaudePrompt(){
 // ===== 初期化 =====
 function init(){
   const n=new Date();cy=n.getFullYear();cm=n.getMonth();
-  load();loadRoomStatus();render();renderUnassigned();renderLedger();
+  kinmuCY=n.getFullYear();kinmuCM=n.getMonth()+1;
+  load();loadRoomStatus();loadKinmu();render();renderUnassigned();renderLedger();
 }
 init();
 </script>

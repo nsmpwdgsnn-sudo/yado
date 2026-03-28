@@ -189,6 +189,10 @@ td.c.bk:hover{filter:brightness(1.08)}
 .room-card.s-cleaned{background:#e8f5e9;border-color:#66bb6a}
 .room-card.s-occupied{background:#e3f2fd;border-color:#64b5f6}
 .room-card.s-closed{background:#fce4ec;border-color:#e57373}
+.room-card.s-dirty{background:#fff0e0;border-color:#e67e22;border-style:dashed;border-width:2px}
+.room-card.s-dirty .room-card-status{color:#c0392b}
+td.c.dirty-cell{background:repeating-linear-gradient(45deg,#fff8f0,#fff8f0 4px,#ffd8b0 4px,#ffd8b0 8px)!important}
+td.c.dirty-cell:hover{filter:brightness(1.05)!important}
 .room-card-no{font-family:'DM Mono',monospace;font-size:18px;font-weight:700;margin-bottom:2px}
 .room-card-status{font-size:11px;font-weight:600}
 .room-card-info{font-size:10px;color:var(--ink2);margin-top:3px;line-height:1.4}
@@ -969,7 +973,7 @@ function showTab(id){
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
   document.getElementById('sec-'+id).classList.add('on');
   if(id==='ledger')renderLedger();
-  if(id==='rooms')renderRooms();
+  if(id==='rooms'){autoMarkDirty();renderRooms();}
   if(id==='cleaning')renderCleaning();
   if(id==='checkout')renderCheckout();
   if(id==='kinmu')renderKinmuMonthly();
@@ -1019,7 +1023,6 @@ function render(){
       if(bk&&bk.isStart!==false){
         const span=Math.min(bk.nights||1,days-d+1);
         const isOta=['rakuten','jalan','yahoo','yukoyuko'].includes(bk.src||'');
-        // srcが未設定・不明な場合も直接予約色にフォールバック
         const knownOtaColors={rakuten:'#cc0000',jalan:'#007a35',yahoo:'#cc0033',yukoyuko:'#d97000'};
         const hex=isOta?(knownOtaColors[bk.src]||'#888'):'#4a6fa5';
         const lbl=SRC_LABEL[bk.src]||bk.src||'直接';
@@ -1029,9 +1032,36 @@ function render(){
           <span class="bp">${paxStr}</span>
           <span class="bs">${lbl}${bk.futon?'　布'+bk.futon:''}</span></div></td>`;
         d+=span;
-      }else if(bk&&bk.isStart===false){d++;
+      }else if(bk&&bk.isStart===false){
+        // 月またぎ連泊：月の最初のセルだけ継続バーをまとめて描画
+        const pk=bk.parentKey;
+        const pb=pk?bks[pk]:null;
+        if(pb&&d===1){
+          const pidx=pk.indexOf('_');
+          const pDs=pk.substring(pidx+1);
+          const [pY,pMo,pD]=pDs.split('-').map(Number);
+          const coDate=new Date(pY,pMo-1,pD+(pb.nights||1));
+          const monthStart=new Date(y,mo,1);
+          const remaining=Math.round((coDate-monthStart)/86400000);
+          const span=Math.min(Math.max(remaining,1),days);
+          const isOta=['rakuten','jalan','yahoo','yukoyuko'].includes(pb.src||'');
+          const knownOtaColors={rakuten:'#cc0000',jalan:'#007a35',yahoo:'#cc0033',yukoyuko:'#d97000'};
+          const hex=isOta?(knownOtaColors[pb.src]||'#888'):'#4a6fa5';
+          const lbl=SRC_LABEL[pb.src]||pb.src||'直接';
+          const paxStr=paxSummary(pb);
+          h+=`<td class="c bk ${wc}${isT?' tod':''}" colspan="${span}" style="background:${hex};opacity:0.82;border-left:3px solid rgba(255,255,255,0.5)" data-room="${room.no}" data-ds="${pDs}" onclick="editBkEl(this)">
+            <div class="bi"><span class="bn" style="font-size:9px">↩${esc(pb.name)}</span>
+            <span class="bp">${paxStr}</span>
+            <span class="bs">${lbl}</span></div></td>`;
+          d+=span;
+        }else{
+          d++;
+        }
       }else{
-        h+=`<td class="c ${wc}${isT?' tod':''}" data-room="${room.no}" data-ds="${ds}" onclick="openManualEl(this)"></td>`;
+        // 未清掃空室の表示
+        const rs=roomStatus[room.no];
+        const isDirty=(rs==='dirty');
+        h+=`<td class="c ${wc}${isT?' tod':''}${isDirty?' dirty-cell':''}" data-room="${room.no}" data-ds="${ds}" onclick="openManualEl(this)"${isDirty?' title="🧹 未清掃（要清掃完了）"':''}></td>`;
         d++;
       }
     }
@@ -1140,7 +1170,25 @@ function openManual(room,ds){
 function openDirectInput(){openManual(null,null);}
 
 function editBkEl(el){try{const room=el.getAttribute('data-room');const ds=el.getAttribute('data-ds');if(room&&ds)editBk(room,ds);}catch(e){console.error(e);}}
-function openManualEl(el){try{const room=el.getAttribute('data-room');const ds=el.getAttribute('data-ds');if(room&&ds)openManual(room,ds);}catch(e){console.error(e);}}
+function openManualEl(el){
+  try{
+    const room=el.getAttribute('data-room');
+    const ds=el.getAttribute('data-ds');
+    if(!room||!ds)return;
+    // isStart:falseのセル（連泊中）をクリックした場合は親予約を編集
+    const key=room+'_'+ds;
+    const bk=bks[key];
+    if(bk&&bk.isStart===false){
+      const pk=bk.parentKey;
+      if(pk&&bks[pk]){
+        const pidx=pk.indexOf('_');
+        editBk(pk.substring(0,pidx),pk.substring(pidx+1));
+      }
+      return;
+    }
+    openManual(room,ds);
+  }catch(e){console.error(e);}
+}
 
 function editBk(room,ds){
   const key=`${room}_${ds}`;
@@ -1744,8 +1792,8 @@ function editFromLedgerIdx(tr){
 }
 
 // ===== 部屋状態 =====
-const STATUS_LIST=['empty','cleaning','cleaned','occupied','closed'];
-const STATUS_INFO={empty:{label:'空室',emoji:'',cls:'s-empty'},cleaning:{label:'清掃中',emoji:'🧹',cls:'s-cleaning'},cleaned:{label:'清掃済み',emoji:'✅',cls:'s-cleaned'},occupied:{label:'宿泊中',emoji:'🛌',cls:'s-occupied'},closed:{label:'使用不可',emoji:'🚫',cls:'s-closed'}};
+const STATUS_LIST=['empty','dirty','cleaning','cleaned','occupied','closed'];
+const STATUS_INFO={empty:{label:'空室',emoji:'',cls:'s-empty'},dirty:{label:'未清掃（要清掃）',emoji:'⚠️',cls:'s-dirty'},cleaning:{label:'清掃中',emoji:'🧹',cls:'s-cleaning'},cleaned:{label:'清掃済み',emoji:'✅',cls:'s-cleaned'},occupied:{label:'宿泊中',emoji:'🛌',cls:'s-occupied'},closed:{label:'使用不可',emoji:'🚫',cls:'s-closed'}};
 
 function loadRoomStatus(){const s=localStorage.getItem('yado_rs');if(s)roomStatus=JSON.parse(s);ROOMS.forEach(r=>{if(!roomStatus[r.no])roomStatus[r.no]='empty';});}
 function saveRoomStatus(){localStorage.setItem('yado_rs',JSON.stringify(roomStatus));}
@@ -1782,10 +1830,12 @@ function renderRooms(){
     grid.innerHTML=ROOMS.filter(r=>r.type===type).map(r=>{
       const manualSt=roomStatus[r.no]||'empty';
       const autoSt=getAutoStatus(r.no);
-      // 使用不可は手動設定を最優先で維持
+      // 優先順位：使用不可 > dirty(手動) > 自動判定 > 手動設定 > empty
       let st;
       if(manualSt==='closed'){
         st='closed';
+      }else if(manualSt==='dirty'){
+        st='dirty';
       }else if(manualSt==='cleaned'||manualSt==='occupied'){
         st=manualSt;
       }else{
@@ -1817,6 +1867,7 @@ function renderRooms(){
         ${displayInfo?`<div class="room-card-info">${esc(displayInfo)}</div>`:''}
         <div class="room-card-futon">🛏 清掃後布団: ${futonSet?futonSet+'枚':'未設定'}</div>
         ${st==='empty'&&todayBk?`<div class="room-card-info" style="color:#2a5fa8;font-weight:600">CI待ち</div>`:''}
+        ${st==='dirty'?`<button class="btn btn-green btn-sm" style="margin-top:6px;width:100%;justify-content:center" onclick="event.stopPropagation();markCleaned('${r.no}')">✅ 清掃完了</button>`:''}
         ${st==='closed'&&closedNote?`<div class="room-card-info" style="color:#c0392b;white-space:normal;line-height:1.4">📋 ${esc(closedNote)}</div>`:''}
       </div>`;
     }).join('');
@@ -1865,8 +1916,40 @@ function saveRoomDetail(){
 function closeRoomDetail(){document.getElementById('roomDetailMod').classList.remove('on');currentRoomNo=null;}
 
 function cycleStatusManual(roomNo,currentSt){
-  // 使用不可の場合はモーダルを開く
   openRoomDetail(roomNo);
+}
+
+// チェックアウト当日に未清掃(dirty)を自動セット
+function autoMarkDirty(){
+  const today=new Date();const todayStr=fmt(today.getFullYear(),today.getMonth()+1,today.getDate());
+  ROOMS.forEach(r=>{
+    const curSt=roomStatus[r.no]||'empty';
+    if(curSt==='closed'||curSt==='occupied'||curSt==='dirty'||curSt==='cleaned'||curSt==='cleaning')return;
+    for(const [key,bk] of Object.entries(bks)){
+      if(bk.isStart===false)continue;
+      const idx=key.indexOf('_');if(key.substring(0,idx)!==r.no)continue;
+      const ds=key.substring(idx+1);
+      const coD=new Date(ds+'T00:00:00');coD.setDate(coD.getDate()+(bk.nights||1));
+      const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
+      if(coStr===todayStr){
+        const todayBk=bks[r.no+'_'+todayStr];
+        if(!todayBk||todayBk.isStart===false){
+          roomStatus[r.no]='dirty';
+          saveRoomStatus();
+        }
+        break;
+      }
+    }
+  });
+}
+
+// 清掃完了ボタン押下
+function markCleaned(roomNo){
+  roomStatus[roomNo]='cleaned';
+  saveRoomStatus();
+  showToast('✅ '+roomNo+'号室　清掃完了にしました');
+  renderRooms();
+  render();
 }
 
 // ===== 清掃指示書 =====
@@ -2668,7 +2751,9 @@ function copyClaudePrompt(){
 function init(){
   const n=new Date();cy=n.getFullYear();cm=n.getMonth();
   kinmuCY=n.getFullYear();kinmuCM=n.getMonth()+1;
-  load();loadRoomStatus();loadKinmu();render();renderUnassigned();renderLedger();
+  load();loadRoomStatus();loadKinmu();
+  autoMarkDirty();
+  render();renderUnassigned();renderLedger();
 }
 init();
 </script>

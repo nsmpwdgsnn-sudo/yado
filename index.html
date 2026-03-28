@@ -2041,53 +2041,85 @@ function copyCleaningMsg(){
   initCleanDate();
   const dateStr=document.getElementById('cleanDate').value;if(!dateStr){alert('日付を選択してください');return;}
   const hiddenSet=cleaningHidden[dateStr]||new Set();
-  const coRooms=[];
+
+  // 当日CO部屋を収集
+  const todayCoRooms=[];
   Object.entries(bks).forEach(([key,bk])=>{
     if(bk.isStart===false)return;
     const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
-    const coD=new Date(ds);coD.setDate(coD.getDate()+(bk.nights||1));
+    const coD=new Date(ds+'T00:00:00');coD.setDate(coD.getDate()+(bk.nights||1));
     const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
-    if(coStr===dateStr&&!hiddenSet.has(room))coRooms.push({room,bk});
+    if(coStr===dateStr&&!hiddenSet.has(room))todayCoRooms.push({room,bk,carryOver:false});
   });
-  const ciRooms={};
-  Object.entries(bks).forEach(([key,bk])=>{
-    if(bk.isStart===false)return;
-    const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
-    if(ds===dateStr)ciRooms[room]=bk;
-  });
-  coRooms.sort((a,b)=>a.room.localeCompare(b.room));
-  const [y,mo,d]=dateStr.split('-');
-  let msg=`🧹 清掃指示書 ${y}年${parseInt(mo)}月${parseInt(d)}日\n━━━━━━━━━━━━━━━\n`;
-  if(!coRooms.length){msg+='この日の清掃対象部屋はありません\n';}
-  else{
-    coRooms.forEach(({room,bk})=>{
-      const next=ciRooms[room];
-      const safeRoom=room.replace(/[^a-zA-Z0-9]/g,'_');
-      // 清掃前
-      const preFutonEl=document.getElementById('preFuton_'+safeRoom);
-      const preFuton=preFutonEl?preFutonEl.value:(roomStatus['preFuton_'+room]||bk.futon||'');
-      // 清掃後
-      const futonEl=document.getElementById('futon_'+safeRoom);
-      const noteEl=document.getElementById('futonNote_'+safeRoom);
-      const futon=futonEl?futonEl.value:(roomStatus['futon_'+room]||'');
-      const note=noteEl?noteEl.value:(roomStatus['futonNote_'+room]||'');
-      msg+=`\n【${room}号室】\n`;
-      msg+=`CO時刻: ${bk.co||'10:00'}\n`;
-      msg+=`清掃前布団枚数: ${preFuton?preFuton+'枚':'確認してください'}\n`;
-      if(next){
-        msg+=`CI時刻: ${next.ci||'15:00'}　${next.name||''}様\n`;
-        msg+=`清掃後布団枚数: ${futon?futon+'枚':'要確認'}${note?' ('+note+')':''}\n`;
-        if(next.pet)msg+=`ペット: ${next.pet}\n`;
-      }else{
-        msg+=`次の予約なし（空室準備）\n`;
-        msg+=`清掃後布団枚数: ${futon?futon+'枚':'要確認'}${note?' ('+note+')':''}\n`;
+
+  // 前日以前CO（持ち越し）部屋を収集
+  const carryOverRooms=[];
+  Object.entries(cleaningHidden).forEach(([pastDate,hidSet])=>{
+    if(pastDate>=dateStr)return;
+    hidSet.forEach(room=>{
+      const alreadyToday=todayCoRooms.some(r=>r.room===room);
+      if(!alreadyToday){
+        for(const [key,bk] of Object.entries(bks)){
+          if(bk.isStart===false)continue;
+          const ki=key.indexOf('_');const kr=key.substring(0,ki);if(kr!==room)continue;
+          const ds=key.substring(ki+1);
+          const coD=new Date(ds+'T00:00:00');coD.setDate(coD.getDate()+(bk.nights||1));
+          const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
+          if(coStr===pastDate){carryOverRooms.push({room,bk,carryOver:true,coDate:pastDate});break;}
+        }
       }
     });
+  });
+
+  carryOverRooms.sort((a,b)=>a.room.localeCompare(b.room));
+  todayCoRooms.sort((a,b)=>a.room.localeCompare(b.room));
+
+  const [y,mo,d]=dateStr.split('-');
+  let msg=`🧹 清掃指示 ${parseInt(mo)}月${parseInt(d)}日\n`;
+
+  // 布団情報を組み立てるヘルパー
+  function futonLine(room,bk){
+    const safeRoom=room.replace(/[^a-zA-Z0-9]/g,'_');
+    const preFutonEl=document.getElementById('preFuton_'+safeRoom);
+    const futonEl=document.getElementById('futon_'+safeRoom);
+    const noteEl=document.getElementById('futonNote_'+safeRoom);
+    const preFuton=preFutonEl?preFutonEl.value:(roomStatus['preFuton_'+room]||bk.futon||'');
+    const futon=futonEl?futonEl.value:(roomStatus['futon_'+room]||'');
+    const note=noteEl?noteEl.value:(roomStatus['futonNote_'+room]||'');
+    const before=preFuton?preFuton+'枚':'?枚';
+    const after=futon?futon+'枚':'?枚';
+    const noteStr=note?`（${note}）`:'';
+    return `布団 ${before}→${after}${noteStr}`;
   }
-  // 今日は掃除しない部屋も記載
+
+  // 🔴 すぐ清掃できる部屋（持ち越し）
+  if(carryOverRooms.length){
+    msg+=`\n🔴 すぐ清掃できる部屋\n`;
+    msg+=`━━━━━━━━━\n`;
+    carryOverRooms.forEach(({room,bk})=>{
+      msg+=`${room}号室　${futonLine(room,bk)}\n`;
+    });
+  }
+
+  // 🚪 本日COの部屋（随時対応）
+  if(todayCoRooms.length){
+    msg+=`\n🚪 本日COの部屋（随時対応）\n`;
+    msg+=`━━━━━━━━━\n`;
+    todayCoRooms.forEach(({room,bk})=>{
+      msg+=`${room}号室　${futonLine(room,bk)}\n`;
+    });
+  }
+
+  if(!carryOverRooms.length&&!todayCoRooms.length){
+    msg+='\nこの日の清掃対象部屋はありません\n';
+  }
+
+  // 掃除しない部屋
   const hiddenList=[...hiddenSet];
-  if(hiddenList.length){msg+=`\n※本日掃除なし: ${hiddenList.map(r=>r+'号室').join('、')}\n`;}
+  if(hiddenList.length){msg+=`\n⏭ 本日掃除なし: ${hiddenList.map(r=>r+'号室').join('、')}\n`;}
+
   msg+='\nよろしくお願いします🙏';
+
   try{
     const ta=document.getElementById('cleaningCopyText');ta.value=msg;ta.select();document.execCommand('copy');
     alert('📋 コピーしました！LINEに貼り付けてください。');

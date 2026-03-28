@@ -2015,6 +2015,26 @@ function renderCleaning(){
   // 全対象部屋（当日CO＋持ち越し）を結合
   const allCleanRooms=[...coRooms,...pastCarryOvers];
 
+  // dirtyステータスの部屋を追加（当日COリスト・持ち越しリストにまだ入っていないもの）
+  ROOMS.forEach(r=>{
+    if(roomStatus[r.no]!=='dirty')return;
+    const already=allCleanRooms.some(x=>x.room===r.no);
+    if(already)return;
+    // dirty部屋のCO済み予約を探す
+    let foundBk=null,foundDs=null,foundCoDate=null;
+    for(const [key,bk] of Object.entries(bks)){
+      if(bk.isStart===false)continue;
+      const ki=key.indexOf('_');if(key.substring(0,ki)!==r.no)continue;
+      const ds=key.substring(ki+1);
+      const coD=new Date(ds+'T00:00:00');coD.setDate(coD.getDate()+(bk.nights||1));
+      const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
+      if(coStr<dateStr){foundBk=bk;foundDs=ds;foundCoDate=coStr;}
+    }
+    if(foundBk){
+      allCleanRooms.push({room:r.no,bk:foundBk,ds:foundDs,carryOver:true,coDate:foundCoDate});
+    }
+  });
+
   const content=document.getElementById('cleaningContent');
   if(!allCleanRooms.length){content.innerHTML='<div class="empty-msg">この日の清掃対象部屋はありません</div>';return;}
   allCleanRooms.sort((a,b)=>a.room.localeCompare(b.room));

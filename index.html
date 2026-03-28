@@ -189,10 +189,6 @@ td.c.bk:hover{filter:brightness(1.08)}
 .room-card.s-cleaned{background:#e8f5e9;border-color:#66bb6a}
 .room-card.s-occupied{background:#e3f2fd;border-color:#64b5f6}
 .room-card.s-closed{background:#fce4ec;border-color:#e57373}
-.room-card.s-dirty{background:#fff0e0;border-color:#e67e22;border-style:dashed;border-width:2px}
-.room-card.s-dirty .room-card-status{color:#c0392b}
-td.c.dirty-cell{background:repeating-linear-gradient(45deg,#fff8f0,#fff8f0 4px,#ffd8b0 4px,#ffd8b0 8px)!important}
-td.c.dirty-cell:hover{filter:brightness(1.05)!important}
 .room-card-no{font-family:'DM Mono',monospace;font-size:18px;font-weight:700;margin-bottom:2px}
 .room-card-status{font-size:11px;font-weight:600}
 .room-card-info{font-size:10px;color:var(--ink2);margin-top:3px;line-height:1.4}
@@ -394,14 +390,11 @@ td.c.dirty-cell:hover{filter:brightness(1.05)!important}
     <span style="background:#e8f5e9;border-radius:4px;padding:3px 8px">✅ 清掃済み</span>
     <span style="background:#e3f2fd;border-radius:4px;padding:3px 8px">🛌 宿泊中</span>
     <span style="background:#fce4ec;border-radius:4px;padding:3px 8px">🚫 使用不可</span>
-    <span style="background:#fff0e0;border:1.5px dashed #e67e22;border-radius:4px;padding:3px 8px;color:#c0392b;font-weight:600">⚠️ 未清掃</span>
   </div>
   <div style="font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.08em;margin-bottom:6px;padding:3px 10px;background:var(--hd);border-radius:6px;display:inline-block">本館近く</div>
   <div class="room-grid" id="rg-honkan" style="margin-bottom:12px"></div>
   <div style="font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.08em;margin-bottom:6px;padding:3px 10px;background:var(--hd);border-radius:6px;display:inline-block">川沿い</div>
-  <div class="room-grid" id="rg-kawazoi" style="margin-bottom:12px"></div>
-  <div style="font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.08em;margin-bottom:6px;padding:3px 10px;background:var(--hd);border-radius:6px;display:inline-block">特別室</div>
-  <div class="room-grid" id="rg-special"></div>
+  <div class="room-grid" id="rg-kawazoi"></div>
 </div>
 
 <!-- 部屋状態詳細モーダル -->
@@ -732,14 +725,11 @@ GitHub Pages: https://nsmpwdgsnn-sudo.github.io/yado/
         <optgroup label="本館近く">
           <option value="305">305</option><option value="306">306</option>
           <option value="307">307</option><option value="308">308</option>
+          <option value="309">309</option><option value="500">500</option>
         </optgroup>
         <optgroup label="川沿い">
-          <option value="501">501</option><option value="503">503</option>
-          <option value="505">505</option><option value="507">507</option><option value="509">509</option>
-        </optgroup>
-        <optgroup label="特別室">
-          <option value="309">309</option><option value="500">500</option>
-          <option value="502">502</option><option value="506">506</option>
+          <option value="501">501</option><option value="502">502</option><option value="503">503</option>
+          <option value="505">505</option><option value="506">506</option><option value="507">507</option><option value="509">509</option>
         </optgroup>
       </select>
     </div>
@@ -779,14 +769,11 @@ GitHub Pages: https://nsmpwdgsnn-sudo.github.io/yado/
         <optgroup label="本館近く">
           <option value="305">305</option><option value="306">306</option>
           <option value="307">307</option><option value="308">308</option>
+          <option value="309">309</option><option value="500">500</option>
         </optgroup>
         <optgroup label="川沿い">
-          <option value="501">501</option><option value="503">503</option>
-          <option value="505">505</option><option value="507">507</option><option value="509">509</option>
-        </optgroup>
-        <optgroup label="特別室">
-          <option value="309">309</option><option value="500">500</option>
-          <option value="502">502</option><option value="506">506</option>
+          <option value="501">501</option><option value="502">502</option><option value="503">503</option>
+          <option value="505">505</option><option value="506">506</option><option value="507">507</option><option value="509">509</option>
         </optgroup>
       </select>
     </div>
@@ -814,10 +801,11 @@ GitHub Pages: https://nsmpwdgsnn-sudo.github.io/yado/
 // ===== 定数 =====
 const ROOMS = [
   {no:'305',type:'honkan'},{no:'306',type:'honkan'},{no:'307',type:'honkan'},{no:'308',type:'honkan'},
-  {no:'501',type:'kawazoi'},{no:'503',type:'kawazoi'},{no:'505',type:'kawazoi'},{no:'507',type:'kawazoi'},{no:'509',type:'kawazoi'},
-  {no:'309',type:'special'},{no:'500',type:'special'},{no:'502',type:'special'},{no:'506',type:'special'}
+  {no:'309',type:'honkan'},{no:'500',type:'honkan'},
+  {no:'501',type:'kawazoi'},{no:'502',type:'kawazoi'},{no:'503',type:'kawazoi'},
+  {no:'505',type:'kawazoi'},{no:'506',type:'kawazoi'},{no:'507',type:'kawazoi'},{no:'509',type:'kawazoi'}
 ];
-const GRP_LABEL = {honkan:'本館近く',kawazoi:'川沿い',special:'特別室'};
+const GRP_LABEL = {honkan:'本館近く',kawazoi:'川沿い'};
 const SRC_LABEL = {rakuten:'楽天',jalan:'じゃらん',yahoo:'Yahoo/一休',yukoyuko:'ゆこゆこ',hp:'HP',tel:'電話',sms:'SMS',insta:'インスタ',kuchi:'口頭・紹介'};
 const SRC_HEX = {rakuten:'#cc0000',jalan:'#007a35',yahoo:'#cc0033',yukoyuko:'#d97000',hp:'#4a6fa5',tel:'#4a6fa5',sms:'#4a6fa5',insta:'#4a6fa5',kuchi:'#4a6fa5'};
 const SRC_CSS = {rakuten:'bk-rakuten',jalan:'bk-jalan',yahoo:'bk-yahoo',yukoyuko:'bk-yukoyuko',hp:'bk-direct',tel:'bk-direct',sms:'bk-direct',insta:'bk-direct',kuchi:'bk-direct'};
@@ -981,7 +969,7 @@ function showTab(id){
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
   document.getElementById('sec-'+id).classList.add('on');
   if(id==='ledger')renderLedger();
-  if(id==='rooms'){autoMarkDirty();renderRooms();}
+  if(id==='rooms')renderRooms();
   if(id==='cleaning')renderCleaning();
   if(id==='checkout')renderCheckout();
   if(id==='kinmu')renderKinmuMonthly();
@@ -1031,6 +1019,7 @@ function render(){
       if(bk&&bk.isStart!==false){
         const span=Math.min(bk.nights||1,days-d+1);
         const isOta=['rakuten','jalan','yahoo','yukoyuko'].includes(bk.src||'');
+        // srcが未設定・不明な場合も直接予約色にフォールバック
         const knownOtaColors={rakuten:'#cc0000',jalan:'#007a35',yahoo:'#cc0033',yukoyuko:'#d97000'};
         const hex=isOta?(knownOtaColors[bk.src]||'#888'):'#4a6fa5';
         const lbl=SRC_LABEL[bk.src]||bk.src||'直接';
@@ -1040,38 +1029,9 @@ function render(){
           <span class="bp">${paxStr}</span>
           <span class="bs">${lbl}${bk.futon?'　布'+bk.futon:''}</span></div></td>`;
         d+=span;
-      }else if(bk&&bk.isStart===false){
-        // 月またぎ連泊：親予約を探して継続バーとして表示
-        const pk=bk.parentKey;
-        const pb=pk?bks[pk]:null;
-        if(pb&&d===1){
-          // 月の最初のセルだけ継続バーをまとめて描画
-          const pidx=pk.indexOf('_');
-          const pDs=pk.substring(pidx+1);
-          const [pY,pMo,pD]=pDs.split('-').map(Number);
-          // CO日を計算して、今月の残り泊数を求める
-          const coDate=new Date(pY,pMo-1,pD+(pb.nights||1));
-          const monthStart=new Date(y,mo,1);
-          const remaining=Math.round((coDate-monthStart)/86400000);
-          const span=Math.min(Math.max(remaining,1),days);
-          const isOta=['rakuten','jalan','yahoo','yukoyuko'].includes(pb.src||'');
-          const knownOtaColors={rakuten:'#cc0000',jalan:'#007a35',yahoo:'#cc0033',yukoyuko:'#d97000'};
-          const hex=isOta?(knownOtaColors[pb.src]||'#888'):'#4a6fa5';
-          const lbl=SRC_LABEL[pb.src]||pb.src||'直接';
-          const paxStr=paxSummary(pb);
-          h+=`<td class="c bk ${wc}${isT?' tod':''}" colspan="${span}" style="background:${hex};opacity:0.82;border-left:3px solid rgba(255,255,255,0.5)" data-room="${room.no}" data-ds="${pDs}" onclick="editBkEl(this)">
-            <div class="bi"><span class="bn" style="font-size:9px">↩${esc(pb.name)}</span>
-            <span class="bp">${paxStr}</span>
-            <span class="bs">${lbl}</span></div></td>`;
-          d+=span;
-        }else{
-          d++;
-        }
+      }else if(bk&&bk.isStart===false){d++;
       }else{
-        // 未清掃空室の表示
-        const rs=roomStatus[room.no];
-        const isDirty=(rs==='dirty');
-        h+=`<td class="c ${wc}${isT?' tod':''}${isDirty?' dirty-cell':''}" data-room="${room.no}" data-ds="${ds}" onclick="openManualEl(this)"${isDirty?' title="🧹 未清掃（要清掃完了）"':''}></td>`;
+        h+=`<td class="c ${wc}${isT?' tod':''}" data-room="${room.no}" data-ds="${ds}" onclick="openManualEl(this)"></td>`;
         d++;
       }
     }
@@ -1180,25 +1140,7 @@ function openManual(room,ds){
 function openDirectInput(){openManual(null,null);}
 
 function editBkEl(el){try{const room=el.getAttribute('data-room');const ds=el.getAttribute('data-ds');if(room&&ds)editBk(room,ds);}catch(e){console.error(e);}}
-function openManualEl(el){
-  try{
-    const room=el.getAttribute('data-room');
-    const ds=el.getAttribute('data-ds');
-    if(!room||!ds)return;
-    // isStart:falseのセル（連泊中）をクリックした場合は親予約を編集
-    const key=room+'_'+ds;
-    const bk=bks[key];
-    if(bk&&bk.isStart===false){
-      const pk=bk.parentKey;
-      if(pk&&bks[pk]){
-        const pidx=pk.indexOf('_');
-        editBk(pk.substring(0,pidx),pk.substring(pidx+1));
-      }
-      return;
-    }
-    openManual(room,ds);
-  }catch(e){console.error(e);}
-}
+function openManualEl(el){try{const room=el.getAttribute('data-room');const ds=el.getAttribute('data-ds');if(room&&ds)openManual(room,ds);}catch(e){console.error(e);}}
 
 function editBk(room,ds){
   const key=`${room}_${ds}`;
@@ -1802,8 +1744,8 @@ function editFromLedgerIdx(tr){
 }
 
 // ===== 部屋状態 =====
-const STATUS_LIST=['empty','dirty','cleaning','cleaned','occupied','closed'];
-const STATUS_INFO={empty:{label:'空室',emoji:'',cls:'s-empty'},dirty:{label:'未清掃（要清掃）',emoji:'⚠️',cls:'s-dirty'},cleaning:{label:'清掃中',emoji:'🧹',cls:'s-cleaning'},cleaned:{label:'清掃済み',emoji:'✅',cls:'s-cleaned'},occupied:{label:'宿泊中',emoji:'🛌',cls:'s-occupied'},closed:{label:'使用不可',emoji:'🚫',cls:'s-closed'}};
+const STATUS_LIST=['empty','cleaning','cleaned','occupied','closed'];
+const STATUS_INFO={empty:{label:'空室',emoji:'',cls:'s-empty'},cleaning:{label:'清掃中',emoji:'🧹',cls:'s-cleaning'},cleaned:{label:'清掃済み',emoji:'✅',cls:'s-cleaned'},occupied:{label:'宿泊中',emoji:'🛌',cls:'s-occupied'},closed:{label:'使用不可',emoji:'🚫',cls:'s-closed'}};
 
 function loadRoomStatus(){const s=localStorage.getItem('yado_rs');if(s)roomStatus=JSON.parse(s);ROOMS.forEach(r=>{if(!roomStatus[r.no])roomStatus[r.no]='empty';});}
 function saveRoomStatus(){localStorage.setItem('yado_rs',JSON.stringify(roomStatus));}
@@ -1815,10 +1757,6 @@ function getAutoStatus(roomNo){
 
   // 全予約を走査してCO日・宿泊中を正確に判定
   let isCoToday=false;
-  let wasCoYesterday=false;
-  const yesterday=new Date(today);yesterday.setDate(yesterday.getDate()-1);
-  const yesterdayStr=fmt(yesterday.getFullYear(),yesterday.getMonth()+1,yesterday.getDate());
-
   for(const [key,bk] of Object.entries(bks)){
     if(bk.isStart===false)continue;
     const idx=key.indexOf('_');const room=key.substring(0,idx);if(room!==roomNo)continue;
@@ -1830,12 +1768,7 @@ function getAutoStatus(roomNo){
     if(ds<=todayStr&&todayStr<coStr)return 'occupied';
     // CO日が今日
     if(coStr===todayStr)isCoToday=true;
-    // CO日が昨日（→今日は清掃が必要）
-    if(coStr===todayStr)wasCoYesterday=false; // 今日がCOなら昨日泊まっていた
-    // 昨日がCO日だった（今日の朝時点でCO済み → dirtyにすべき）
-    // 昨日のCOを確認: nights泊後のCO日が今日 → 昨日がCO当日 → 今日dirty
   }
-  // 今日がCO日で新しいCIが無ければ清掃中
   if(isCoToday&&!isCiToday)return 'cleaning';
   if(isCiToday)return 'empty';
   return null;
@@ -1844,18 +1777,15 @@ function getAutoStatus(roomNo){
 function renderRooms(){
   loadRoomStatus();
   const today=new Date();const todayStr=fmt(today.getFullYear(),today.getMonth()+1,today.getDate());
-  ['honkan','kawazoi','special'].forEach(type=>{
+  ['honkan','kawazoi'].forEach(type=>{
     const grid=document.getElementById('rg-'+type);if(!grid)return;
     grid.innerHTML=ROOMS.filter(r=>r.type===type).map(r=>{
       const manualSt=roomStatus[r.no]||'empty';
       const autoSt=getAutoStatus(r.no);
-      // 優先順位：使用不可 > dirty(手動) > 自動判定(occupied/cleaning) > 手動設定 > empty
+      // 使用不可は手動設定を最優先で維持
       let st;
       if(manualSt==='closed'){
         st='closed';
-      }else if(manualSt==='dirty'){
-        // dirty は手動で「清掃完了」を押すまで維持
-        st='dirty';
       }else if(manualSt==='cleaned'||manualSt==='occupied'){
         st=manualSt;
       }else{
@@ -1887,7 +1817,6 @@ function renderRooms(){
         ${displayInfo?`<div class="room-card-info">${esc(displayInfo)}</div>`:''}
         <div class="room-card-futon">🛏 清掃後布団: ${futonSet?futonSet+'枚':'未設定'}</div>
         ${st==='empty'&&todayBk?`<div class="room-card-info" style="color:#2a5fa8;font-weight:600">CI待ち</div>`:''}
-        ${st==='dirty'?`<button class="btn btn-green btn-sm" style="margin-top:6px;width:100%;justify-content:center" onclick="event.stopPropagation();markCleaned('${r.no}')">✅ 清掃完了</button>`:''}
         ${st==='closed'&&closedNote?`<div class="room-card-info" style="color:#c0392b;white-space:normal;line-height:1.4">📋 ${esc(closedNote)}</div>`:''}
       </div>`;
     }).join('');
@@ -1925,7 +1854,7 @@ function saveRoomDetail(){
   roomStatus[currentRoomNo]=st;
   if(st==='closed'){
     roomStatus['closedNote_'+currentRoomNo]=document.getElementById('roomClosedNote').value.trim();
-  }else if(st!=='dirty'){
+  }else{
     delete roomStatus['closedNote_'+currentRoomNo];
   }
   saveRoomStatus();
@@ -1938,44 +1867,6 @@ function closeRoomDetail(){document.getElementById('roomDetailMod').classList.re
 function cycleStatusManual(roomNo,currentSt){
   // 使用不可の場合はモーダルを開く
   openRoomDetail(roomNo);
-}
-
-// チェックアウト翌日に未清掃(dirty)を自動セット
-function autoMarkDirty(){
-  const today=new Date();const todayStr=fmt(today.getFullYear(),today.getMonth()+1,today.getDate());
-  ROOMS.forEach(r=>{
-    const curSt=roomStatus[r.no]||'empty';
-    // 既に手動でステータスが設定済みなら触らない（ただしemptyは上書きあり）
-    if(curSt==='closed'||curSt==='occupied'||curSt==='dirty'||curSt==='cleaned'||curSt==='cleaning')return;
-    // 昨日がCO日だったかチェック（→今日はdirtyにすべき）
-    for(const [key,bk] of Object.entries(bks)){
-      if(bk.isStart===false)continue;
-      const idx=key.indexOf('_');if(key.substring(0,idx)!==r.no)continue;
-      const ds=key.substring(idx+1);
-      const coD=new Date(ds+'T00:00:00');coD.setDate(coD.getDate()+(bk.nights||1));
-      const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
-      // CO日の翌日が今日 → 未清掃にセット（新しいCIが今日なければ）
-      const coNext=new Date(coD);coNext.setDate(coNext.getDate());
-      if(coStr===todayStr){
-        // 今日CIが入らない場合のみdirtyに
-        const todayBk=bks[r.no+'_'+todayStr];
-        if(!todayBk||todayBk.isStart===false){
-          roomStatus[r.no]='dirty';
-          saveRoomStatus();
-        }
-        break;
-      }
-    }
-  });
-}
-
-// 清掃完了ボタン押下
-function markCleaned(roomNo){
-  roomStatus[roomNo]='cleaned';
-  saveRoomStatus();
-  showToast('✅ '+roomNo+'号室　清掃完了にしました');
-  renderRooms();
-  render(); // アサイン帳も更新
 }
 
 // ===== 清掃指示書 =====
@@ -2777,9 +2668,7 @@ function copyClaudePrompt(){
 function init(){
   const n=new Date();cy=n.getFullYear();cm=n.getMonth();
   kinmuCY=n.getFullYear();kinmuCM=n.getMonth()+1;
-  load();loadRoomStatus();loadKinmu();
-  autoMarkDirty();
-  render();renderUnassigned();renderLedger();
+  load();loadRoomStatus();loadKinmu();render();renderUnassigned();renderLedger();
 }
 init();
 </script>

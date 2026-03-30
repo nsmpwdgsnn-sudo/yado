@@ -1,0 +1,2781 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="予約管理">
+<title>予約管理システム v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Shippori+Mincho:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f0e8;--paper:#fffdf8;--ink:#1a1510;--ink2:#7a6a58;--ink3:#b0a090;
+  --border:#ddd5c5;--border2:#c8bca8;
+  --sun:#d64b3a;--sun-bg:#fff2f0;--sun-cell:#fef6f5;
+  --sat:#2a5fa8;--sat-bg:#f0f4ff;--sat-cell:#f5f7ff;
+  --hd:#1e1810;
+  --rakuten:#cc0000;--jalan:#007a35;--yahoo:#cc0033;--yukoyuko:#d97000;
+  --direct:#4a6fa5;
+  --hp:#2a5fa8;--tel:#6b4c9a;--sms:#20b2aa;--insta:#c13584;--kuchi:#888;
+  --unassigned:#e8a000;--green:#2a7a4b;--red:#d64b3a;--gold:#c8a060;
+  --shadow:rgba(20,15,8,.12);
+}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;font-size:14px}
+
+/* ヘッダー */
+.hdr{background:var(--hd);color:#f5f0e8;padding:10px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+.logo{font-family:'Shippori Mincho',serif;font-size:17px;font-weight:700;letter-spacing:.1em}
+.logo-sub{font-size:10px;color:#a09078;margin-top:1px}
+.hdr-r{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+/* タブ */
+.tabs{display:flex;background:var(--hd);border-top:1px solid #2e2418;padding:0 4px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:9px 10px;font-size:11px;font-weight:500;color:#a09078;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s,border-color .15s;flex-shrink:0}
+.tab.on{color:#f5f0e8;border-bottom-color:var(--gold)}
+
+/* ボタン */
+.btn{border:none;border-radius:6px;padding:7px 13px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.btn:active{opacity:.85}
+.btn-gold{background:var(--gold);color:#1e1810}
+.btn-red{background:var(--red);color:#fff}
+.btn-green{background:var(--green);color:#fff}
+.btn-out{background:transparent;border:1.5px solid var(--border2);color:var(--ink2)}
+.btn-sm{padding:5px 10px;font-size:11px}
+.btn-xs{padding:3px 8px;font-size:10px;border-radius:4px;border:none;cursor:pointer;font-family:inherit;font-weight:500}
+
+/* セクション */
+.sec{display:none;padding:12px 14px}
+.sec.on{display:block}
+
+/* ===== アサイン帳 ===== */
+.anav{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.mlabel{font-family:'Shippori Mincho',serif;font-size:17px;font-weight:700;min-width:120px;text-align:center}
+.legend{display:flex;gap:6px;font-size:10px;color:var(--ink2);align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.leg{display:flex;align-items:center;gap:3px;white-space:nowrap}
+.ldot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.twrap{overflow:auto;border-radius:8px;box-shadow:0 2px 14px var(--shadow);background:var(--paper);max-height:calc(100vh - 260px)}
+table{border-collapse:collapse;background:var(--paper);font-size:11px}
+.th-corner{position:sticky;top:0;left:0;z-index:30;background:var(--hd);color:#f5f0e8;font-size:8px;text-align:center;padding:3px;border:1px solid #2e2418;width:54px;min-width:54px}
+.th-d{position:sticky;top:0;z-index:10;border:1px solid var(--border);min-width:46px;width:46px;text-align:center;padding:2px 1px;cursor:pointer;background:var(--bg);font-family:'DM Mono',monospace;transition:background .1s}
+.th-d:hover{background:#fffbe8}
+.th-d.sat{background:var(--sat-bg);color:var(--sat)}
+.th-d.sun{background:var(--sun-bg);color:var(--sun)}
+.th-d.tod{outline:2px solid var(--red);outline-offset:-2px;z-index:11}
+.dn{font-size:13px;font-weight:700;display:block;line-height:1.2}
+.dw{font-size:9px;display:block}
+.th-r{position:sticky;left:0;z-index:20;border:1px solid var(--border2);font-size:11px;font-weight:700;font-family:'DM Mono',monospace;text-align:center;padding:5px 2px;width:54px;min-width:54px}
+.th-r.honkan{background:#eae2d0}.th-r.kawazoi{background:#d5e8df}.th-r.special{background:#e8d5c8}
+.th-r.honkan.alt{background:#e2dacb}.th-r.kawazoi.alt{background:#ccdfd6}.th-r.special.alt{background:#dfd0c3}
+.grp-label{position:sticky;left:0;z-index:20;background:var(--hd);color:var(--gold);font-size:8px;font-weight:700;letter-spacing:.1em;text-align:center;padding:2px;border:1px solid #2e2418;width:54px;min-width:54px}
+.grp-row td{height:4px;background:var(--bg);border:none!important}
+td.c{border:1px solid var(--border);min-width:46px;width:46px;height:38px;vertical-align:middle;text-align:center;cursor:pointer;position:relative;transition:background .1s;padding:0}
+td.c:hover{background:#fffbe8!important}
+td.c.sat{background:var(--sat-cell)}
+td.c.sun{background:var(--sun-cell)}
+td.c.tod:not(.bk){background:#fffaec!important}
+td.c.bk.tod{outline:2px solid var(--red);outline-offset:-2px;z-index:5}
+td.c.bk{overflow:hidden}
+td.c.bk:hover{filter:brightness(1.08)}
+.bi{height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1px 2px}
+.bn{font-size:10px;font-weight:700;color:#fff;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:42px}
+.bp{font-size:8px;color:rgba(255,255,255,.85);font-family:'DM Mono',monospace}
+.bs{font-size:7px;color:rgba(255,255,255,.75)}
+
+/* ===== 未割当 ===== */
+.ucard{background:var(--paper);border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+.ucard-top{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px}
+.ucard-info{flex:1}
+.ucard-name{font-size:14px;font-weight:700;margin-bottom:2px}
+.ucard-detail{font-size:11px;color:var(--ink2);line-height:1.7}
+.ucard-actions{display:flex;gap:6px;flex-wrap:wrap}
+.ota-badge{font-size:10px;font-weight:700;border-radius:4px;padding:2px 7px;color:#fff;white-space:nowrap;flex-shrink:0}
+
+/* ===== 取込セクション ===== */
+.paste-box{background:var(--paper);border-radius:8px;box-shadow:0 2px 14px var(--shadow);padding:14px;margin-bottom:14px}
+.pttl{font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700;margin-bottom:4px}
+.psub{font-size:11px;color:var(--ink2);margin-bottom:10px;line-height:1.6}
+.import-tabs{display:flex;gap:0;margin-bottom:14px;border-radius:8px;overflow:hidden;border:1.5px solid var(--border2)}
+.import-tab{flex:1;padding:9px 6px;font-size:12px;font-weight:700;cursor:pointer;text-align:center;background:var(--bg);color:var(--ink2);border:none;font-family:inherit;transition:all .15s}
+.import-tab.on{background:var(--hd);color:var(--gold)}
+.import-pane{display:none}.import-pane.on{display:block}
+.ota-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.ota-tab{padding:5px 11px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:2px solid transparent;color:#fff;opacity:.55;transition:opacity .15s}
+.ota-tab.on{opacity:1;border-color:rgba(255,255,255,.6)}
+.t-rakuten{background:var(--rakuten)}.t-jalan{background:var(--jalan)}.t-yahoo{background:var(--yahoo)}
+.t-yukoyuko{background:var(--yukoyuko)}.t-hp{background:var(--hp)}
+.paste-area{width:100%;min-height:110px;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:12px;background:#fffef9;color:var(--ink);outline:none;resize:vertical;line-height:1.7}
+.paste-area:focus{border-color:var(--gold)}
+.parse-result{background:#f0fdf4;border:1.5px solid #a8dbb8;border-radius:8px;padding:12px;margin-top:10px;display:none}
+.parse-result.show{display:block}
+.pr-row{display:flex;gap:6px;margin-bottom:3px;font-size:12px}
+.pr-label{color:var(--ink2);min-width:80px;flex-shrink:0;font-size:11px}
+.pr-val{font-weight:500}
+.pr-err{color:var(--red)}
+
+/* ===== 予約台帳 ===== */
+.ledger-wrap{overflow:auto;border-radius:8px;box-shadow:0 2px 14px var(--shadow)}
+.ledger-table{width:100%;border-collapse:collapse;font-size:11px;background:var(--paper)}
+.ledger-table th{position:sticky;top:0;background:var(--hd);color:#f5f0e8;padding:7px 8px;text-align:left;font-size:10px;letter-spacing:.05em;white-space:nowrap;z-index:5}
+.ledger-table td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top;white-space:nowrap}
+.ledger-table tr:hover td{background:#fffbe8}
+.ledger-table tr.unassigned-row td{background:#fffdf0}
+.no-badge{font-family:'DM Mono',monospace;font-size:10px;background:var(--hd);color:var(--gold);border-radius:4px;padding:1px 6px}
+.search-bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.search-input{flex:1;min-width:160px;padding:7px 11px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;background:var(--paper);outline:none}
+.search-input:focus{border-color:var(--gold)}
+
+/* ===== モーダル ===== */
+.ov{display:none;position:fixed;inset:0;background:rgba(20,15,8,.55);z-index:500;align-items:center;justify-content:center;padding:16px}
+.ov.on{display:flex}
+.modal{background:var(--paper);border-radius:12px;padding:20px 22px;width:100%;max-width:460px;box-shadow:0 16px 48px rgba(0,0,0,.3);animation:mIn .18s ease;max-height:92vh;overflow-y:auto}
+@keyframes mIn{from{transform:translateY(10px) scale(.97);opacity:0}to{transform:none;opacity:1}}
+.mttl{font-family:'Shippori Mincho',serif;font-size:16px;font-weight:700;margin-bottom:6px;padding-bottom:10px;border-bottom:2px solid var(--border)}
+.msub{font-size:11px;color:var(--ink2);margin-bottom:12px;font-family:'DM Mono',monospace}
+.fg{margin-bottom:10px}
+.fl{display:block;font-size:10px;font-weight:700;color:var(--ink2);margin-bottom:3px;letter-spacing:.06em;text-transform:uppercase}
+.fi,.fta,.fsel{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;background:#fffef9;color:var(--ink);outline:none;transition:border-color .15s}
+.fi:focus,.fta:focus,.fsel:focus{border-color:var(--gold)}
+.fta{resize:vertical;min-height:55px}
+.fr2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.mact{display:flex;gap:8px;margin-top:14px;justify-content:flex-end;flex-wrap:wrap}
+.btn-del2{background:#c0392b;color:#fff;border:none;border-radius:6px;padding:7px 12px;font-family:inherit;font-size:12px;cursor:pointer}
+.src-btns{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px}
+.src-btn{padding:5px 10px;border-radius:16px;font-size:11px;font-weight:700;cursor:pointer;border:2px solid transparent;color:#fff;opacity:.5;transition:opacity .15s;font-family:inherit}
+.src-btn.on{opacity:1;border-color:rgba(255,255,255,.5)}
+.src-section{margin-bottom:10px;padding:10px;border-radius:8px;border:1.5px solid var(--border)}
+.src-section-label{font-size:10px;font-weight:700;color:var(--ink3);margin-bottom:6px;letter-spacing:.06em;text-transform:uppercase}
+.empty-msg{text-align:center;padding:28px;color:var(--ink3);font-size:13px}
+
+/* 人数グリッド */
+.pax-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pax-row{display:flex;align-items:center;gap:6px}
+.pax-label{font-size:11px;color:var(--ink2);min-width:80px;flex-shrink:0}
+.pax-input{width:60px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Mono',monospace;font-size:13px;text-align:center;background:#fffef9;outline:none}
+.pax-input:focus{border-color:var(--gold)}
+
+/* ===== 精算・伝票 ===== */
+.checkout-card{background:var(--paper);border-radius:10px;border:2px solid var(--border);padding:14px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow)}
+.checkout-hd{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.checkout-room{font-family:'DM Mono',monospace;font-size:22px;font-weight:700;background:var(--hd);color:var(--gold);border-radius:8px;padding:4px 12px;flex-shrink:0}
+.checkout-name{font-size:15px;font-weight:700}
+.checkout-sub{font-size:11px;color:var(--ink2);margin-top:2px}
+.checkout-status{font-size:11px;font-weight:700;border-radius:20px;padding:3px 10px;white-space:nowrap}
+.cs-done{background:#e8f5e9;color:#2a7a4b}
+.cs-pending{background:#fff3e0;color:#e8a000}
+.price-rows{background:#f8f5ef;border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.price-row{display:flex;justify-content:space-between;padding:3px 0;font-size:12px}
+.price-row.total{border-top:1.5px solid var(--border);margin-top:4px;padding-top:6px;font-weight:700}
+.price-label{color:var(--ink2)}
+.price-val{font-family:'DM Mono',monospace;font-weight:600}
+.extra-row{display:flex;gap:6px;margin-bottom:6px;align-items:center}
+.extra-input{flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;background:#fffef9;outline:none}
+.extra-input:focus{border-color:var(--gold)}
+.pay-btns{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}
+.pay-btn{padding:6px 10px;border:1.5px solid var(--border2);border-radius:6px;font-family:inherit;font-size:11px;cursor:pointer;background:transparent;color:var(--ink2);transition:all .15s}
+.pay-btn.sel{background:var(--gold);color:#1e1810;border-color:var(--gold);font-weight:700}
+.pay-btn.sel.ota{background:var(--hd);color:var(--gold);border-color:var(--gold)}
+
+/* ===== 部屋状態 ===== */
+.room-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:6px}
+.room-card{border-radius:10px;padding:12px;cursor:pointer;border:2px solid transparent;transition:all .15s;user-select:none}
+.room-card:active{transform:scale(.97)}
+.room-card.s-empty{background:#eae4d8;border-color:#c8bca8}
+.room-card.s-cleaning{background:#fff8e1;border-color:#ffc107}
+.room-card.s-cleaned{background:#e8f5e9;border-color:#66bb6a}
+.room-card.s-occupied{background:#e3f2fd;border-color:#64b5f6}
+.room-card.s-closed{background:#fce4ec;border-color:#e57373}
+.room-card.s-dirty{background:#fff0e0;border-color:#e67e22;border-style:dashed;border-width:2px}
+.room-card.s-dirty .room-card-status{color:#c0392b}
+td.c.dirty-cell{background:repeating-linear-gradient(45deg,#fff8f0,#fff8f0 4px,#ffd8b0 4px,#ffd8b0 8px)!important}
+td.c.dirty-cell:hover{filter:brightness(1.05)!important}
+.room-card-no{font-family:'DM Mono',monospace;font-size:18px;font-weight:700;margin-bottom:2px}
+.room-card-status{font-size:11px;font-weight:600}
+.room-card-info{font-size:10px;color:var(--ink2);margin-top:3px;line-height:1.4}
+.room-card-futon{font-size:11px;font-weight:700;color:var(--ink);margin-top:3px}
+
+/* ===== 清掃指示書 ===== */
+.clean-card{background:var(--paper);border-radius:10px;border:2px solid var(--border);padding:14px;margin-bottom:10px}
+.clean-card-hd{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.clean-room-no{font-family:'DM Mono',monospace;font-size:22px;font-weight:700;background:var(--hd);color:var(--gold);border-radius:8px;padding:4px 12px}
+.clean-type{font-size:11px;color:var(--ink2)}
+.clean-rows{display:flex;flex-direction:column;gap:8px}
+.clean-row{display:flex;gap:8px;font-size:13px;align-items:flex-start}
+.clean-label{font-size:10px;font-weight:700;color:var(--ink2);min-width:64px;padding-top:2px;flex-shrink:0;letter-spacing:.04em;text-transform:uppercase}
+.clean-val{font-weight:500;line-height:1.5}
+.futon-select{padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:14px;background:#fffef9;outline:none;min-width:80px}
+.futon-select:focus{border-color:var(--gold)}
+.futon-note{padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;background:#fffef9;outline:none;flex:1}
+.futon-note:focus{border-color:var(--gold)}
+
+/* ===== 日別ポップアップ ===== */
+.day-popup{position:fixed;inset:0;background:rgba(20,15,8,.55);z-index:400;display:none;align-items:center;justify-content:center;padding:16px}
+.day-popup.on{display:flex}
+.day-popup-inner{background:var(--paper);border-radius:12px;padding:18px;width:100%;max-width:380px;max-height:85vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.3);animation:mIn .18s ease}
+.day-popup-ttl{font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+.day-room-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.day-room-row:last-child{border-bottom:none}
+.day-room-no{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;background:var(--hd);color:var(--gold);border-radius:4px;padding:2px 8px;flex-shrink:0}
+
+/* OTA色 */
+.bk-rakuten{background:#cc0000!important}.bk-jalan{background:#007a35!important}
+.bk-yahoo{background:#cc0033!important}.bk-yukoyuko{background:#d97000!important}
+.bk-direct{background:#4a6fa5!important}
+.bk-hp{background:#4a6fa5!important}.bk-tel{background:#4a6fa5!important}
+.bk-sms{background:#4a6fa5!important}.bk-insta{background:#4a6fa5!important}.bk-kuchi{background:#4a6fa5!important}
+/* バッジ色（台帳・未割当用は経路が分かるよう元色を維持） */
+.ota-badge.bk-rakuten{background:#cc0000}.ota-badge.bk-jalan{background:#007a35}
+.ota-badge.bk-yahoo{background:#cc0033}.ota-badge.bk-yukoyuko{background:#d97000}
+.ota-badge.bk-direct{background:#4a6fa5}
+.ota-badge.bk-hp{background:#2a5fa8}.ota-badge.bk-tel{background:#6b4c9a}
+.ota-badge.bk-sms{background:#20b2aa}.ota-badge.bk-insta{background:#c13584}.ota-badge.bk-kuchi{background:#888888}
+
+/* CSV取込 */
+.csv-drop{display:flex;align-items:center;gap:10px;background:var(--paper);border:2px dashed var(--border2);border-radius:10px;padding:18px;cursor:pointer;transition:border-color .15s}
+.csv-drop:hover{border-color:var(--gold)}
+
+/* トースト */
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1e1810;color:#f5f0e8;padding:10px 20px;border-radius:20px;font-size:12px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+</style>
+</head>
+<body>
+
+<!-- ヘッダー -->
+<div class="hdr">
+  <div>
+    <div class="logo">📋 予約管理</div>
+    <div class="logo-sub">妙見楽園荘　客室アサインシステム</div>
+  </div>
+  <div class="hdr-r">
+    <button class="btn btn-green btn-sm" onclick="loadFromGAS()">☁️ 読込</button>
+    <button class="btn btn-gold btn-sm" onclick="openManual(null,null)">＋ 予約入力</button>
+  </div>
+</div>
+
+<div style="text-align:right;padding:2px 12px;background:var(--hd)">
+  <button onclick="resetAll()" style="background:transparent;color:#3a2a18;border:none;font-size:9px;cursor:pointer;font-family:inherit">⚙</button>
+</div>
+
+<!-- タブ -->
+<div class="tabs">
+  <div class="tab on" onclick="showTab('assign')">📅 アサイン帳</div>
+  <div class="tab" onclick="showTab('unassigned')">📥 未割当 <span id="ubadge" style="background:var(--unassigned);color:#fff;border-radius:8px;padding:1px 6px;font-size:10px;margin-left:2px">0</span></div>
+  <div class="tab" onclick="showTab('import')">📋 予約取込</div>
+  <div class="tab" onclick="showTab('ledger')">📒 予約台帳</div>
+  <div class="tab" onclick="showTab('rooms')">🏠 部屋状態</div>
+  <div class="tab" onclick="showTab('cleaning')">🧹 清掃指示</div>
+  <div class="tab" onclick="showTab('checkout')">🧾 精算</div>
+  <div class="tab" onclick="showTab('kinmu')">👷 勤怠・給与</div>
+  <div class="tab" onclick="showTab('settings')">⚙️ 設定</div>
+</div>
+
+<!-- アサイン帳 -->
+<div class="sec on" id="sec-assign">
+  <div class="anav">
+    <button class="btn btn-out" onclick="mv(-1)">◀</button>
+    <div class="mlabel" id="mlabel"></div>
+    <button class="btn btn-out" onclick="mv(1)">▶</button>
+    <button class="btn btn-red" onclick="goToday()">今日</button>
+  </div>
+  <div class="legend">
+    <div class="leg"><div class="ldot" style="background:var(--sun-bg);border:1px solid #ddd"></div>日</div>
+    <div class="leg"><div class="ldot" style="background:var(--sat-bg);border:1px solid #ddd"></div>土</div>
+    <div class="leg"><div class="ldot" style="background:var(--rakuten)"></div>楽天</div>
+    <div class="leg"><div class="ldot" style="background:var(--jalan)"></div>じゃらん</div>
+    <div class="leg"><div class="ldot" style="background:var(--yahoo)"></div>Yahoo</div>
+    <div class="leg"><div class="ldot" style="background:var(--yukoyuko)"></div>ゆこゆこ</div>
+    <div class="leg"><div class="ldot" style="background:var(--direct)"></div>直接予約</div>
+    <div style="font-size:10px;color:var(--ink3);margin-left:4px">※日付をクリックで部屋状態表示</div>
+  </div>
+  <div class="twrap"><table id="tbl"></table></div>
+</div>
+
+<!-- 未割当 -->
+<div class="sec" id="sec-unassigned">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <div style="font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700">未割当の予約</div>
+    <span id="ubadge2" style="background:var(--unassigned);color:#fff;border-radius:8px;padding:2px 8px;font-size:11px">0</span>
+  </div>
+  <div id="ulist"></div>
+</div>
+
+<!-- 予約取込 -->
+<div class="sec" id="sec-import">
+  <div class="import-tabs">
+    <button class="import-tab on" onclick="selImportTab('mail',this)">📧 メール読み込み</button>
+    <button class="import-tab" onclick="selImportTab('csv',this)">📂 ねっぱんCSV</button>
+  </div>
+
+  <!-- メール取込 -->
+  <div class="import-pane on" id="pane-mail">
+    <div class="paste-box">
+      <div class="pttl">📧 予約メールを貼り付ける</div>
+      <div class="psub">OTA・HPからの予約通知メールをそのまま貼り付けてください。自動で読み取ります。</div>
+      <div class="ota-tabs">
+        <div class="ota-tab t-rakuten on" onclick="selOta('rakuten',this)">楽天トラベル</div>
+        <div class="ota-tab t-jalan" onclick="selOta('jalan',this)">じゃらん</div>
+        <div class="ota-tab t-yahoo" onclick="selOta('yahoo',this)">Yahoo/一休</div>
+        <div class="ota-tab t-yukoyuko" onclick="selOta('yukoyuko',this)">ゆこゆこ</div>
+        <div class="ota-tab t-hp" onclick="selOta('hp',this)">自社HP</div>
+      </div>
+      <textarea class="paste-area" id="pasteArea" placeholder="ここにメール本文を貼り付けてください..."></textarea>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="btn btn-gold" onclick="parseOta()">🔍 読み取る</button>
+        <button class="btn btn-out" onclick="clearPaste()">クリア</button>
+      </div>
+      <div class="parse-result" id="parseResult">
+        <div style="font-weight:700;margin-bottom:8px;color:var(--green)">✅ 読み取り結果</div>
+        <div id="parseBody"></div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-gold" onclick="addToUnassigned()">未割当リストに追加</button>
+          <button class="btn btn-out" onclick="clearPaste()">キャンセル</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CSV取込 -->
+  <div class="import-pane" id="pane-csv">
+    <div class="paste-box">
+      <div class="pttl">📂 ねっぱんCSV取込</div>
+      <div class="psub">ねっぱんからエクスポートした ReservationList-*.CSV を読み込みます。<br>楽天・じゃらん・一休・ゆこゆこ対応。Shift-JIS自動判定。</div>
+      <label class="csv-drop" id="csvDropLabel">
+        <span style="font-size:28px">📂</span>
+        <div>
+          <div style="font-weight:700;font-size:14px">CSVファイルを選択またはドロップ</div>
+          <div style="font-size:11px;color:var(--ink2);margin-top:2px">ReservationList-*.CSV</div>
+        </div>
+        <input type="file" id="csvFileInput" accept=".csv,.CSV" style="display:none" onchange="loadCsvFile(this)">
+      </label>
+      <div id="csvStatus" style="display:none;margin-top:10px"></div>
+      <div id="csvFilterBar" style="display:none;margin-top:10px;margin-bottom:6px">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px">
+          <label style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="csvShowNew" checked onchange="renderCsvPreview()"> 予約</label>
+          <label style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="csvShowCancel" onchange="renderCsvPreview()"> キャンセル</label>
+          <label style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="csvShowChange" checked onchange="renderCsvPreview()"> 変更</label>
+          <label style="display:flex;align-items:center;gap:4px;margin-left:8px"><input type="checkbox" id="csvSkipDup" checked onchange="renderCsvPreview()"> 重複スキップ</label>
+        </div>
+      </div>
+      <div id="csvPreview" style="max-height:50vh;overflow-y:auto;margin-top:8px"></div>
+      <div id="csvActions" style="display:none;margin-top:10px;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-gold" onclick="importCsvSelected()" id="csvImportBtn">✅ 選択した予約を取込</button>
+        <button class="btn btn-out btn-sm" onclick="csvSelectAll(true)">全選択</button>
+        <button class="btn btn-out btn-sm" onclick="csvSelectAll(false)">全解除</button>
+        <button class="btn btn-out btn-sm" onclick="clearCsv()">クリア</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 予約台帳 -->
+<div class="sec" id="sec-ledger">
+  <div class="search-bar">
+    <input class="search-input" id="searchInput" placeholder="名前・部屋番号・経路・CI日で検索..." oninput="renderLedger()">
+    <button class="btn btn-out" onclick="document.getElementById('searchInput').value='';renderLedger()">クリア</button>
+  </div>
+  <div class="ledger-wrap" style="max-height:calc(100vh - 220px);overflow:auto">
+    <table class="ledger-table" id="ledgerTable"></table>
+  </div>
+</div>
+
+<!-- 部屋状態 -->
+<div class="sec" id="sec-rooms">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+    <div style="font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700">🏠 部屋状態管理</div>
+    <div style="font-size:11px;color:var(--ink2)">カードをタップして状態を変更</div>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;font-size:10px">
+    <span style="background:#eae4d8;border-radius:4px;padding:3px 8px">空室</span>
+    <span style="background:#fff8e1;border-radius:4px;padding:3px 8px">🧹 清掃中</span>
+    <span style="background:#e8f5e9;border-radius:4px;padding:3px 8px">✅ 清掃済み</span>
+    <span style="background:#e3f2fd;border-radius:4px;padding:3px 8px">🛌 宿泊中</span>
+    <span style="background:#fce4ec;border-radius:4px;padding:3px 8px">🚫 使用不可</span>
+  </div>
+  <div style="font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.08em;margin-bottom:6px;padding:3px 10px;background:var(--hd);border-radius:6px;display:inline-block">本館近く</div>
+  <div class="room-grid" id="rg-honkan" style="margin-bottom:12px"></div>
+  <div style="font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.08em;margin-bottom:6px;padding:3px 10px;background:var(--hd);border-radius:6px;display:inline-block">川沿い</div>
+  <div class="room-grid" id="rg-kawazoi"></div>
+</div>
+
+<!-- 部屋状態詳細モーダル -->
+<div class="ov" id="roomDetailMod">
+  <div class="modal" style="max-width:380px">
+    <div class="mttl" id="roomDetailTtl">部屋状態</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px" id="roomStatusBtns"></div>
+    <div class="fg" id="roomClosedNoteWrap" style="display:none">
+      <label class="fl">🚫 使用不可の理由・メモ</label>
+      <textarea class="fta" id="roomClosedNote" placeholder="例：エアコン故障・修理待ち　など" style="min-height:70px"></textarea>
+      <div style="font-size:10px;color:var(--ink3);margin-top:3px">※ 解除するまで保持されます</div>
+    </div>
+    <div class="mact">
+      <button class="btn btn-out" onclick="closeRoomDetail()">閉じる</button>
+      <button class="btn btn-gold" onclick="saveRoomDetail()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 清掃指示書 -->
+<div class="sec" id="sec-cleaning">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+    <div style="font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700">🧹 清掃指示書</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="date" id="cleanDate" class="fi" style="width:auto;font-size:12px;padding:6px 10px" onchange="renderCleaning()">
+      <button class="btn btn-gold" onclick="copyCleaningMsg()">📋 LINEコピー</button>
+    </div>
+  </div>
+  <div id="cleaningContent"></div>
+  <textarea id="cleaningCopyText" style="position:fixed;left:-9999px;opacity:0"></textarea>
+</div>
+
+<!-- 精算・伝票 -->
+<div class="sec" id="sec-checkout">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+    <div style="font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700">🧾 精算・伝票</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="date" id="checkoutDate" class="fi" style="width:auto;font-size:12px;padding:6px 10px" onchange="renderCheckout()">
+      <button class="btn btn-out btn-sm" onclick="toggleMonthly()" id="btnMonthly">📊 月次集計</button>
+      <button class="btn btn-gold btn-sm" onclick="window.print()">🖨️ 印刷</button>
+      <button class="btn btn-out btn-sm" onclick="copyCheckoutMsg()">📋 LINE</button>
+    </div>
+  </div>
+  <!-- 月次集計パネル -->
+  <div id="monthlyPanel" style="display:none;background:var(--paper);border-radius:10px;padding:14px;margin-bottom:14px;box-shadow:0 2px 8px var(--shadow)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="font-family:'Shippori Mincho',serif;font-size:14px;font-weight:700">📊 月次集計</div>
+      <select id="monthlyYear" class="fsel" style="width:auto;font-size:12px;padding:5px 8px" onchange="renderMonthly()"></select>
+      <select id="monthlyMonth" class="fsel" style="width:auto;font-size:12px;padding:5px 8px" onchange="renderMonthly()"></select>
+    </div>
+    <div id="monthlyContent"></div>
+  </div>
+  <div id="checkoutSummary" style="background:var(--paper);border-radius:8px;padding:12px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow);display:flex;gap:12px;flex-wrap:wrap;font-size:12px"></div>
+  <div id="checkoutContent"></div>
+  <textarea id="checkoutCopyText" style="position:fixed;left:-9999px;opacity:0"></textarea>
+</div>
+
+<!-- 勤怠・給与 -->
+<div class="sec" id="sec-kinmu">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+    <div style="font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700">👷 勤怠・給与管理</div>
+    <button class="btn btn-gold btn-sm" onclick="openKinmuRecord()">＋ 勤務記録</button>
+  </div>
+
+  <!-- 月ナビ -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    <button class="btn btn-out btn-sm" onclick="mvKinmuMonth(-1)">◀</button>
+    <div id="kinmuMonthLabel" style="font-family:'Shippori Mincho',serif;font-size:17px;font-weight:700;min-width:120px;text-align:center"></div>
+    <button class="btn btn-out btn-sm" onclick="mvKinmuMonth(1)">▶</button>
+    <button class="btn btn-red btn-sm" onclick="goKinmuThisMonth()">今月</button>
+    <button class="btn btn-out btn-sm" onclick="toggleKinmuPayslip()" id="btnKinmuPayslip">💴 給与明細</button>
+    <button class="btn btn-out btn-sm" onclick="window.print()">🖨️ 印刷</button>
+  </div>
+
+  <!-- 月次サマリー -->
+  <div id="kinmuSummary" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px"></div>
+
+  <!-- 勤怠一覧 or 給与明細（切替） -->
+  <div id="kinmuMain"></div>
+</div>
+
+<!-- 勤務記録モーダル -->
+<div class="ov" id="kinmuMod">
+  <div class="modal">
+    <div class="mttl" id="kinmuModTtl">勤務記録を追加</div>
+    <div class="fg">
+      <label class="fl">スタッフ</label>
+      <select class="fsel" id="kStaff"></select>
+    </div>
+    <div class="fg">
+      <label class="fl">勤務日</label>
+      <input class="fi" id="kDate" type="date">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg">
+        <label class="fl">開始時刻</label>
+        <input class="fi" id="kStart" type="time" value="09:00" oninput="updateKinmuPreview()">
+      </div>
+      <div class="fg">
+        <label class="fl">終了時刻</label>
+        <input class="fi" id="kEnd" type="time" value="13:00" oninput="updateKinmuPreview()">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg">
+        <label class="fl">交通費</label>
+        <select class="fsel" id="kTransport" onchange="updateKinmuPreview()">
+          <option value="1">あり（500円）</option>
+          <option value="0">なし</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">お風呂掃除手当</label>
+        <select class="fsel" id="kBath" onchange="updateKinmuPreview()">
+          <option value="0">なし</option>
+          <option value="1">あり（1,000円）</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">備考</label>
+      <input class="fi" id="kMemo" placeholder="特記事項など">
+    </div>
+    <div id="kCalcPreview" style="background:#f8f5ef;border-radius:6px;padding:10px;font-size:12px;margin-bottom:4px;line-height:1.8"></div>
+    <div class="mact">
+      <button class="btn-del2" id="kDelBtn" onclick="deleteKinmuRecord()" style="display:none">削除</button>
+      <button class="btn btn-out" onclick="closeKinmuMod()">キャンセル</button>
+      <button class="btn btn-gold" onclick="saveKinmuRecord()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 設定 -->
+<div class="sec" id="sec-settings">
+  <div style="font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700;margin-bottom:16px">⚙️ 設定</div>
+
+  <!-- ===== 更新・運用手順書 ===== -->
+  <div style="background:#fffdf0;border:2px solid var(--gold);border-radius:10px;padding:16px;margin-bottom:16px;box-shadow:0 2px 8px var(--shadow)">
+    <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:#7a5c1e">📋 システム更新・運用マニュアル</div>
+
+    <!-- ファイル更新手順 -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;background:var(--hd);color:var(--gold);border-radius:6px;padding:4px 10px;margin-bottom:8px;display:inline-block">🔄 ファイルを更新したときの手順</div>
+      <div style="font-size:12px;line-height:2;color:var(--ink)">
+        <div>① <strong>GitHubにアップロード</strong></div>
+        <div style="padding-left:16px;font-size:11px;color:var(--ink2)">
+          <a href="https://github.com/nsmpwdgsnn-sudo/yado" target="_blank" style="color:var(--hp)">github.com/nsmpwdgsnn-sudo/yado</a> を開く<br>
+          → ファイル一覧の index.html をクリック → 右上の「Upload files」(↑アイコン) → 新ファイルをドロップ → 「Commit changes」
+        </div>
+        <div style="margin-top:6px">② <strong>iPhoneのChromeで開く</strong></div>
+        <div style="padding-left:16px;font-size:11px;color:var(--ink2)">
+          <a href="https://nsmpwdgsnn-sudo.github.io/yado/" target="_blank" style="color:var(--hp)">https://nsmpwdgsnn-sudo.github.io/yado/</a>
+        </div>
+        <div style="margin-top:6px">③ <strong>画面が古いままならキャッシュクリア</strong></div>
+        <div style="padding-left:16px;font-size:11px;color:var(--ink2)">
+          Chrome右上「…」→「設定」→「プライバシーとセキュリティ」→「閲覧履歴データの削除」<br>
+          →「キャッシュされた画像とファイル」にチェック → 「データを削除」→ ページを再読み込み
+        </div>
+        <div style="margin-top:6px">④ <strong>設定タブでGAS URLを確認・入力して「保存」</strong></div>
+        <div style="margin-top:6px">⑤ <strong>「☁️ 読込」ボタンでデータを読み込む</strong></div>
+      </div>
+    </div>
+
+    <!-- Claudeへの依頼方法 -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;background:var(--hd);color:var(--gold);border-radius:6px;padding:4px 10px;margin-bottom:8px;display:inline-block">🤖 Claudeに改善を頼むときの定型文</div>
+      <div id="claudePromptBox" style="background:#f5f0e8;border-radius:6px;padding:10px;font-size:11px;font-family:'DM Mono',monospace;line-height:1.8;color:var(--ink);white-space:pre-wrap">以下のシステムを改善してください。
+GitHub Pages: https://nsmpwdgsnn-sudo.github.io/yado/
+ソース(最新): https://raw.githubusercontent.com/nsmpwdgsnn-sudo/yado/main/index.html
+
+改善内容：
+（ここに改善したい内容を書く）</div>
+      <button onclick="copyClaudePrompt()" class="btn btn-out btn-sm" style="margin-top:6px;width:100%;justify-content:center">📋 この定型文をコピー</button>
+    </div>
+
+    <!-- GitHubアップロード詳細 -->
+    <div>
+      <div style="font-size:11px;font-weight:700;background:var(--hd);color:var(--gold);border-radius:6px;padding:4px 10px;margin-bottom:8px;display:inline-block">📂 GitHubアップロード詳細手順</div>
+      <div style="font-size:11px;line-height:2;color:var(--ink2)">
+        1. <a href="https://github.com/nsmpwdgsnn-sudo/yado" target="_blank" style="color:var(--hp)">リポジトリを開く</a><br>
+        2. ファイル一覧の「index.html」をクリック<br>
+        3. 右上の ↑「Upload files」ボタンをクリック<br>
+        4. Claudeからダウンロードした新しい index.html をドラッグ＆ドロップ<br>
+        5. 下の「Commit changes」ボタンをクリック<br>
+        6. 1〜2分待ってからサイトを再読み込み（それでも古ければキャッシュクリア）
+      </div>
+    </div>
+  </div>
+  <div style="background:var(--paper);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow)">
+    <div style="font-size:13px;font-weight:700;margin-bottom:8px">☁️ クラウド同期（GAS）</div>
+    <div style="font-size:11px;color:var(--ink2);margin-bottom:8px">URLが変わった場合はここで更新できます。</div>
+    <div style="font-size:10px;font-weight:700;color:var(--ink2);margin-bottom:4px">GAS デプロイURL</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <input type="text" id="gasUrlInput" class="fi" style="font-size:11px;font-family:'DM Mono',monospace" placeholder="https://script.google.com/macros/s/.../exec">
+      <button class="btn btn-gold btn-sm" onclick="saveGasUrl()">保存</button>
+    </div>
+    <div style="font-size:10px;color:var(--ink3);margin-bottom:12px;line-height:1.7">
+      ① <a href="https://script.google.com" target="_blank" style="color:var(--hp)">script.google.com</a> でプロジェクトを開く<br>
+      ② 「デプロイ」→「デプロイを管理」→URLをコピー<br>
+      ③ 上の欄に貼り付けて「保存」
+    </div>
+    <button class="btn btn-gold" onclick="loadFromGAS()" style="width:100%;justify-content:center;margin-bottom:8px">☁️ クラウドから読み込む</button>
+    <button class="btn btn-out" onclick="saveToGAS()" style="width:100%;justify-content:center;margin-bottom:8px">📤 クラウドに保存する</button>
+  </div>
+  <div style="background:var(--paper);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow)">
+    <div style="font-size:13px;font-weight:700;margin-bottom:8px">データ管理</div>
+    <div style="font-size:12px;color:var(--ink2);margin-bottom:12px">
+      予約データ: <span id="bksCount" style="font-weight:700"></span>件　未割当: <span id="uaCount" style="font-weight:700"></span>件
+    </div>
+    <button class="btn btn-gold" onclick="exportData()" style="width:100%;justify-content:center;margin-bottom:8px">📤 エクスポート（バックアップ）</button>
+    <label class="btn btn-out" style="width:100%;justify-content:center;cursor:pointer;margin-bottom:8px">
+      📥 インポート（復元）
+      <input type="file" id="importFile" accept=".json" onchange="importData(event)" style="display:none">
+    </label>
+    <button class="btn btn-red" onclick="resetAll()" style="width:100%;justify-content:center">🗑️ 全データをリセット</button>
+  </div>
+
+  <!-- 勤怠設定 -->
+  <div style="background:var(--paper);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow)">
+    <div style="font-size:13px;font-weight:700;margin-bottom:10px">👷 スタッフ・給与設定</div>
+    <div id="kinmuStaffSettingList"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+      <div class="fg">
+        <label class="fl">交通費（1日）</label>
+        <input class="fi" id="kinmuTransportFee" type="number" value="500">
+      </div>
+      <div class="fg">
+        <label class="fl">お風呂掃除手当（1回）</label>
+        <input class="fi" id="kinmuBathFee" type="number" value="1000">
+      </div>
+    </div>
+    <button class="btn btn-gold" onclick="saveKinmuSettings()" style="width:100%;justify-content:center;margin-top:8px">💾 保存</button>
+  </div>
+</div>
+
+<!-- 手動入力モーダル -->
+<div class="ov" id="manualMod">
+  <div class="modal">
+    <div class="mttl" id="manTtl">予約入力</div>
+    <div class="msub" id="manSub"></div>
+
+    <!-- 予約経路 -->
+    <div class="fg">
+      <label class="fl">予約経路</label>
+      <div class="src-section">
+        <div class="src-section-label">OTA（手数料あり）</div>
+        <div class="src-btns">
+          <button class="src-btn" style="background:var(--rakuten)" onclick="setSrc('rakuten',this)">楽天</button>
+          <button class="src-btn" style="background:var(--jalan)" onclick="setSrc('jalan',this)">じゃらん</button>
+          <button class="src-btn" style="background:var(--yahoo)" onclick="setSrc('yahoo',this)">Yahoo/一休</button>
+          <button class="src-btn" style="background:var(--yukoyuko)" onclick="setSrc('yukoyuko',this)">ゆこゆこ</button>
+        </div>
+        <div class="src-section-label" style="margin-top:8px">直接予約（手数料なし）</div>
+        <div class="src-btns">
+          <button class="src-btn on" style="background:var(--tel)" onclick="setSrc('tel',this)">電話</button>
+          <button class="src-btn" style="background:var(--sms)" onclick="setSrc('sms',this)">SMS</button>
+          <button class="src-btn" style="background:var(--insta)" onclick="setSrc('insta',this)">インスタ</button>
+          <button class="src-btn" style="background:var(--kuchi)" onclick="setSrc('kuchi',this)">口頭・紹介</button>
+          <button class="src-btn" style="background:var(--hp)" onclick="setSrc('hp',this)">HP</button>
+        </div>
+      </div>
+      <input type="hidden" id="fSrc" value="tel">
+    </div>
+
+    <div class="fg">
+      <label class="fl">お客様名 *</label>
+      <input class="fi" id="fName" placeholder="山田 太郎 様">
+    </div>
+    <div class="fr2">
+      <div class="fg">
+        <label class="fl">チェックイン日 *</label>
+        <input class="fi" id="fCI" type="date">
+      </div>
+      <div class="fg">
+        <label class="fl">宿泊日数 *</label>
+        <input class="fi" id="fNights" type="number" min="1" value="1">
+      </div>
+    </div>
+    <!-- 人数 -->
+    <div class="fg">
+      <label class="fl">人数</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="pax-row"><span class="pax-label">大人</span><input class="pax-input" id="fPaxAdult" type="number" min="0" value="0" placeholder="0"></div>
+        <div class="pax-row"><span class="pax-label">子供（布団あり）</span><input class="pax-input" id="fPaxChild" type="number" min="0" value="0" placeholder="0"></div>
+        <div class="pax-row"><span class="pax-label">子供（布団なし）</span><input class="pax-input" id="fPaxChildNoBed" type="number" min="0" value="0" placeholder="0"></div>
+        <div class="pax-row"><span class="pax-label">添い寝</span><input class="pax-input" id="fPaxBaby" type="number" min="0" value="0" placeholder="0"></div>
+      </div>
+    </div>
+    <!-- 布団枚数 -->
+    <div class="fg">
+      <label class="fl">布団枚数</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select class="fsel" id="fFuton" style="max-width:100px">
+          <option value="0">0枚</option><option value="1">1枚</option><option value="2">2枚</option>
+          <option value="3">3枚</option><option value="4">4枚</option><option value="5">5枚</option><option value="6">6枚</option>
+        </select>
+        <input class="fi" id="fFutonNote" placeholder="ベッド追加・その他メモ" style="flex:1">
+      </div>
+    </div>
+    <div class="fr2">
+      <div class="fg">
+        <label class="fl">料金（円）</label>
+        <input class="fi" id="fPrice" type="number" placeholder="15000">
+      </div>
+      <div class="fg">
+        <label class="fl">ペット</label>
+        <select class="fsel" id="fPet">
+          <option value="">なし</option>
+          <option>犬1匹</option><option>犬2匹</option><option>犬3匹以上</option>
+          <option>猫1匹</option><option>猫2匹</option><option>その他</option>
+        </select>
+      </div>
+    </div>
+    <div class="fr2">
+      <div class="fg">
+        <label class="fl">CI時刻</label>
+        <input class="fi" id="fCITime" type="time" value="15:00">
+      </div>
+      <div class="fg">
+        <label class="fl">CO時刻</label>
+        <input class="fi" id="fCOTime" type="time" value="10:00">
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">部屋（未定の場合は空欄）</label>
+      <select class="fsel" id="fRoom">
+        <option value="">-- 未割当（後で決める）--</option>
+        <optgroup label="本館近く">
+          <option value="305">305</option><option value="306">306</option>
+          <option value="307">307</option><option value="308">308</option>
+          <option value="309">309</option><option value="500">500</option>
+        </optgroup>
+        <optgroup label="川沿い">
+          <option value="501">501</option><option value="502">502</option><option value="503">503</option>
+          <option value="505">505</option><option value="506">506</option><option value="507">507</option><option value="509">509</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="fg">
+      <label class="fl">連絡先</label>
+      <input class="fi" id="fTel" placeholder="090-XXXX-XXXX">
+    </div>
+    <div class="fg">
+      <label class="fl">住所</label>
+      <input class="fi" id="fAddr" placeholder="〒000-0000 ○○県...">
+    </div>
+    <div class="fg">
+      <label class="fl">OTA予約番号</label>
+      <input class="fi" id="fOtaNo" placeholder="RYa0mi4n2z など">
+    </div>
+    <div class="fg">
+      <label class="fl">備考・要望</label>
+      <textarea class="fta" id="fMemo" placeholder="アレルギー・リクエスト等"></textarea>
+    </div>
+    <div class="mact">
+      <button class="btn-del2" id="btnDel" onclick="delBk()" style="display:none">削除</button>
+      <button class="btn btn-out btn-sm" id="btnCancel" onclick="cancelBk()" style="display:none;background:#fff3e0;border-color:#e8a000;color:#856404">🚫 キャンセル</button>
+      <button class="btn btn-out" onclick="closeManual()">閉じる</button>
+      <button class="btn btn-gold" onclick="saveBk()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 割当モーダル -->
+<div class="ov" id="assignMod">
+  <div class="modal" style="max-width:340px">
+    <div class="mttl">部屋を割り当てる</div>
+    <div class="msub" id="assignSub"></div>
+    <div class="fg">
+      <label class="fl">部屋を選択</label>
+      <select class="fsel" id="assignRoom">
+        <optgroup label="本館近く">
+          <option value="305">305</option><option value="306">306</option>
+          <option value="307">307</option><option value="308">308</option>
+          <option value="309">309</option><option value="500">500</option>
+        </optgroup>
+        <optgroup label="川沿い">
+          <option value="501">501</option><option value="502">502</option><option value="503">503</option>
+          <option value="505">505</option><option value="506">506</option><option value="507">507</option><option value="509">509</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="mact">
+      <button class="btn btn-out" onclick="closeAssign()">キャンセル</button>
+      <button class="btn btn-gold" onclick="doAssign()">割り当てる</button>
+    </div>
+  </div>
+</div>
+
+<!-- 日別状態ポップアップ -->
+<div class="day-popup" id="dayPopup">
+  <div class="day-popup-inner">
+    <div class="day-popup-ttl" id="dayPopupTtl"></div>
+    <div id="dayPopupContent"></div>
+    <div style="margin-top:12px;text-align:right">
+      <button class="btn btn-out" onclick="closeDayPopup()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ===== 定数 =====
+const ROOMS = [
+  {no:'305',type:'honkan'},{no:'306',type:'honkan'},{no:'307',type:'honkan'},{no:'308',type:'honkan'},
+  {no:'309',type:'honkan'},{no:'500',type:'honkan'},
+  {no:'501',type:'kawazoi'},{no:'502',type:'kawazoi'},{no:'503',type:'kawazoi'},
+  {no:'505',type:'kawazoi'},{no:'506',type:'kawazoi'},{no:'507',type:'kawazoi'},{no:'509',type:'kawazoi'}
+];
+const GRP_LABEL = {honkan:'本館近く',kawazoi:'川沿い'};
+const SRC_LABEL = {rakuten:'楽天',jalan:'じゃらん',yahoo:'Yahoo/一休',yukoyuko:'ゆこゆこ',hp:'HP',tel:'電話',sms:'SMS',insta:'インスタ',kuchi:'口頭・紹介'};
+const SRC_HEX = {rakuten:'#cc0000',jalan:'#007a35',yahoo:'#cc0033',yukoyuko:'#d97000',hp:'#4a6fa5',tel:'#4a6fa5',sms:'#4a6fa5',insta:'#4a6fa5',kuchi:'#4a6fa5'};
+const SRC_CSS = {rakuten:'bk-rakuten',jalan:'bk-jalan',yahoo:'bk-yahoo',yukoyuko:'bk-yukoyuko',hp:'bk-direct',tel:'bk-direct',sms:'bk-direct',insta:'bk-direct',kuchi:'bk-direct'};
+const SRC_TO_PAY = {rakuten:'ota_rakuten',jalan:'ota_jalan',yahoo:'ota_yahoo',yukoyuko:'ota_yukoyuko'};
+const WD = ['日','月','火','水','木','金','土'];
+const GAS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbzF31TnwuXl41p_peRR8mC1scY--NUeXsHFmGr31TF3JmGvkWbB5RtdcMNSOzyXJpdoUw/exec';
+
+// ===== 状態 =====
+let cy, cm, bks={}, unassigned=[], editKey=null, currentOta='rakuten', parsedData=null, assigningIdx=null;
+let roomStatus={}, checkoutData={}, csvRows=[];
+
+// ===== 受付番号 =====
+// 年2桁+月2桁+連番3桁 例: 2603001
+function genReceiptNo(){
+  const n=new Date();
+  const prefix=String(n.getFullYear()).slice(-2)+String(n.getMonth()+1).padStart(2,'0');
+  const stored=localStorage.getItem('yado_seq_'+prefix)||'0';
+  const seq=parseInt(stored)+1;
+  localStorage.setItem('yado_seq_'+prefix,String(seq));
+  return prefix+String(seq).padStart(3,'0');
+}
+
+// ===== ユーティリティ =====
+function fmt(y,m,d){return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`}
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function fmtPrice(p){return p?Number(p).toLocaleString()+'円':''}
+function paxSummary(bk){
+  const parts=[];
+  if(bk.paxAdult)parts.push(`大人${bk.paxAdult}`);
+  if(bk.paxChild)parts.push(`子(布団)${bk.paxChild}`);
+  if(bk.paxChildNoBed)parts.push(`子(添)${bk.paxChildNoBed}`);
+  if(bk.paxBaby)parts.push(`添い寝${bk.paxBaby}`);
+  if(parts.length)return parts.join('・')+'名';
+  return bk.pax?bk.pax+'名':'';
+}
+function totalPax(bk){
+  return (parseInt(bk.paxAdult||0)+parseInt(bk.paxChild||0)+parseInt(bk.paxChildNoBed||0)+parseInt(bk.paxBaby||0))||parseInt(bk.pax||0)||0;
+}
+
+// ===== GAS =====
+function getGasUrl(){return localStorage.getItem('yado_gas_url')||GAS_URL_DEFAULT;}
+function saveGasUrl(){
+  const val=document.getElementById('gasUrlInput').value.trim();
+  if(!val||!val.startsWith('https://script.google.com')){alert('正しいGAS URLを入力してください');return;}
+  localStorage.setItem('yado_gas_url',val);
+  showToast('✅ GAS URLを保存しました');
+}
+function initGasUrlInput(){const el=document.getElementById('gasUrlInput');if(el)el.value=getGasUrl();}
+
+function save(){
+  localStorage.setItem('yado_bks',JSON.stringify(bks));
+  localStorage.setItem('yado_ua',JSON.stringify(unassigned));
+  saveToGAS();
+}
+function saveToGAS(){
+  const data={action:'save',bks,unassigned,roomStatus,checkoutData};
+  fetch(getGasUrl(),{method:'POST',body:JSON.stringify(data)})
+    .then(r=>r.json()).then(d=>{if(d.status==='ok')showToast('☁️ クラウドに保存しました');})
+    .catch(()=>{});
+}
+function loadFromGAS(){
+  showToast('☁️ 読み込み中...');
+  // GETとPOSTの両方を試みる（GASの設定によって異なる）
+  fetch(getGasUrl()+'?action=load')
+    .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+    .then(d=>applyGasData(d))
+    .catch(()=>{
+      // GETが失敗した場合POSTで試みる
+      fetch(getGasUrl(),{method:'POST',body:JSON.stringify({action:'load'})})
+        .then(r=>r.json()).then(d=>applyGasData(d))
+        .catch(()=>showToast('❌ 読み込み失敗。設定タブでURLを確認してください'));
+    });
+}
+function applyGasData(d){
+  if(d.status==='ok'){
+    if(d.bks)bks=d.bks;
+    if(d.unassigned)unassigned=d.unassigned;
+    if(d.roomStatus)roomStatus=d.roomStatus;
+    if(d.checkoutData)checkoutData=d.checkoutData;
+    normalizeDates();
+    localStorage.setItem('yado_bks',JSON.stringify(bks));
+    localStorage.setItem('yado_ua',JSON.stringify(unassigned));
+    render();renderUnassigned();renderLedger();renderSettings();
+    showToast('✅ クラウドから読み込みました！');
+  }else if(d.status==='empty'){
+    showToast('クラウドにデータがありません');
+  }else{
+    showToast('❌ 読み込み失敗: '+JSON.stringify(d));
+  }
+}
+function normalizeDates(){
+  const bksCopy={};
+  Object.entries(bks).forEach(([k,v])=>{
+    const nk=k.replace(/\//g,'-');
+    if(v.ciDate)v.ciDate=v.ciDate.replace(/\//g,'-');
+    // isStartを確実にbooleanに
+    if(v.isStart===undefined)v.isStart=true;
+    if(v.isStart==='false')v.isStart=false;
+    if(v.isStart==='true')v.isStart=true;
+    // nightsを数値に
+    if(v.nights)v.nights=parseInt(v.nights)||1;
+    bksCopy[nk]=v;
+  });
+  bks=bksCopy;
+  unassigned.forEach(u=>{
+    if(u.ciDate)u.ciDate=u.ciDate.replace(/\//g,'-');
+    if(u.nights)u.nights=parseInt(u.nights)||1;
+  });
+}
+
+function load(){
+  try{
+    const b=localStorage.getItem('yado_bks');
+    const u=localStorage.getItem('yado_ua');
+    const c=localStorage.getItem('yado_co');
+    if(b)bks=JSON.parse(b);
+    if(u)unassigned=JSON.parse(u);
+    if(c)checkoutData=JSON.parse(c);
+    normalizeDates();
+    repairBks(); // 孤立スパンを自動修復
+  }catch(e){console.error(e);}
+}
+function exportData(){
+  const data={bks,unassigned,roomStatus,checkoutData,exportedAt:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;
+  const d=new Date();
+  a.download='yado_backup_'+d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'.json';
+  a.click();URL.revokeObjectURL(url);
+}
+function importData(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=function(ev){
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(!confirm('データをインポートします。現在のデータは上書きされます。よろしいですか？'))return;
+      if(data.bks)bks=data.bks;
+      if(data.unassigned)unassigned=data.unassigned;
+      if(data.roomStatus)roomStatus=data.roomStatus;
+      if(data.checkoutData)checkoutData=data.checkoutData;
+      normalizeDates();
+      save();render();renderUnassigned();renderLedger();renderSettings();
+      alert('インポートしました！');
+    }catch(err){alert('インポートに失敗しました: '+err.message);}
+  };
+  r.readAsText(file);e.target.value='';
+}
+
+function showToast(msg){
+  const el=document.getElementById('toast');
+  if(el){el.textContent=msg;el.style.opacity='1';setTimeout(()=>el.style.opacity='0',2500);}
+}
+
+// ===== タブ =====
+function showTab(id){
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    t.classList.toggle('on',['assign','unassigned','import','ledger','rooms','cleaning','checkout','kinmu','settings'][i]===id);
+  });
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
+  document.getElementById('sec-'+id).classList.add('on');
+  if(id==='ledger')renderLedger();
+  if(id==='rooms'){autoMarkDirty();renderRooms();}
+  if(id==='cleaning')renderCleaning();
+  if(id==='checkout')renderCheckout();
+  if(id==='kinmu')renderKinmuMonthly();
+  if(id==='settings')renderSettings();
+}
+
+function selImportTab(name,el){
+  document.querySelectorAll('.import-tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  document.querySelectorAll('.import-pane').forEach(p=>p.classList.remove('on'));
+  document.getElementById('pane-'+name).classList.add('on');
+}
+
+// ===== アサイン帳 =====
+function render(){
+  const y=cy,mo=cm,days=new Date(y,mo+1,0).getDate();
+  const tn=new Date(),tY=tn.getFullYear(),tM=tn.getMonth(),tD=tn.getDate();
+  document.getElementById('mlabel').textContent=`${y}年 ${mo+1}月`;
+  let h='<thead><tr><th class="th-corner">部屋</th>';
+  for(let d=1;d<=days;d++){
+    const wd=new Date(y,mo,d).getDay();
+    const isT=(y===tY&&mo===tM&&d===tD);
+    const ds=fmt(y,mo+1,d);
+    h+=`<th class="th-d ${wd===0?'sun':wd===6?'sat':''}${isT?' tod':''}" onclick="openDayPopup('${ds}')">
+      <span class="dn">${d}</span><span class="dw">${WD[wd]}</span></th>`;
+  }
+  h+='</tr></thead><tbody>';
+  let lastType=null;
+  ROOMS.forEach((room,ri)=>{
+    if(room.type!==lastType){
+      if(lastType!==null)h+=`<tr class="grp-row"><td colspan="${days+1}"></td></tr>`;
+      h+=`<tr><th class="grp-label">${GRP_LABEL[room.type]}</th>`;
+      for(let d=1;d<=days;d++)h+=`<td style="background:var(--bg);border:none;height:3px"></td>`;
+      h+=`</tr>`;
+      lastType=room.type;
+    }
+    const alt=ri%2?' alt':'';
+    h+=`<tr><th class="th-r ${room.type}${alt}">${room.no}</th>`;
+    let d=1;
+    while(d<=days){
+      const ds=fmt(y,mo+1,d);
+      const key=room.no+'_'+ds;
+      const bk=bks[key];
+      const wd=new Date(y,mo,d).getDay();
+      const isT=(y===tY&&mo===tM&&d===tD);
+      const wc=wd===0?'sun':wd===6?'sat':'';
+      if(bk&&bk.isStart!==false){
+        const span=Math.min(bk.nights||1,days-d+1);
+        const isOta=['rakuten','jalan','yahoo','yukoyuko'].includes(bk.src||'');
+        const knownOtaColors={rakuten:'#cc0000',jalan:'#007a35',yahoo:'#cc0033',yukoyuko:'#d97000'};
+        const hex=isOta?(knownOtaColors[bk.src]||'#888'):'#4a6fa5';
+        const lbl=SRC_LABEL[bk.src]||bk.src||'直接';
+        const paxStr=paxSummary(bk);
+        h+=`<td class="c bk ${wc}${isT?' tod':''}" colspan="${span}" style="background:${hex}" data-room="${room.no}" data-ds="${ds}" onclick="editBkEl(this)">
+          <div class="bi"><span class="bn">${esc(bk.name)}</span>
+          <span class="bp">${paxStr}</span>
+          <span class="bs">${lbl}${bk.futon?'　布'+bk.futon:''}</span></div></td>`;
+        d+=span;
+      }else if(bk&&bk.isStart===false){
+        // 月またぎ連泊：月の最初のセルだけ継続バーをまとめて描画
+        const pk=bk.parentKey;
+        const pb=pk?bks[pk]:null;
+        if(pb&&d===1){
+          const pidx=pk.indexOf('_');
+          const pDs=pk.substring(pidx+1);
+          const [pY,pMo,pD]=pDs.split('-').map(Number);
+          const coDate=new Date(pY,pMo-1,pD+(pb.nights||1));
+          const monthStart=new Date(y,mo,1);
+          const remaining=Math.round((coDate-monthStart)/86400000);
+          const span=Math.min(Math.max(remaining,1),days);
+          const isOta=['rakuten','jalan','yahoo','yukoyuko'].includes(pb.src||'');
+          const knownOtaColors={rakuten:'#cc0000',jalan:'#007a35',yahoo:'#cc0033',yukoyuko:'#d97000'};
+          const hex=isOta?(knownOtaColors[pb.src]||'#888'):'#4a6fa5';
+          const lbl=SRC_LABEL[pb.src]||pb.src||'直接';
+          const paxStr=paxSummary(pb);
+          h+=`<td class="c bk ${wc}${isT?' tod':''}" colspan="${span}" style="background:${hex};opacity:0.82;border-left:3px solid rgba(255,255,255,0.5)" data-room="${room.no}" data-ds="${pDs}" onclick="editBkEl(this)">
+            <div class="bi"><span class="bn" style="font-size:9px">↩${esc(pb.name)}</span>
+            <span class="bp">${paxStr}</span>
+            <span class="bs">${lbl}</span></div></td>`;
+          d+=span;
+        }else{
+          d++;
+        }
+      }else{
+        // 未清掃空室の表示
+        const rs=roomStatus[room.no];
+        const isDirty=(rs==='dirty');
+        h+=`<td class="c ${wc}${isT?' tod':''}${isDirty?' dirty-cell':''}" data-room="${room.no}" data-ds="${ds}" onclick="openManualEl(this)"${isDirty?' title="🧹 未清掃（要清掃完了）"':''}></td>`;
+        d++;
+      }
+    }
+    h+='</tr>';
+  });
+  h+='</tbody>';
+  document.getElementById('tbl').innerHTML=h;
+}
+function mv(n){cm+=n;if(cm<0){cm=11;cy--}else if(cm>11){cm=0;cy++}render();}
+function goToday(){const n=new Date();cy=n.getFullYear();cm=n.getMonth();render();}
+
+// ===== 日別ポップアップ =====
+function openDayPopup(ds){
+  const [y,mo,d]=ds.split('-');
+  const wd=new Date(ds).getDay();
+  document.getElementById('dayPopupTtl').textContent=`${parseInt(y)}年${parseInt(mo)}月${parseInt(d)}日（${WD[wd]}）の状態`;
+  let html='';
+  const today=ds;
+  ROOMS.forEach(room=>{
+    const key=room.no+'_'+ds;
+    const bk=bks[key];
+    let status='',detail='',color='#eae4d8';
+    if(bk&&bk.isStart!==false){
+      status='🛎 CI';detail=esc(bk.name)+'　'+paxSummary(bk);color=SRC_HEX[bk.src]||'#888';
+    }else if(bk&&bk.isStart===false){
+      const pk=bk.parentKey;const pb=bks[pk];
+      status='🛌 宿泊中';detail=pb?esc(pb.name):'';color='#b0c4de';
+    }else{
+      // CO確認
+      const prev=new Date(ds);prev.setDate(prev.getDate()-1);
+      const pds=fmt(prev.getFullYear(),prev.getMonth()+1,prev.getDate());
+      const pbk=bks[room.no+'_'+pds];
+      if(pbk&&pbk.isStart!==false){status='🧹 CO→清掃';detail=esc(pbk.name)+'　CO';color='#fff3cd';}
+      else{status='✓ 空室';color='#eae4d8';}
+    }
+    html+=`<div class="day-room-row">
+      <span class="day-room-no">${room.no}</span>
+      <span style="background:${color};border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700;color:${color==='#eae4d8'?'#666':'#fff'};flex-shrink:0">${status}</span>
+      <span style="font-size:11px;color:var(--ink2)">${detail}</span>
+    </div>`;
+  });
+  if(!html)html='<div class="empty-msg">データなし</div>';
+  document.getElementById('dayPopupContent').innerHTML=html;
+  document.getElementById('dayPopup').classList.add('on');
+}
+function closeDayPopup(){document.getElementById('dayPopup').classList.remove('on');}
+
+// ===== スパン管理 =====
+function markSpan(room,ds,nights,pk){
+  const [y,mo,d]=ds.split('-').map(Number);
+  for(let i=1;i<nights;i++){
+    const nd=new Date(y,mo-1,d+i);
+    bks[`${room}_${fmt(nd.getFullYear(),nd.getMonth()+1,nd.getDate())}`]={isStart:false,parentKey:pk};
+  }
+}
+function clearSpan(key){
+  const bk=bks[key];if(!bk)return;
+  const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
+  const [y,mo,d]=ds.split('-').map(Number);
+  for(let i=1;i<(bk.nights||1);i++){
+    const nd=new Date(y,mo-1,d+i);
+    delete bks[`${room}_${fmt(nd.getFullYear(),nd.getMonth()+1,nd.getDate())}`];
+  }
+}
+
+// ===== 予約入力モーダル =====
+function setSrc(src,el){
+  document.getElementById('fSrc').value=src;
+  document.querySelectorAll('.src-btn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function openManual(room,ds){
+  editKey=null;
+  document.getElementById('manTtl').textContent='予約入力';
+  document.getElementById('manSub').textContent=room?`部屋 ${room}　${ds}`:'';
+  document.getElementById('fName').value='';
+  document.getElementById('fPaxAdult').value='0';
+  document.getElementById('fPaxChild').value='0';
+  document.getElementById('fPaxChildNoBed').value='0';
+  document.getElementById('fPaxBaby').value='0';
+  document.getElementById('fFuton').value='0';
+  document.getElementById('fFutonNote').value='';
+  document.getElementById('fPrice').value='';
+  document.getElementById('fAddr').value='';
+  document.getElementById('fOtaNo').value='';
+  document.getElementById('fMemo').value='';
+  document.getElementById('fTel').value='';
+  document.getElementById('fNights').value='1';
+  document.getElementById('fCI').value=ds||fmt(new Date().getFullYear(),new Date().getMonth()+1,new Date().getDate());
+  document.getElementById('fCITime').value='15:00';
+  document.getElementById('fCOTime').value='10:00';
+  document.getElementById('fRoom').value=room||'';
+  document.getElementById('fSrc').value='tel';
+  document.getElementById('fPet').value='';
+  document.getElementById('btnDel').style.display='none';
+  document.getElementById('btnCancel').style.display='none';
+  document.getElementById('manualMod').setAttribute('data-uindex','');
+  // ボタン初期化
+  document.querySelectorAll('.src-btn').forEach(b=>b.classList.remove('on'));
+  document.querySelector('.src-btn[onclick*="tel"]').classList.add('on');
+  document.getElementById('manualMod').classList.add('on');
+  setTimeout(()=>document.getElementById('fName').focus(),100);
+}
+
+function openDirectInput(){openManual(null,null);}
+
+function editBkEl(el){try{const room=el.getAttribute('data-room');const ds=el.getAttribute('data-ds');if(room&&ds)editBk(room,ds);}catch(e){console.error(e);}}
+function openManualEl(el){
+  try{
+    const room=el.getAttribute('data-room');
+    const ds=el.getAttribute('data-ds');
+    if(!room||!ds)return;
+    // isStart:falseのセル（連泊中）をクリックした場合は親予約を編集
+    const key=room+'_'+ds;
+    const bk=bks[key];
+    if(bk&&bk.isStart===false){
+      const pk=bk.parentKey;
+      if(pk&&bks[pk]){
+        const pidx=pk.indexOf('_');
+        editBk(pk.substring(0,pidx),pk.substring(pidx+1));
+      }
+      return;
+    }
+    openManual(room,ds);
+  }catch(e){console.error(e);}
+}
+
+function editBk(room,ds){
+  const key=`${room}_${ds}`;
+  const bk=bks[key];
+  if(!bk||bk.isStart===false)return;
+  editKey=key;
+  document.getElementById('manTtl').textContent='予約編集';
+  document.getElementById('manSub').textContent=`部屋 ${room}　${ds}　受付:${bk.no||'–'}`;
+  document.getElementById('fName').value=bk.name||'';
+  document.getElementById('fPaxAdult').value=bk.paxAdult||bk.pax||'0';
+  document.getElementById('fPaxChild').value=bk.paxChild||'0';
+  document.getElementById('fPaxChildNoBed').value=bk.paxChildNoBed||'0';
+  document.getElementById('fPaxBaby').value=bk.paxBaby||'0';
+  document.getElementById('fFuton').value=bk.futon||'0';
+  document.getElementById('fFutonNote').value=bk.futonNote||'';
+  document.getElementById('fNights').value=bk.nights||1;
+  document.getElementById('fCI').value=ds;
+  document.getElementById('fCITime').value=bk.ci||'15:00';
+  document.getElementById('fCOTime').value=bk.co||'10:00';
+  document.getElementById('fPrice').value=bk.price||'';
+  document.getElementById('fRoom').value=room;
+  document.getElementById('fSrc').value=bk.src||'tel';
+  document.getElementById('fPet').value=bk.pet||'';
+  document.getElementById('fTel').value=bk.tel||'';
+  document.getElementById('fAddr').value=bk.addr||'';
+  document.getElementById('fOtaNo').value=bk.otaNo||'';
+  document.getElementById('fMemo').value=bk.memo||'';
+  document.getElementById('btnDel').style.display='block';
+  document.getElementById('btnCancel').style.display='inline-flex';
+  document.getElementById('manualMod').setAttribute('data-uindex','');
+  // srcボタン
+  document.querySelectorAll('.src-btn').forEach(b=>b.classList.remove('on'));
+  const sb=document.querySelector(`.src-btn[onclick*="'${bk.src||'tel'}'"]`);
+  if(sb)sb.classList.add('on');
+  document.getElementById('manualMod').classList.add('on');
+}
+
+function closeManual(){document.getElementById('manualMod').classList.remove('on');}
+
+function saveBk(){
+  const name=document.getElementById('fName').value.trim();
+  if(!name){alert('お客様名を入力してください');return;}
+  const room=document.getElementById('fRoom').value;
+  const dsRaw=document.getElementById('fCI').value;
+  if(!dsRaw){alert('チェックイン日を入力してください');return;}
+  const dsParts=dsRaw.replace(/\//g,'-').split('-');
+  const ds=dsParts.length===3?fmt(parseInt(dsParts[0]),parseInt(dsParts[1]),parseInt(dsParts[2])):dsRaw;
+  const nights=parseInt(document.getElementById('fNights').value)||1;
+  const uindex=document.getElementById('manualMod').getAttribute('data-uindex')||'';
+
+  const data={
+    name, src:document.getElementById('fSrc').value,
+    nights, ci:document.getElementById('fCITime').value, co:document.getElementById('fCOTime').value,
+    paxAdult:parseInt(document.getElementById('fPaxAdult').value)||0,
+    paxChild:parseInt(document.getElementById('fPaxChild').value)||0,
+    paxChildNoBed:parseInt(document.getElementById('fPaxChildNoBed').value)||0,
+    paxBaby:parseInt(document.getElementById('fPaxBaby').value)||0,
+    futon:document.getElementById('fFuton').value,
+    futonNote:document.getElementById('fFutonNote').value.trim(),
+    price:document.getElementById('fPrice').value,
+    pet:document.getElementById('fPet').value,
+    tel:document.getElementById('fTel').value.trim(),
+    addr:document.getElementById('fAddr').value.trim(),
+    otaNo:document.getElementById('fOtaNo').value.trim(),
+    memo:document.getElementById('fMemo').value.trim(),
+    ciDate:ds, isStart:true
+  };
+
+  if(editKey){
+    // 編集
+    const oldBk=bks[editKey];
+    data.no=oldBk.no;
+    clearSpan(editKey);        // 古いスパンを先に全消し
+    delete bks[editKey];       // 古いキーを必ず削除（部屋変更時に二重表示になるバグを修正）
+
+    const newKey=room?room+'_'+ds:editKey;
+    const actualRoom=room||(editKey.indexOf('_')>0?editKey.substring(0,editKey.indexOf('_')):'');
+
+    if(room){
+      // 移動先に別の予約があれば先にクリア
+      if(bks[newKey]&&bks[newKey].isStart!==false)clearSpan(newKey);
+      if(bks[newKey])delete bks[newKey];
+      data.room=room;
+      data.ciDate=ds;
+      bks[newKey]=data;
+      markSpan(room,ds,nights,newKey);
+    }else{
+      // 部屋変更なし（日程のみ変更など）
+      data.ciDate=ds;
+      bks[newKey]=data;
+      markSpan(actualRoom,ds,nights,newKey);
+    }
+    repairBks();
+  }else if(room){
+    // 新規 部屋あり
+    data.no=genReceiptNo();
+    const key=room+'_'+ds;
+    if(bks[key]&&bks[key].isStart!==false)clearSpan(key);
+    data.room=room;
+    bks[key]=data;
+    markSpan(room,ds,nights,key);
+  }else{
+    // 未割当
+    data.no=genReceiptNo();
+    data.id=Date.now();
+    if(uindex!==''){
+      const ui=parseInt(uindex);
+      unassigned[ui]={...unassigned[ui],...data};
+    }else{
+      unassigned.push(data);
+    }
+    save();closeManual();renderUnassigned();renderLedger();
+    showToast('📥 未割当リストに追加しました');
+    return;
+  }
+  save();closeManual();render();renderUnassigned();renderLedger();
+}
+
+function delBk(){
+  if(!editKey)return;
+  if(!confirm('この予約を削除しますか？'))return;
+  clearSpan(editKey);
+  delete bks[editKey];
+  repairBks();
+  save();closeManual();render();renderUnassigned();renderLedger();
+  showToast('🗑️ 削除しました');
+}
+
+// キャンセル処理：アサイン帳・台帳・未割当すべて一括削除
+function cancelBk(){
+  if(!editKey)return;
+  const bk=bks[editKey];
+  if(!bk)return;
+  const name=bk.name||'この予約';
+  if(!confirm(`【${name}】様の予約をキャンセルします。\nアサイン帳・予約台帳から完全に削除されます。よろしいですか？`))return;
+  // アサイン帳から削除（スパン含む）
+  clearSpan(editKey);
+  delete bks[editKey];
+  repairBks();
+  save();closeManual();render();renderUnassigned();renderLedger();
+  showToast('🚫 キャンセル処理が完了しました');
+}
+
+// 孤立したisStart===falseのスパンを修復（親キーが存在しないものを削除）
+function repairBks(){
+  const toDelete=[];
+  Object.entries(bks).forEach(([key,bk])=>{
+    if(bk.isStart===false){
+      const pk=bk.parentKey;
+      if(!pk||!bks[pk]||bks[pk].isStart===false){
+        toDelete.push(key);
+      }
+    }
+  });
+  toDelete.forEach(k=>delete bks[k]);
+  if(toDelete.length>0)console.log(`🔧 孤立スパン ${toDelete.length}件を修復しました`);
+}
+
+// ===== 未割当 =====
+function renderUnassigned(){
+  const cnt=unassigned.length;
+  document.getElementById('ubadge').textContent=cnt;
+  document.getElementById('ubadge2').textContent=cnt;
+  const el=document.getElementById('ulist');
+  if(!cnt){el.innerHTML='<div class="empty-msg">未割当の予約はありません</div>';return;}
+  el.innerHTML=unassigned.map((u,i)=>{
+    const color=SRC_CSS[u.src]||'bk-kuchi';
+    const lbl=SRC_LABEL[u.src]||u.src||'';
+    return `<div class="ucard">
+      <div class="ucard-top">
+        <span class="ota-badge ${color}">${lbl}</span>
+        <div class="ucard-info">
+          <div class="ucard-name">${u.no?`<span class="no-badge">${u.no}</span> `:''} ${esc(u.name)}</div>
+          <div class="ucard-detail">
+            📅 ${u.ciDate||'日程未定'}　${u.nights||1}泊　${paxSummary(u)}
+            ${u.price?'　💴 '+fmtPrice(u.price):''}
+            ${u.futon?'　🛏 布団'+u.futon+'枚':''}
+            ${u.pet?'　🐾 '+u.pet:''}
+            ${u.memo?'<br>📝 '+esc(u.memo):''}
+          </div>
+        </div>
+      </div>
+      <div class="ucard-actions">
+        <button class="btn btn-gold btn-sm" onclick="openAssign(${i})">🏠 部屋を割り当て</button>
+        <button class="btn btn-out btn-sm" onclick="editUnassigned(${i})">編集</button>
+        <button class="btn-xs" style="background:var(--red);color:#fff" onclick="delUnassigned(${i})">削除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function delUnassigned(i){if(!confirm('削除しますか？'))return;unassigned.splice(i,1);save();renderUnassigned();renderLedger();}
+
+function editUnassigned(i){
+  const u=unassigned[i];
+  editKey=null;
+  document.getElementById('manTtl').textContent='未割当予約を編集';
+  document.getElementById('manSub').textContent='';
+  document.getElementById('fName').value=u.name||'';
+  document.getElementById('fPaxAdult').value=u.paxAdult||u.pax||'0';
+  document.getElementById('fPaxChild').value=u.paxChild||'0';
+  document.getElementById('fPaxChildNoBed').value=u.paxChildNoBed||'0';
+  document.getElementById('fPaxBaby').value=u.paxBaby||'0';
+  document.getElementById('fFuton').value=u.futon||'0';
+  document.getElementById('fFutonNote').value=u.futonNote||'';
+  document.getElementById('fNights').value=u.nights||1;
+  document.getElementById('fCI').value=u.ciDate||'';
+  document.getElementById('fCITime').value=u.ci||'15:00';
+  document.getElementById('fCOTime').value=u.co||'10:00';
+  document.getElementById('fPrice').value=u.price||'';
+  document.getElementById('fRoom').value='';
+  document.getElementById('fSrc').value=u.src||'tel';
+  document.getElementById('fPet').value=u.pet||'';
+  document.getElementById('fTel').value=u.tel||'';
+  document.getElementById('fAddr').value=u.addr||'';
+  document.getElementById('fOtaNo').value=u.otaNo||'';
+  document.getElementById('fMemo').value=u.memo||'';
+  document.getElementById('btnDel').style.display='none';
+  document.getElementById('manualMod').setAttribute('data-uindex',String(i));
+  document.querySelectorAll('.src-btn').forEach(b=>b.classList.remove('on'));
+  const sb=document.querySelector(`.src-btn[onclick*="'${u.src||'tel'}'"]`);
+  if(sb)sb.classList.add('on');
+  document.getElementById('manualMod').classList.add('on');
+}
+
+// ===== 割当モーダル =====
+function openAssign(i){
+  assigningIdx=i;
+  const u=unassigned[i];
+  document.getElementById('assignSub').textContent=`${esc(u.name)}　${u.ciDate||'日程未定'}　${u.nights||1}泊`;
+  document.getElementById('assignMod').classList.add('on');
+}
+function closeAssign(){document.getElementById('assignMod').classList.remove('on');}
+function doAssign(){
+  try{
+    const room=document.getElementById('assignRoom').value;
+    if(!room){alert('部屋を選択してください');return;}
+    const u=unassigned[assigningIdx];
+    if(!u){closeAssign();return;}
+    const dsRaw=u.ciDate||'';
+    if(!dsRaw){alert('チェックイン日が未設定です。先に編集してください');closeAssign();return;}
+    const dsParts=dsRaw.replace(/\//g,'-').split('-');
+    const ds=dsParts.length===3?fmt(parseInt(dsParts[0]),parseInt(dsParts[1]),parseInt(dsParts[2])):dsRaw;
+    const key=room+'_'+ds;
+    if(bks[key]&&bks[key].isStart!==false)clearSpan(key);
+    const data=JSON.parse(JSON.stringify(u));
+    data.isStart=true;data.room=room;
+    bks[key]=data;
+    markSpan(room,ds,parseInt(u.nights)||1,key);
+    unassigned.splice(assigningIdx,1);
+    assigningIdx=null;
+    save();closeAssign();renderUnassigned();renderLedger();
+    showTab('assign');
+    try{const dateObj=new Date(ds);if(!isNaN(dateObj)){cy=dateObj.getFullYear();cm=dateObj.getMonth();}}catch(e){}
+    render();
+  }catch(e){alert('割り当てエラー: '+e.message);}
+}
+
+// ===== OTA解析 =====
+function selOta(name,el){
+  currentOta=name;
+  document.querySelectorAll('.ota-tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('parseResult').classList.remove('show');
+}
+function clearPaste(){document.getElementById('pasteArea').value='';document.getElementById('parseResult').classList.remove('show');parsedData=null;}
+function normDate(s){if(!s)return '';const m=s.match(/(\d{4})[年\/\-](\d{1,2})[月\/\-](\d{1,2})/);if(!m)return '';return fmt(parseInt(m[1]),parseInt(m[2]),parseInt(m[3]));}
+function normTime(s){if(!s)return '15:00';const m=s.match(/(\d{1,2})[時:](\d{0,2})/);if(!m)return '15:00';return `${String(m[1]).padStart(2,'0')}:${String(m[2]||'00').padStart(2,'0')}`;}
+function cleanName(s){if(!s)return '';return s.replace(/[（(][^）)]*[）)]/g,'').replace(/\s*(様|さま)\s*$/,'').replace(/　/g,' ').trim();}
+
+function parseOta(){
+  const text=document.getElementById('pasteArea').value;
+  if(!text.trim()){alert('メール本文を貼り付けてください');return;}
+  let d={src:currentOta,name:'',ciDate:'',nights:1,paxAdult:'',price:'',ci:'15:00',co:'10:00',memo:'',tel:'',pet:''};
+  let m;
+  if(currentOta==='rakuten'){
+    m=text.match(/宿泊者氏名\s*[：:]\s*(.+)/)||text.match(/お名前\s*[：:]\s*(.+)/);if(m)d.name=cleanName(m[1]);
+    m=text.match(/チェックイン日時\s*[：:]\s*(\d{4}-\d{2}-\d{2})\s*(\d{1,2}:\d{2})?/)||text.match(/チェックイン\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);
+    if(m){d.ciDate=normDate(m[1])||m[1];if(m[2])d.ci=m[2];}
+    m=text.match(/泊数\s*[：:]\s*(\d+)/)||text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
+    m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/)||text.match(/大人(\d+)人/);if(m)d.paxAdult=m[1];
+    // 事前カード決済の場合：合計(A)の金額を使用（現地徴収額は0円になるため）
+    const isPrepaid=text.includes('事前カード決済');
+    if(isPrepaid){
+      m=text.match(/合計\(A\)\s*[：:]\s*([\d,]+)円/);if(m)d.price=m[1].replace(/,/g,'');
+    }
+    if(!d.price){
+      m=text.match(/現地徴収額[^：:]*[：:]\s*([\d,]+)円/)||text.match(/合計\(A\)\s*[：:]\s*([\d,]+)円/)||text.match(/合計[：:]\s*([\d,]+)円/);if(m)d.price=m[1].replace(/,/g,'');
+    }
+    m=text.match(/宿泊者連絡先\s*[：:]\s*(\S+)/)||text.match(/(0\d{1,4}[-\s]?\d{2,4}[-\s]?\d{3,4})/);if(m)d.tel=m[1];
+    m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
+  }else if(currentOta==='jalan'){
+    m=text.match(/宿泊代表者氏名\s*[：:]\s*(.+?)(?:　様|　$|\n)/)||text.match(/宿泊代表者氏名\s*[：:]\s*(.+)/);if(m)d.name=cleanName(m[1]);
+    m=text.match(/宿泊日時\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);
+    if(m){d.ciDate=normDate(m[1]);const tm=text.match(/宿泊日時[：:][^\n]*?(\d{1,2}:\d{2})/);if(tm)d.ci=tm[1];}
+    m=text.match(/泊数\s*[：:]\s*(\d+)/)||text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
+    m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/);if(m)d.paxAdult=m[1];
+    m=text.match(/宿泊者への請求額\s*[：:]\s*([\d,]+)円/)||text.match(/合計[：:]\s*([\d,]+)円/);if(m)d.price=m[1].replace(/,/g,'');
+    m=text.match(/宿泊代表者連絡先\s*[：:]\s*(\S+)/)||text.match(/(0\d{1,4}[-\s]?\d{2,4}[-\s]?\d{3,4})/);if(m)d.tel=m[1];
+    m=text.match(/住所\s*[：:]\s*(.+)/);if(m)d.addr=m[1].trim();
+    m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
+    m=text.match(/予約者から宿への要望[^：:]*[：:]\s*([\s\S]+?)(?:\n■|\n━|$)/);if(m)d.memo=m[1].replace(/\n/g,' ').trim();
+  }else if(currentOta==='yahoo'){
+    m=text.match(/宿泊者氏名\s*[：:]\s*(.+)/)||text.match(/氏名\s*[：:]\s*(.+)/)||text.match(/お名前\s*[：:]\s*(.+)/);if(m)d.name=cleanName(m[1]);
+    m=text.match(/到着日\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/)||text.match(/チェックイン[日時]*\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);if(m)d.ciDate=normDate(m[1]);
+    m=text.match(/C\/IN可能時間\s*[：:]\s*(\d{1,2}:\d{2})/)||text.match(/チェックイン.*?(\d{1,2}:\d{2})/);if(m)d.ci=m[1];
+    m=text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
+    m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/);if(m)d.paxAdult=m[1];
+    // 事前決済：「支払金額」を優先取得（\7,380 形式・円形式どちらも対応）
+    m=text.match(/支払金額\s*[：:]\s*\\([\d,]+)/)||text.match(/支払金額　*[：:]\s*\\([\d,]+)/);
+    if(!m)m=text.match(/支払金額\s*　*：?\s*　*\\([\d,]+)/);
+    if(!m){
+      // 「支払金額　　　　　　　　　　　　：　\7,380[消費税込]」のような形式
+      const sm=text.match(/支払金額[^\n]*\\\s*([\d,]+)/);if(sm)m=['',sm[1]];
+    }
+    if(m&&m[1]){d.price=m[1].replace(/[^\d]/g,'');}
+    else{
+      m=text.match(/支払金額\s*　*[：:]?\s*　*([\d,]+)\[消費税込\]/);
+      if(m){d.price=m[1].replace(/,/g,'');}
+      else{
+        const allPrices=text.match(/[\d,]+円/g);if(allPrices){const prices=allPrices.map(p=>parseInt(p.replace(/[^\d]/g,'')));d.price=String(Math.max(...prices));}
+      }
+    }
+    m=text.match(/電話番号\s*[：:]\s*(\S+)/)||text.match(/(0\d{1,4}[-\s]?\d{2,4}[-\s]?\d{3,4})/);if(m)d.tel=m[1];
+    m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
+  }else if(currentOta==='yukoyuko'){
+    m=text.match(/宿泊者氏名\s*[：:]\s*(.+?)(?:[（(]|$)/m);if(m)d.name=cleanName(m[1]);
+    m=text.match(/チェックイン\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);if(m){d.ciDate=normDate(m[1]);const tm=text.match(/チェックイン.*?(\d{1,2}時\d{0,2}分?)/);if(tm)d.ci=normTime(tm[1]);}
+    m=text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
+    m=text.match(/大人\s*[：:]?\s*(\d+)/);if(m)d.paxAdult=m[1];
+    m=text.match(/合計金額\s*[：:]\s*([\d,]+)円/)||text.match(/合計\s*[：:]\s*([\d,]+)円/);if(m)d.price=m[1].replace(/,/g,'');
+    if(text.match(/ペット.*なし/))d.pet='';else if(text.match(/ペット/))d.pet='あり（要確認）';
+    m=text.match(/\d{2,4}[-\s]?\d{3,4}[-\s]?\d{3,4}/);if(m)d.tel=m[0];
+    m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
+  }else if(currentOta==='hp'){
+    m=text.match(/^(\d{5}-\d{3}-\d{6}-\d{6})/m)||text.match(/\[受付番号\]\s*(\S+)/);if(m)d.otaNo=m[1];
+    m=text.match(/(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})より(\d+)泊/)||text.match(/\[宿泊日[^\]]*\]\s*(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})より(\d+)泊/);
+    if(m){d.ciDate=normDate(m[1]);d.nights=parseInt(m[2]);}
+    m=text.match(/大人(\d+)/)||text.match(/\[人数\]\s*大人(\d+)/);if(m)d.paxAdult=m[1];
+    const priceMatches=text.match(/大人\s+[\d,]+\s*円\s*x\s*\d+\s*人\s*=\s*([\d,]+)\s*円/g);
+    if(priceMatches){let total=0;priceMatches.forEach(line=>{const n=line.match(/=\s*([\d,]+)\s*円/);if(n)total+=parseInt(n[1].replace(/,/g,''));});if(total>0)d.price=String(total);}
+    m=text.match(/チェックイン時間\s*\n?(\d{1,2}:\d{2})/)||text.match(/チェックイン.*?(\d{1,2}:\d{2})/);if(m)d.ci=m[1];
+    m=text.match(/お名前\s*\n?([^\n]+)/)||text.match(/\[お名前\]\s*(.+)/);if(m)d.name=cleanName(m[1]);
+    m=text.match(/住所\s*\n?([^\n]+)/)||text.match(/\[住所\]\s*(.+)/);if(m)d.addr=m[1].trim();
+    m=text.match(/電話番号\s*\n?([^\n]+)/)||text.match(/\[電話番号\]\s*(\S+)/);if(m)d.tel=m[1].trim();
+    m=text.match(/ペットの有無\s*\n?([^\n]+)/)||text.match(/\[ペットの有無\]\s*(.+)/);if(m&&!m[1].match(/ではありません/))d.pet=m[1].trim();
+    m=text.match(/備考[　\s]*ご希望など\s*\n([^\n]*)/);if(m&&m[1].trim())d.memo=m[1].trim();
+  }
+  parsedData=d;
+  const body=document.getElementById('parseBody');
+  body.innerHTML=`
+    <div class="pr-row"><span class="pr-label">お客様名</span><span class="pr-val ${d.name?'':'pr-err'}">${d.name?esc(d.name):'読み取れませんでした'}</span></div>
+    <div class="pr-row"><span class="pr-label">チェックイン</span><span class="pr-val">${d.ciDate||'<span class="pr-err">読み取れず</span>'} ${d.ci}</span></div>
+    <div class="pr-row"><span class="pr-label">宿泊日数</span><span class="pr-val">${d.nights}泊</span></div>
+    <div class="pr-row"><span class="pr-label">大人人数</span><span class="pr-val">${d.paxAdult?d.paxAdult+'名':'<span class="pr-err">読み取れず</span>'}</span></div>
+    <div class="pr-row"><span class="pr-label">料金</span><span class="pr-val">${d.price?fmtPrice(d.price):'<span class="pr-err">読み取れず</span>'}</span></div>
+    ${d.tel?`<div class="pr-row"><span class="pr-label">連絡先</span><span class="pr-val">${esc(d.tel)}</span></div>`:''}
+    ${d.pet?`<div class="pr-row"><span class="pr-label">ペット</span><span class="pr-val">${esc(d.pet)}</span></div>`:''}
+    ${d.otaNo?`<div class="pr-row"><span class="pr-label">OTA予約番号</span><span class="pr-val">${esc(d.otaNo)}</span></div>`:''}
+    ${d.addr?`<div class="pr-row"><span class="pr-label">住所</span><span class="pr-val">${esc(d.addr.substring(0,40))}</span></div>`:''}
+    ${d.memo?`<div class="pr-row"><span class="pr-label">備考</span><span class="pr-val">${esc(d.memo.substring(0,80))}</span></div>`:''}
+    <div style="margin-top:6px;font-size:10px;color:var(--ink3)">※読み取れなかった項目は追加後に編集できます</div>`;
+  document.getElementById('parseResult').classList.add('show');
+}
+
+function addToUnassigned(){
+  if(!parsedData)return;
+  parsedData.id=Date.now();
+  parsedData.no=genReceiptNo();
+  unassigned.push({...parsedData});
+  save();renderUnassigned();renderLedger();clearPaste();showTab('unassigned');
+}
+
+// ===== ねっぱんCSV =====
+function siteToSrc(s){
+  if(!s)return 'hp';
+  if(s.includes('楽天'))return 'rakuten';
+  if(s.includes('じゃらん'))return 'jalan';
+  if(s.includes('一休')||s.includes('Yahoo')||s.includes('ヤフー'))return 'yahoo';
+  if(s.includes('ゆこゆこ'))return 'yukoyuko';
+  return 'hp';
+}
+function normNeppanTime(val){
+  if(!val||isNaN(val))return '15:00';
+  const s=String(parseInt(val)).padStart(4,'0');
+  return s.substring(0,2)+':'+s.substring(2,4);
+}
+function parseCsvLine(line){
+  const result=[];let cur='',inQ=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(c==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}
+    else if(c===','&&!inQ){result.push(cur);cur='';}
+    else cur+=c;
+  }
+  result.push(cur);return result;
+}
+function loadCsvFile(input){
+  const file=input.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=function(e){parseCsvContent(e.target.result,file.name);};
+  r.readAsText(file,'Shift-JIS');
+}
+function parseCsvContent(text,filename){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(lines.length<2){showCsvStatus('error','データが見つかりません');return;}
+  const headers=parseCsvLine(lines[0]);
+  const col={};headers.forEach((h,i)=>col[h.trim()]=i);
+  const required=['宿泊者氏名','チェックイン日','泊数'];
+  const missing=required.filter(r=>col[r]===undefined);
+  if(missing.length){showCsvStatus('error',`ねっぱん形式ではないCSVです（列「${missing.join('、')}」が見つかりません）`);return;}
+  csvRows=[];
+  for(let i=1;i<lines.length;i++){
+    if(!lines[i].trim())continue;
+    const cells=parseCsvLine(lines[i]);
+    const get=(name)=>{const idx=col[name];return idx!==undefined?(cells[idx]||'').trim():'';};
+    const name=get('宿泊者氏名')||get('予約者氏名');
+    const ciDate=get('チェックイン日').replace(/\//g,'-');
+    if(!name||!ciDate)continue;
+    const ku=get('予約区分');
+    const src=siteToSrc(get('予約サイト名称'));
+    const nights=parseInt(get('泊数'))||1;
+    const paxAdult=get('大人人数計')||get('大人人数')||'';
+    const price=get('料金合計額').replace(/[,，]/g,'')||'';
+    const tel=get('電話番号');
+    const addr=get('住所1');
+    const memoArr=[get('備考1'),get('備考2'),get('メモ')].filter(Boolean);
+    const food=get('食事');if(food&&food!=='食事別')memoArr.push('食事:'+food);
+    const plan=get('商品プラン名称');if(plan)memoArr.push('プラン:'+plan.substring(0,20));
+    const otaNo=get('予約番号');
+    const ciTime=normNeppanTime(get('チェックイン時刻'));
+    csvRows.push({ku,name,ciDate,nights,paxAdult,price,tel,addr,memo:memoArr.join(' / '),src,otaNo,ci:ciTime,co:'10:00',isStart:true,selected:ku==='予約'||ku==='変更'});
+  }
+  showCsvStatus('ok',`${filename}　${csvRows.length}件を読み込みました`);
+  document.getElementById('csvFilterBar').style.display='block';
+  document.getElementById('csvActions').style.display='flex';
+  renderCsvPreview();
+}
+function showCsvStatus(type,msg){
+  const el=document.getElementById('csvStatus');
+  el.style.display='block';
+  el.style.cssText=`display:block;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:600;${type==='ok'?'background:#e8f5e9;color:#2a7a4b;border:1.5px solid #a8dbb8':'background:#fce4ec;color:#c62828;border:1.5px solid #ef9a9a'}`;
+  el.textContent=(type==='ok'?'✅ ':'❌ ')+msg;
+}
+const KU_STYLE={'予約':'background:#e8f5e9;color:#2a7a4b','キャンセル':'background:#fce4ec;color:#c62828','変更':'background:#fff8e1;color:#e65100'};
+function renderCsvPreview(){
+  if(!csvRows.length){document.getElementById('csvPreview').innerHTML='';return;}
+  const showNew=document.getElementById('csvShowNew').checked;
+  const showCancel=document.getElementById('csvShowCancel').checked;
+  const showChange=document.getElementById('csvShowChange').checked;
+  const skipDup=document.getElementById('csvSkipDup').checked;
+  const visible=csvRows.filter(r=>{
+    if(r.ku==='予約'&&!showNew)return false;
+    if(r.ku==='キャンセル'&&!showCancel)return false;
+    if(r.ku==='変更'&&!showChange)return false;
+    return true;
+  });
+  if(!visible.length){document.getElementById('csvPreview').innerHTML='<div class="empty-msg">表示する予約がありません</div>';return;}
+  const existingOtaNos=new Set([...Object.values(bks),...unassigned].filter(b=>b.otaNo).map(b=>b.otaNo));
+  let html=`<table style="width:100%;border-collapse:collapse;font-size:11px;background:var(--paper);border-radius:8px;overflow:hidden">
+    <thead><tr style="background:var(--hd);color:#f5f0e8">
+      <th style="padding:7px 5px;width:28px"><input type="checkbox" id="csvAllChk" onchange="csvSelectAll(this.checked)"></th>
+      <th style="padding:7px 5px;text-align:left">区分</th>
+      <th style="padding:7px 5px;text-align:left">お客様名</th>
+      <th style="padding:7px 5px;text-align:left">CI日</th>
+      <th style="padding:7px 5px;text-align:center">泊</th>
+      <th style="padding:7px 5px;text-align:left">料金</th>
+      <th style="padding:7px 5px;text-align:left">OTA</th>
+    </tr></thead><tbody>`;
+  visible.forEach((r,vi)=>{
+    const isDup=r.otaNo&&existingOtaNos.has(r.otaNo);
+    const isCancel=r.ku==='キャンセル';
+    const shouldSkip=skipDup&&isDup;
+    const checked=r.selected&&!shouldSkip&&!isCancel;
+    const rowStyle=isDup?'background:#fffde7':isCancel?'background:#fce4ec;opacity:.7':'';
+    const dupBadge=isDup?'<span style="background:#ff9800;color:#fff;border-radius:3px;padding:1px 4px;font-size:9px;margin-left:3px">重複</span>':'';
+    const sc=SRC_HEX[r.src]||'#888';
+    html+=`<tr style="${rowStyle}">
+      <td style="padding:5px;text-align:center"><input type="checkbox" class="csv-row-chk" data-vi="${vi}" ${checked?'checked':''} ${isCancel||shouldSkip?'disabled':''}></td>
+      <td style="padding:5px"><span style="font-size:9px;font-weight:700;border-radius:3px;padding:2px 5px;${KU_STYLE[r.ku]||''}">${r.ku}</span></td>
+      <td style="padding:5px;font-weight:600">${esc(r.name)}${dupBadge}</td>
+      <td style="padding:5px;font-family:'DM Mono',monospace">${r.ciDate}</td>
+      <td style="padding:5px;text-align:center">${r.nights}</td>
+      <td style="padding:5px">${r.price?Number(r.price).toLocaleString()+'円':'–'}</td>
+      <td style="padding:5px"><span style="background:${sc};color:#fff;border-radius:3px;padding:2px 5px;font-size:9px;font-weight:700">${SRC_LABEL[r.src]||r.src}</span></td>
+    </tr>`;
+  });
+  html+='</tbody></table>';
+  document.getElementById('csvPreview').innerHTML=html;
+  document.querySelectorAll('.csv-row-chk').forEach(chk=>{
+    chk.addEventListener('change',function(){visible[parseInt(this.dataset.vi)].selected=this.checked;updateCsvImportBtn();});
+  });
+  updateCsvImportBtn();
+}
+function updateCsvImportBtn(){
+  const cnt=csvRows.filter(r=>r.selected&&r.ku!=='キャンセル').length;
+  document.getElementById('csvImportBtn').textContent=`✅ 選択した ${cnt} 件を取込`;
+}
+function csvSelectAll(checked){
+  csvRows.forEach(r=>{if(r.ku!=='キャンセル')r.selected=checked;});
+  document.querySelectorAll('.csv-row-chk').forEach(chk=>{if(!chk.disabled)chk.checked=checked;});
+  updateCsvImportBtn();
+}
+function importCsvSelected(){
+  const skipDup=document.getElementById('csvSkipDup').checked;
+  const existingOtaNos=new Set([...Object.values(bks),...unassigned].filter(b=>b.otaNo).map(b=>b.otaNo));
+  // チェックボックスから直接選択状態を読む
+  const checkedVis=new Set();
+  document.querySelectorAll('.csv-row-chk:checked').forEach(chk=>checkedVis.add(parseInt(chk.dataset.vi)));
+  // visibleリストを再構築
+  const showNew=document.getElementById('csvShowNew').checked;
+  const showCancel=document.getElementById('csvShowCancel').checked;
+  const showChange=document.getElementById('csvShowChange').checked;
+  const visible=csvRows.filter(r=>{
+    if(r.ku==='予約'&&!showNew)return false;
+    if(r.ku==='キャンセル'&&!showCancel)return false;
+    if(r.ku==='変更'&&!showChange)return false;
+    return true;
+  });
+  let count=0;
+  visible.forEach((r,vi)=>{
+    if(!checkedVis.has(vi))return;
+    if(r.ku==='キャンセル')return;
+    if(skipDup&&r.otaNo&&existingOtaNos.has(r.otaNo))return;
+    unassigned.push({name:r.name,src:r.src,nights:r.nights,ci:r.ci,co:r.co,paxAdult:r.paxAdult,price:r.price,tel:r.tel,addr:r.addr,memo:r.memo,otaNo:r.otaNo,ciDate:r.ciDate,isStart:true,no:genReceiptNo(),id:Date.now()+count,futon:'',pet:''});
+    count++;
+  });
+  if(!count){alert('取込対象がありません。\nチェックボックスにチェックが入っているか確認してください。');return;}
+  save();renderUnassigned();renderLedger();
+  showCsvStatus('ok',`${count}件を未割当リストに追加しました！`);
+  csvRows=[];
+  document.getElementById('csvPreview').innerHTML='';
+  document.getElementById('csvFilterBar').style.display='none';
+  document.getElementById('csvActions').style.display='none';
+  document.getElementById('csvFileInput').value='';
+  setTimeout(()=>showTab('unassigned'),800);
+}
+function clearCsv(){
+  csvRows=[];
+  document.getElementById('csvPreview').innerHTML='';
+  document.getElementById('csvStatus').style.display='none';
+  document.getElementById('csvFilterBar').style.display='none';
+  document.getElementById('csvActions').style.display='none';
+  document.getElementById('csvFileInput').value='';
+}
+
+// ===== 予約台帳 =====
+function allBookings(){
+  const list=[];
+  Object.entries(bks).forEach(([key,bk])=>{
+    if(bk.isStart===false)return;
+    const idx=key.indexOf('_');
+    list.push({...bk,room:key.substring(0,idx),ciDate:bk.ciDate||key.substring(idx+1),assigned:true});
+  });
+  unassigned.forEach(u=>list.push({...u,room:'未割当',assigned:false}));
+  list.sort((a,b)=>(a.ciDate||'').localeCompare(b.ciDate||''));
+  return list;
+}
+function renderLedger(){
+  const q=(document.getElementById('searchInput')?.value||'').toLowerCase().trim();
+  const all=allBookings();
+  window._ledgerCache=all;
+  const filtered=all.filter(b=>{
+    if(!q)return true;
+    return (b.name||'').toLowerCase().includes(q)
+      ||(b.room||'').includes(q)
+      ||(SRC_LABEL[b.src]||'').toLowerCase().includes(q)
+      ||(b.ciDate||'').includes(q)
+      ||(String(b.no||'')).toLowerCase().includes(q)
+      ||(b.tel||'').includes(q);
+  });
+  if(!filtered.length){
+    document.getElementById('ledgerTable').innerHTML='<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--ink3)">'+(q?'検索結果がありません':'予約データがありません')+'</td></tr>';
+    return;
+  }
+  let h=`<thead><tr><th>受付番号</th><th>お客様名</th><th>CI日</th><th>泊</th><th>部屋</th><th>人数</th><th>料金</th><th>経路</th><th>電話番号</th></tr></thead><tbody>`;
+  filtered.forEach((b,bi)=>{
+    const lbl=SRC_LABEL[b.src]||b.src||'';
+    const css=SRC_CSS[b.src]||'bk-kuchi';
+    h+=`<tr class="${b.assigned?'':'unassigned-row'}" data-idx="${all.indexOf(b)}" onclick="editFromLedgerIdx(this)" style="cursor:pointer">
+      <td><span class="no-badge">${b.no||'–'}</span></td>
+      <td style="font-weight:500">${esc(b.name)}</td>
+      <td style="font-family:'DM Mono',monospace">${b.ciDate||'未定'}</td>
+      <td>${b.nights||1}泊</td>
+      <td style="font-family:'DM Mono',monospace;font-weight:700">${b.assigned?b.room:'<span style="color:var(--unassigned)">未割当</span>'}</td>
+      <td>${paxSummary(b)||'–'}</td>
+      <td>${b.price?fmtPrice(b.price):'–'}</td>
+      <td><span class="ota-badge ${css}" style="padding:2px 5px;font-size:10px">${lbl}</span></td>
+      <td style="font-size:11px;color:var(--ink2)">${b.tel||'–'}</td>
+    </tr>`;
+  });
+  document.getElementById('ledgerTable').innerHTML=h+'</tbody>';
+}
+function editFromLedgerIdx(tr){
+  try{
+    const b=window._ledgerCache&&window._ledgerCache[parseInt(tr.dataset.idx)];
+    if(!b)return;
+    if(b.assigned&&b.room&&b.ciDate)editBk(b.room,b.ciDate);
+    else{const idx=unassigned.findIndex(u=>u.id===b.id||(u.ciDate===b.ciDate&&u.name===b.name));if(idx>=0)editUnassigned(idx);}
+  }catch(e){console.error(e);}
+}
+
+// ===== 部屋状態 =====
+const STATUS_LIST=['empty','dirty','cleaning','cleaned','occupied','closed'];
+const STATUS_INFO={empty:{label:'空室',emoji:'',cls:'s-empty'},dirty:{label:'未清掃（要清掃）',emoji:'⚠️',cls:'s-dirty'},cleaning:{label:'清掃中',emoji:'🧹',cls:'s-cleaning'},cleaned:{label:'清掃済み',emoji:'✅',cls:'s-cleaned'},occupied:{label:'宿泊中',emoji:'🛌',cls:'s-occupied'},closed:{label:'使用不可',emoji:'🚫',cls:'s-closed'}};
+
+function loadRoomStatus(){const s=localStorage.getItem('yado_rs');if(s)roomStatus=JSON.parse(s);ROOMS.forEach(r=>{if(!roomStatus[r.no])roomStatus[r.no]='empty';});}
+function saveRoomStatus(){localStorage.setItem('yado_rs',JSON.stringify(roomStatus));}
+
+function getAutoStatus(roomNo){
+  const today=new Date();const todayStr=fmt(today.getFullYear(),today.getMonth()+1,today.getDate());
+  const todayEntry=bks[roomNo+'_'+todayStr];
+  const isCiToday=todayEntry&&todayEntry.isStart!==false;
+
+  // 全予約を走査してCO日・宿泊中を正確に判定
+  let isCoToday=false;
+  for(const [key,bk] of Object.entries(bks)){
+    if(bk.isStart===false)continue;
+    const idx=key.indexOf('_');const room=key.substring(0,idx);if(room!==roomNo)continue;
+    const ds=key.substring(idx+1);
+    const nights=bk.nights||1;
+    const coD=new Date(ds+'T00:00:00');coD.setDate(coD.getDate()+nights);
+    const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
+    // 宿泊中：CI日<=今日 かつ 今日<CO日
+    if(ds<=todayStr&&todayStr<coStr)return 'occupied';
+    // CO日が今日
+    if(coStr===todayStr)isCoToday=true;
+  }
+  if(isCoToday&&!isCiToday)return 'cleaning';
+  if(isCiToday)return 'empty';
+  return null;
+}
+
+function renderRooms(){
+  loadRoomStatus();
+  const today=new Date();const todayStr=fmt(today.getFullYear(),today.getMonth()+1,today.getDate());
+  ['honkan','kawazoi'].forEach(type=>{
+    const grid=document.getElementById('rg-'+type);if(!grid)return;
+    grid.innerHTML=ROOMS.filter(r=>r.type===type).map(r=>{
+      const manualSt=roomStatus[r.no]||'empty';
+      const autoSt=getAutoStatus(r.no);
+      // 優先順位：使用不可 > dirty(手動) > 自動判定 > 手動設定 > empty
+      let st;
+      if(manualSt==='closed'){
+        st='closed';
+      }else if(manualSt==='dirty'){
+        st='dirty';
+      }else if(manualSt==='cleaned'||manualSt==='occupied'){
+        st=manualSt;
+      }else{
+        st=autoSt||manualSt;
+      }
+      const si=STATUS_INFO[st];
+      const todayBk=bks[r.no+'_'+todayStr];
+      let nextInfo='',coInfo='';
+      if((st==='cleaning'||st==='empty')&&todayBk&&todayBk.isStart!==false){
+        nextInfo=`CI: ${todayBk.ci||'15:00'}　布団: ${todayBk.futon?todayBk.futon+'枚':'未設定'}`;
+      }
+      if(st==='occupied'){
+        for(const [key,bk] of Object.entries(bks)){
+          if(bk.isStart===false)continue;
+          const idx=key.indexOf('_');if(key.substring(0,idx)!==r.no)continue;
+          const ds=key.substring(idx+1);
+          const coD=new Date(ds);coD.setDate(coD.getDate()+(bk.nights||1));
+          const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
+          if(ds<=todayStr&&todayStr<coStr){coInfo=`CO: ${coStr}　${(bk.name||'').substring(0,6)}`;break;}
+        }
+      }
+      // 清掃後布団枚数（全部屋表示）
+      const futonSet=roomStatus['futon_'+r.no]||'';
+      const closedNote=roomStatus['closedNote_'+r.no]||'';
+      const displayInfo=coInfo||nextInfo;
+      return `<div class="room-card ${si.cls}" onclick="openRoomDetail('${r.no}')">
+        <div class="room-card-no">${r.no}</div>
+        <div class="room-card-status">${si.emoji} ${si.label}</div>
+        ${displayInfo?`<div class="room-card-info">${esc(displayInfo)}</div>`:''}
+        <div class="room-card-futon">🛏 清掃後布団: ${futonSet?futonSet+'枚':'未設定'}</div>
+        ${st==='empty'&&todayBk?`<div class="room-card-info" style="color:#2a5fa8;font-weight:600">CI待ち</div>`:''}
+        ${st==='dirty'?`<button class="btn btn-green btn-sm" style="margin-top:6px;width:100%;justify-content:center" onclick="event.stopPropagation();markCleaned('${r.no}')">✅ 清掃完了</button>`:''}
+        ${st==='closed'&&closedNote?`<div class="room-card-info" style="color:#c0392b;white-space:normal;line-height:1.4">📋 ${esc(closedNote)}</div>`:''}
+      </div>`;
+    }).join('');
+  });
+}
+let currentRoomNo=null;
+function openRoomDetail(roomNo){
+  currentRoomNo=roomNo;
+  loadRoomStatus();
+  const st=roomStatus[roomNo]||'empty';
+  const note=roomStatus['closedNote_'+roomNo]||'';
+  document.getElementById('roomDetailTtl').textContent=`🏠 ${roomNo}号室 — 状態変更`;
+  const btns=document.getElementById('roomStatusBtns');
+  btns.innerHTML=STATUS_LIST.map(s=>{
+    const si=STATUS_INFO[s];
+    const active=(st===s);
+    return `<button class="btn ${active?'btn-gold':'btn-out'}" style="font-size:12px" onclick="selectRoomStatus('${s}',this)">${si.emoji} ${si.label}</button>`;
+  }).join('');
+  document.getElementById('roomClosedNoteWrap').style.display=st==='closed'?'block':'none';
+  document.getElementById('roomClosedNote').value=note;
+  document.getElementById('roomDetailMod').classList.add('on');
+}
+function selectRoomStatus(st,el){
+  document.querySelectorAll('#roomStatusBtns .btn').forEach(b=>{b.classList.remove('btn-gold');b.classList.add('btn-out');});
+  el.classList.remove('btn-out');el.classList.add('btn-gold');
+  document.getElementById('roomClosedNoteWrap').style.display=st==='closed'?'block':'none';
+}
+function saveRoomDetail(){
+  if(!currentRoomNo)return;
+  const activeBtns=document.querySelectorAll('#roomStatusBtns .btn-gold');
+  if(!activeBtns.length)return;
+  // ボタンのonclick属性からstatus keyを逆引き
+  const st=STATUS_LIST.find(s=>activeBtns[0].getAttribute('onclick').includes("'"+s+"'"));
+  if(!st)return;
+  roomStatus[currentRoomNo]=st;
+  if(st==='closed'){
+    roomStatus['closedNote_'+currentRoomNo]=document.getElementById('roomClosedNote').value.trim();
+  }else{
+    delete roomStatus['closedNote_'+currentRoomNo];
+  }
+  saveRoomStatus();
+  showToast('✅ 部屋状態を保存しました');
+  closeRoomDetail();
+  renderRooms();
+}
+function closeRoomDetail(){document.getElementById('roomDetailMod').classList.remove('on');currentRoomNo=null;}
+
+function cycleStatusManual(roomNo,currentSt){
+  openRoomDetail(roomNo);
+}
+
+// チェックアウト当日に未清掃(dirty)を自動セット
+function autoMarkDirty(){
+  const today=new Date();const todayStr=fmt(today.getFullYear(),today.getMonth()+1,today.getDate());
+  ROOMS.forEach(r=>{
+    const curSt=roomStatus[r.no]||'empty';
+    if(curSt==='closed'||curSt==='occupied'||curSt==='dirty'||curSt==='cleaned'||curSt==='cleaning')return;
+    for(const [key,bk] of Object.entries(bks)){
+      if(bk.isStart===false)continue;
+      const idx=key.indexOf('_');if(key.substring(0,idx)!==r.no)continue;
+      const ds=key.substring(idx+1);
+      const coD=new Date(ds+'T00:00:00');coD.setDate(coD.getDate()+(bk.nights||1));
+      const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
+      if(coStr===todayStr){
+        const todayBk=bks[r.no+'_'+todayStr];
+        if(!todayBk||todayBk.isStart===false){
+          roomStatus[r.no]='dirty';
+          saveRoomStatus();
+        }
+        break;
+      }
+    }
+  });
+}
+
+// 清掃完了ボタン押下
+function markCleaned(roomNo){
+  roomStatus[roomNo]='cleaned';
+  saveRoomStatus();
+  showToast('✅ '+roomNo+'号室　清掃完了にしました');
+  renderRooms();
+  render();
+}
+
+// ===== 清掃指示書 =====
+// 非表示にした部屋（日付別）
+let cleaningHidden={};  // {dateStr: Set(roomNo)}
+
+function initCleanDate(){const el=document.getElementById('cleanDate');if(el&&!el.value){const n=new Date();el.value=fmt(n.getFullYear(),n.getMonth()+1,n.getDate());}}
+
+function hideCleanRoom(dateStr,room){
+  if(!cleaningHidden[dateStr])cleaningHidden[dateStr]=new Set();
+  cleaningHidden[dateStr].add(room);
+  renderCleaning();
+}
+function restoreCleanRoom(dateStr,room){
+  if(cleaningHidden[dateStr])cleaningHidden[dateStr].delete(room);
+  renderCleaning();
+}
+
+function renderCleaning(){
+  initCleanDate();
+  const dateStr=document.getElementById('cleanDate').value;if(!dateStr)return;
+  const hiddenSet=cleaningHidden[dateStr]||new Set();
+  const coRooms=[];
+  // 当日COの部屋
+  Object.entries(bks).forEach(([key,bk])=>{
+    if(bk.isStart===false)return;
+    const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
+    const coD=new Date(ds+'T00:00:00');coD.setDate(coD.getDate()+(bk.nights||1));
+    const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
+    if(coStr===dateStr)coRooms.push({room,bk,ds,carryOver:false});
+  });
+  // 前日以前COで非表示にされていた持ち越し部屋（cleaningHiddenから復元対象）
+  // ※持ち越し部屋は別日のhiddenSetに残っているものを検出
+  const pastCarryOvers=[];
+  Object.entries(cleaningHidden).forEach(([pastDate,hidSet])=>{
+    if(pastDate>=dateStr)return;
+    hidSet.forEach(room=>{
+      // その部屋が今日COではなく、当日COリストにもない場合は持ち越し候補
+      const alreadyInToday=coRooms.some(r=>r.room===room);
+      if(!alreadyInToday){
+        // 該当部屋の予約を探す
+        for(const [key,bk] of Object.entries(bks)){
+          if(bk.isStart===false)continue;
+          const ki=key.indexOf('_');const kr=key.substring(0,ki);if(kr!==room)continue;
+          const ds=key.substring(ki+1);
+          const coD=new Date(ds+'T00:00:00');coD.setDate(coD.getDate()+(bk.nights||1));
+          const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
+          if(coStr===pastDate){
+            pastCarryOvers.push({room,bk,ds,carryOver:true,coDate:pastDate});
+            break;
+          }
+        }
+      }
+    });
+  });
+  const ciRooms={};
+  Object.entries(bks).forEach(([key,bk])=>{
+    if(bk.isStart===false)return;
+    const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
+    if(ds===dateStr)ciRooms[room]=bk;
+  });
+
+  // 全対象部屋（当日CO＋持ち越し）を結合
+  const allCleanRooms=[...coRooms,...pastCarryOvers];
+
+  // dirtyステータスの部屋を追加（当日COリスト・持ち越しリストにまだ入っていないもの）
+  ROOMS.forEach(r=>{
+    if(roomStatus[r.no]!=='dirty')return;
+    const already=allCleanRooms.some(x=>x.room===r.no);
+    if(already)return;
+    // dirty部屋のCO済み予約を探す
+    let foundBk=null,foundDs=null,foundCoDate=null;
+    for(const [key,bk] of Object.entries(bks)){
+      if(bk.isStart===false)continue;
+      const ki=key.indexOf('_');if(key.substring(0,ki)!==r.no)continue;
+      const ds=key.substring(ki+1);
+      const coD=new Date(ds+'T00:00:00');coD.setDate(coD.getDate()+(bk.nights||1));
+      const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
+      if(coStr<dateStr){foundBk=bk;foundDs=ds;foundCoDate=coStr;}
+    }
+    if(foundBk){
+      allCleanRooms.push({room:r.no,bk:foundBk,ds:foundDs,carryOver:true,coDate:foundCoDate});
+    }
+  });
+
+  const content=document.getElementById('cleaningContent');
+  if(!allCleanRooms.length){content.innerHTML='<div class="empty-msg">この日の清掃対象部屋はありません</div>';return;}
+  allCleanRooms.sort((a,b)=>a.room.localeCompare(b.room));
+
+  // 非表示の部屋（当日分）
+  const hiddenRooms=coRooms.filter(({room})=>hiddenSet.has(room));
+  const visibleRooms=allCleanRooms.filter(({room,carryOver})=>carryOver||!hiddenSet.has(room));
+
+  let hiddenHtml='';
+  if(hiddenRooms.length){
+    hiddenHtml=`<div style="background:#fff8e1;border:1.5px solid #ffc107;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px">
+      <span style="font-weight:700;color:#856404">⚠️ 今日は掃除しない部屋：</span>
+      <span style="color:var(--ink2)">${hiddenRooms.map(({room})=>`${room}号室`).join('、')}</span>
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+        ${hiddenRooms.map(({room})=>`<button class="btn btn-out btn-sm" onclick="restoreCleanRoom('${dateStr}','${room}')">↩ ${room}号室を戻す</button>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  const cardsHtml=visibleRooms.map(({room,bk,carryOver,coDate})=>{
+    const nextBk=ciRooms[room];
+    const grp=ROOMS.find(r=>r.no===room);
+    const grpLabel=grp?GRP_LABEL[grp.type]:'';
+    const safeRoom=room.replace(/[^a-zA-Z0-9]/g,'_');
+    const savedFuton=roomStatus['futon_'+room]||'';
+    const savedNote=roomStatus['futonNote_'+room]||'';
+    const futonOptions=[0,1,2,3,4,5,6].map(n=>`<option value="${n}" ${savedFuton===String(n)?'selected':''}>${n}枚</option>`).join('');
+    const prevFuton=bk.futon||'';
+    const savedPreFuton=roomStatus['preFuton_'+room]||prevFuton||'';
+    const preFutonOptions=[0,1,2,3,4,5,6].map(n=>`<option value="${n}" ${savedPreFuton===String(n)?'selected':''}>${n}枚</option>`).join('');
+
+    // カードの色とラベルを区別
+    const cardBorderColor=carryOver?'#e57373':'#64b5f6';
+    const cardBg=carryOver?'#fff8f8':'#f8fbff';
+    const statusBadge=carryOver
+      ?`<span style="background:#e57373;color:#fff;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700">📦 持ち越し清掃（${coDate}CO）</span>`
+      :`<span style="background:#64b5f6;color:#fff;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700">🚪 本日CO（お客様在室の可能性あり）</span>`;
+
+    return `<div class="clean-card" id="cc_${safeRoom}" style="border-color:${cardBorderColor};background:${cardBg}">
+      <div class="clean-card-hd">
+        <span class="clean-room-no">${room}</span>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:700">${grpLabel}</div>
+          <div class="clean-type">CO: ${bk.co||'10:00'}　前泊: ${esc(bk.name||'')}様</div>
+          <div style="margin-top:4px">${statusBadge}</div>
+        </div>
+        ${!carryOver?`<button class="btn btn-out btn-sm" style="font-size:11px;color:var(--red);border-color:var(--red)" onclick="hideCleanRoom('${dateStr}','${room}')" title="今日は掃除しない">🗑 今日は掃除しない</button>`:''}
+      </div>
+      <div class="clean-rows">
+        ${nextBk?`<div class="clean-row">
+          <span class="clean-label">次のCI</span>
+          <span class="clean-val">${nextBk.ci||'15:00'}　${esc(nextBk.name||'')}様</span>
+        </div>`:'<div style="font-size:11px;color:var(--ink3);padding:4px 0">次の予約なし（空室準備）</div>'}
+        <div class="clean-row">
+          <span class="clean-label" style="color:#c0392b">清掃前<br>布団枚数</span>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <select class="futon-select" id="preFuton_${safeRoom}" onchange="savePreFuton('${room}',this.value)" style="border-color:#e0b0b0">
+              <option value="">確認中</option>${preFutonOptions}
+            </select>
+            <span style="font-size:10px;color:var(--ink3)">（現在の枚数）</span>
+          </div>
+        </div>
+        <div class="clean-row">
+          <span class="clean-label" style="color:#2a7a4b">清掃後<br>布団枚数</span>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select class="futon-select" id="futon_${safeRoom}" onchange="saveFutonSetting('${room}',this.value,null)" style="border-color:#a8d5b5">
+              <option value="">選択</option>${futonOptions}
+            </select>
+            <input class="futon-note" id="futonNote_${safeRoom}" value="${esc(savedNote)}" placeholder="ベッド追加・その他メモ" onchange="saveFutonSetting('${room}',null,this.value)">
+          </div>
+        </div>
+        ${nextBk&&nextBk.pet?`<div class="clean-row"><span class="clean-label">ペット</span><span class="clean-val">🐾 ${esc(nextBk.pet)}</span></div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  content.innerHTML=hiddenHtml+cardsHtml;
+  if(!visibleRooms.length&&hiddenRooms.length){
+    content.innerHTML+=`<div class="empty-msg" style="color:var(--ink3)">本日の清掃対象部屋はすべて非表示です</div>`;
+  }
+}
+
+function savePreFuton(room,val){
+  roomStatus['preFuton_'+room]=val;
+  saveRoomStatus();
+  showToast('💾 清掃前布団枚数を保存しました');
+}
+
+function saveFutonSetting(room,futon,note){
+  if(futon!==null){
+    roomStatus['futon_'+room]=futon;
+    // 部屋状態にも反映
+  }
+  if(note!==null)roomStatus['futonNote_'+room]=note;
+  saveRoomStatus();
+  showToast('💾 布団設定を保存しました');
+}
+
+function copyCleaningMsg(){
+  initCleanDate();
+  const dateStr=document.getElementById('cleanDate').value;if(!dateStr){alert('日付を選択してください');return;}
+  const hiddenSet=cleaningHidden[dateStr]||new Set();
+
+  // 当日CO部屋を収集
+  const todayCoRooms=[];
+  Object.entries(bks).forEach(([key,bk])=>{
+    if(bk.isStart===false)return;
+    const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
+    const coD=new Date(ds+'T00:00:00');coD.setDate(coD.getDate()+(bk.nights||1));
+    const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
+    if(coStr===dateStr&&!hiddenSet.has(room))todayCoRooms.push({room,bk,carryOver:false});
+  });
+
+  // 前日以前CO（持ち越し）部屋を収集
+  const carryOverRooms=[];
+  Object.entries(cleaningHidden).forEach(([pastDate,hidSet])=>{
+    if(pastDate>=dateStr)return;
+    hidSet.forEach(room=>{
+      const alreadyToday=todayCoRooms.some(r=>r.room===room);
+      if(!alreadyToday){
+        for(const [key,bk] of Object.entries(bks)){
+          if(bk.isStart===false)continue;
+          const ki=key.indexOf('_');const kr=key.substring(0,ki);if(kr!==room)continue;
+          const ds=key.substring(ki+1);
+          const coD=new Date(ds+'T00:00:00');coD.setDate(coD.getDate()+(bk.nights||1));
+          const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
+          if(coStr===pastDate){carryOverRooms.push({room,bk,carryOver:true,coDate:pastDate});break;}
+        }
+      }
+    });
+  });
+
+  carryOverRooms.sort((a,b)=>a.room.localeCompare(b.room));
+  todayCoRooms.sort((a,b)=>a.room.localeCompare(b.room));
+
+  const [y,mo,d]=dateStr.split('-');
+  let msg=`🧹 清掃指示 ${parseInt(mo)}月${parseInt(d)}日\n`;
+
+  // 布団情報を組み立てるヘルパー
+  function futonLine(room,bk){
+    const safeRoom=room.replace(/[^a-zA-Z0-9]/g,'_');
+    const preFutonEl=document.getElementById('preFuton_'+safeRoom);
+    const futonEl=document.getElementById('futon_'+safeRoom);
+    const noteEl=document.getElementById('futonNote_'+safeRoom);
+    const preFuton=preFutonEl?preFutonEl.value:(roomStatus['preFuton_'+room]||bk.futon||'');
+    const futon=futonEl?futonEl.value:(roomStatus['futon_'+room]||'');
+    const note=noteEl?noteEl.value:(roomStatus['futonNote_'+room]||'');
+    const before=preFuton?preFuton+'枚':'?枚';
+    const after=futon?futon+'枚':'?枚';
+    const noteStr=note?`（${note}）`:'';
+    return `布団 ${before}→${after}${noteStr}`;
+  }
+
+  // 🔴 すぐ清掃できる部屋（持ち越し）
+  if(carryOverRooms.length){
+    msg+=`\n🔴 すぐ清掃できる部屋\n`;
+    msg+=`━━━━━━━━━\n`;
+    carryOverRooms.forEach(({room,bk})=>{
+      msg+=`${room}号室　${futonLine(room,bk)}\n`;
+    });
+  }
+
+  // 🚪 本日COの部屋（随時対応）
+  if(todayCoRooms.length){
+    msg+=`\n🚪 本日COの部屋（随時対応）\n`;
+    msg+=`━━━━━━━━━\n`;
+    todayCoRooms.forEach(({room,bk})=>{
+      msg+=`${room}号室　${futonLine(room,bk)}\n`;
+    });
+  }
+
+  if(!carryOverRooms.length&&!todayCoRooms.length){
+    msg+='\nこの日の清掃対象部屋はありません\n';
+  }
+
+  // 掃除しない部屋
+  const hiddenList=[...hiddenSet];
+  if(hiddenList.length){msg+=`\n⏭ 本日掃除なし: ${hiddenList.map(r=>r+'号室').join('、')}\n`;}
+
+  msg+='\nよろしくお願いします🙏';
+
+  try{
+    const ta=document.getElementById('cleaningCopyText');ta.value=msg;ta.select();document.execCommand('copy');
+    alert('📋 コピーしました！LINEに貼り付けてください。');
+  }catch(e){
+    if(navigator.clipboard)navigator.clipboard.writeText(msg).then(()=>alert('📋 コピーしました！'));
+  }
+}
+
+// ===== 精算・伝票 =====
+function saveCheckoutData(){localStorage.setItem('yado_co',JSON.stringify(checkoutData));}
+
+// ===== 月次集計 =====
+function toggleMonthly(){
+  const panel=document.getElementById('monthlyPanel');
+  const btn=document.getElementById('btnMonthly');
+  const isOpen=panel.style.display!=='none';
+  panel.style.display=isOpen?'none':'block';
+  btn.style.background=isOpen?'':('var(--hd)');
+  btn.style.color=isOpen?'':'var(--gold)';
+  if(!isOpen){
+    // セレクト初期化
+    const yn=document.getElementById('monthlyYear');
+    const mn=document.getElementById('monthlyMonth');
+    if(!yn.options.length){
+      const now=new Date();
+      for(let y=now.getFullYear()-1;y<=now.getFullYear()+1;y++){
+        yn.add(new Option(y+'年',y));
+      }
+      yn.value=now.getFullYear();
+      for(let m=1;m<=12;m++) mn.add(new Option(m+'月',m));
+      mn.value=now.getMonth()+1;
+    }
+    renderMonthly();
+  }
+}
+
+function renderMonthly(){
+  const y=parseInt(document.getElementById('monthlyYear').value);
+  const mo=parseInt(document.getElementById('monthlyMonth').value);
+  if(!y||!mo)return;
+  const startStr=fmt(y,mo,1);
+  const endD=new Date(y,mo,0);
+  const endStr=fmt(y,mo,endD.getDate());
+
+  const PAY_LABELS={cash:'現金',card:'カード',ota_rakuten:'楽天',ota_jalan:'じゃらん',ota_yahoo:'Yahoo/一休',ota_yukoyuko:'ゆこゆこ',paypay:'PayPay',dpay:'d払い'};
+  const keys=Object.keys(PAY_LABELS);
+  let totals={};keys.forEach(k=>totals[k]=0);
+  let grandTotal=0,paidCount=0,unpaidCount=0,unpaidTotal=0,roomNights=0;
+
+  Object.entries(bks).forEach(([key,bk])=>{
+    if(bk.isStart===false)return;
+    const idx=key.indexOf('_');const ds=key.substring(idx+1);
+    if(ds<startStr||ds>endStr)return;
+    const cd=checkoutData[key]||{extraItems:[],paid:false};
+    if(!cd.payMethod&&SRC_TO_PAY[bk.src])cd.payMethod=SRC_TO_PAY[bk.src];
+    const base=parseInt(bk.price||0);
+    const isOta=['rakuten','jalan','yahoo','yukoyuko'].includes(bk.src||'');
+    const petFee=isOta&&bk.pet&&bk.pet!==''?1000*(bk.nights||1):0;
+    const extra=(cd.extraItems||[]).reduce((s,e)=>s+parseInt(e.price||0),0);
+    const total=base+petFee+extra;
+    roomNights+=(bk.nights||1);
+    if(cd.paid){
+      const pm=cd.payMethod||'cash';
+      if(totals[pm]!==undefined)totals[pm]+=total;
+      grandTotal+=total;paidCount++;
+    }else{unpaidTotal+=total;unpaidCount++;}
+  });
+
+  const otaAll=totals.ota_rakuten+totals.ota_jalan+totals.ota_yahoo+totals.ota_yukoyuko;
+  const directTotal=totals.cash+totals.card+totals.paypay+totals.dpay;
+
+  const row=(label,val,color='',bold=false)=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px">
+    <span style="color:${color||'var(--ink2)'}">${label}</span>
+    <span style="font-family:'DM Mono',monospace;font-weight:${bold?'700':'500'};color:${color||'var(--ink)'}">${val.toLocaleString()}円</span>
+  </div>`;
+  const subrow=(label,val,color)=>`<div style="display:flex;justify-content:space-between;padding:3px 0 3px 16px;font-size:12px;border-bottom:1px dashed var(--border)">
+    <span style="color:${color||'var(--ink3)'}">${label}</span>
+    <span style="font-family:'DM Mono',monospace;color:${color||'var(--ink2)'}">${val.toLocaleString()}円</span>
+  </div>`;
+
+  document.getElementById('monthlyContent').innerHTML=`
+    <div style="font-size:11px;color:var(--ink2);margin-bottom:10px">
+      集計対象: ${y}年${mo}月のCI日ベース  /  精算済みのみ集計  /  客室数: ${paidCount}件・${roomNights}泊
+    </div>
+    <div style="background:#f8f5ef;border-radius:8px;padding:10px 14px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:6px;letter-spacing:.06em">■ 現地精算（直接受取）</div>
+      ${subrow('現金',totals.cash,'#1a1510')}
+      ${subrow('カード',totals.card)}
+      ${subrow('PayPay',totals.paypay)}
+      ${subrow('d払い',totals.dpay)}
+      ${row('直計合計',directTotal,'#2a7a4b',true)}
+      <div style="font-size:11px;font-weight:700;color:var(--ink2);margin-top:10px;margin-bottom:6px;letter-spacing:.06em">■ OTA事前精算（各社振込）</div>
+      ${subrow('楽天トラベル',totals.ota_rakuten,'#cc0000')}
+      ${subrow('じゃらん',totals.ota_jalan,'#007a35')}
+      ${subrow('Yahoo/一休',totals.ota_yahoo,'#cc0033')}
+      ${subrow('ゆこゆこ',totals.ota_yukoyuko,'#d97000')}
+      ${row('OTA合計',otaAll,'#2a5fa8',true)}
+    </div>
+    <div style="background:var(--hd);border-radius:8px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="color:var(--gold);font-weight:700;font-size:13px">月次 総合計（精算済）</span>
+      <span style="color:#fff;font-family:'DM Mono',monospace;font-size:20px;font-weight:700">${grandTotal.toLocaleString()}円</span>
+    </div>
+    ${unpaidCount?`<div style="background:#fff3e0;border:1.5px solid #ffc107;border-radius:8px;padding:10px 14px;font-size:12px">
+      <span style="color:#856404;font-weight:700">⚠️ 未精算: ${unpaidCount}件　${unpaidTotal.toLocaleString()}円</span>
+      <span style="color:var(--ink3);font-size:11px;margin-left:8px">（上記集計には含まれていません）</span>
+    </div>`:'<div style="font-size:11px;color:var(--green)">✅ 未精算なし</div>'}
+  `;
+}
+
+function initCheckoutDate(){
+  const el=document.getElementById('checkoutDate');
+  if(el&&!el.value){const n=new Date();el.value=fmt(n.getFullYear(),n.getMonth()+1,n.getDate());}
+}
+
+function renderCheckout(){
+  initCheckoutDate();
+  const dateStr=document.getElementById('checkoutDate').value;if(!dateStr)return;
+  const ciRooms=[];
+  Object.entries(bks).forEach(([key,bk])=>{
+    if(bk.isStart===false)return;
+    const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
+    if(ds===dateStr)ciRooms.push({room,bk,key});
+  });
+  ciRooms.sort((a,b)=>a.room.localeCompare(b.room));
+  const content=document.getElementById('checkoutContent');
+  const summary=document.getElementById('checkoutSummary');
+  if(!ciRooms.length){content.innerHTML='<div class="empty-msg">この日のチェックインはありません</div>';summary.innerHTML='';return;}
+
+  const PAY_LABELS={cash:'現金',card:'カード',ota_rakuten:'楽天精算',ota_jalan:'じゃらん精算',ota_yahoo:'Yahoo精算',ota_yukoyuko:'ゆこゆこ精算',paypay:'PayPay',dpay:'d払い'};
+  const PAY_METHODS=['cash','card','ota_rakuten','ota_jalan','ota_yahoo','ota_yukoyuko','paypay','dpay'];
+  let totals={cash:0,card:0,ota_rakuten:0,ota_jalan:0,ota_yahoo:0,ota_yukoyuko:0,paypay:0,dpay:0,unpaid:0};
+
+  content.innerHTML=ciRooms.map(({room,bk,key})=>{
+    const cd=checkoutData[key]||{payMethod:'',extraItems:[],paid:false};
+    // OTA予約は支払い方法を自動セット
+    if(!cd.payMethod&&SRC_TO_PAY[bk.src])cd.payMethod=SRC_TO_PAY[bk.src];
+    const basePrice=parseInt(bk.price||0);
+    const isOta=['rakuten','jalan','yahoo','yukoyuko'].includes(bk.src||'');
+    const hasPet=bk.pet&&bk.pet!=='';
+    const petFee=isOta&&hasPet?1000*(bk.nights||1):0;
+    const extraTotal=(cd.extraItems||[]).reduce((s,e)=>s+parseInt(e.price||0),0);
+    const total=basePrice+petFee+extraTotal;
+    if(cd.paid){if(totals[cd.payMethod]!==undefined)totals[cd.payMethod]+=total;}else{totals.unpaid+=total;}
+    const safeKey=key.replace(/[^a-zA-Z0-9]/g,'_');
+    return `<div class="checkout-card" id="cc_${safeKey}">
+      <div class="checkout-hd">
+        <span class="checkout-room">${room}</span>
+        <div>
+          <div class="checkout-name">${esc(bk.name||'')}</div>
+          <div class="checkout-sub">受付:${bk.no||'–'}　CI:${bk.ci||'15:00'}　${bk.nights||1}泊　${paxSummary(bk)}　布団${bk.futon||'?'}枚</div>
+        </div>
+        <div style="margin-left:auto"><span class="checkout-status ${cd.paid?'cs-done':'cs-pending'}">${cd.paid?'✅ 精算済み':'⏳ 未精算'}</span></div>
+      </div>
+      <div class="price-rows">
+        <div class="price-row"><span class="price-label">宿泊料金</span><span class="price-val">${basePrice.toLocaleString()}円</span></div>
+        ${petFee>0?`<div class="price-row"><span class="price-label">ペット料金（${bk.nights||1}泊×1,000円）</span><span class="price-val">${petFee.toLocaleString()}円</span></div>`:''}
+        ${(cd.extraItems||[]).map(e=>`<div class="price-row"><span class="price-label">${esc(e.label||'追加')}</span><span class="price-val">${parseInt(e.price||0).toLocaleString()}円</span></div>`).join('')}
+        <div class="price-row total"><span class="price-label">合計</span><span class="price-val" style="font-size:18px;color:var(--red)">${total.toLocaleString()}円</span></div>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:10px;font-weight:700;color:var(--ink2);margin-bottom:6px">追加オプション</div>
+        <div id="extras_${safeKey}">${(cd.extraItems||[]).map((e,ei)=>`<div class="extra-row"><input class="extra-input" placeholder="内容" value="${esc(e.label||'')}" onchange="updateExtra('${key}',${ei},'label',this.value)"><input class="extra-input" type="number" placeholder="金額" value="${e.price||''}" style="max-width:90px" onchange="updateExtra('${key}',${ei},'price',this.value)"><button onclick="removeExtra('${key}',${ei})" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:4px 8px;cursor:pointer;font-size:11px">✕</button></div>`).join('')}</div>
+        <button onclick="addExtra('${key}')" style="background:transparent;border:1.5px dashed var(--border2);border-radius:6px;padding:5px 12px;font-family:inherit;font-size:11px;cursor:pointer;width:100%">＋ 追加項目</button>
+      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--ink2);margin-bottom:6px">支払方法</div>
+      <div class="pay-btns">${PAY_METHODS.map(m=>`<button class="pay-btn ${cd.payMethod===m?'sel':''} ${m.startsWith('ota_')&&cd.payMethod===m?'ota':''}" onclick="setPayMethod('${key}','${m}')">${PAY_LABELS[m]}</button>`).join('')}</div>
+      <div class="checkout-actions"><button class="btn ${cd.paid?'btn-out':'btn-gold'}" onclick="togglePaid('${key}')" style="flex:1">${cd.paid?'精算取消':'✅ 精算完了'}</button></div>
+    </div>`;
+  }).join('');
+
+  const otaAll=totals.ota_rakuten+totals.ota_jalan+totals.ota_yahoo+totals.ota_yukoyuko;
+  const grandTotal=totals.cash+totals.card+otaAll+(totals.paypay||0)+(totals.dpay||0);
+  summary.innerHTML=`
+    <div><div style="color:var(--ink2);font-size:10px">現金</div><strong>${totals.cash.toLocaleString()}円</strong></div>
+    <div><div style="color:var(--ink2);font-size:10px">カード</div><strong>${totals.card.toLocaleString()}円</strong></div>
+    <div style="border-left:1px solid var(--border);padding-left:10px">
+      <div style="color:var(--ink2);font-size:10px;margin-bottom:3px">事前精算 計 ${otaAll.toLocaleString()}円</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div><span style="color:var(--rakuten);font-size:10px">楽天</span><br><strong style="font-size:12px">${totals.ota_rakuten.toLocaleString()}円</strong></div>
+        <div><span style="color:var(--jalan);font-size:10px">じゃらん</span><br><strong style="font-size:12px">${totals.ota_jalan.toLocaleString()}円</strong></div>
+        <div><span style="color:var(--yahoo);font-size:10px">Yahoo</span><br><strong style="font-size:12px">${totals.ota_yahoo.toLocaleString()}円</strong></div>
+        <div><span style="color:var(--yukoyuko);font-size:10px">ゆこゆこ</span><br><strong style="font-size:12px">${totals.ota_yukoyuko.toLocaleString()}円</strong></div>
+      </div>
+    </div>
+    <div><div style="color:var(--ink2);font-size:10px">QR決済</div><strong>${((totals.paypay||0)+(totals.dpay||0)).toLocaleString()}円</strong></div>
+    <div style="border-left:2px solid var(--border);padding-left:14px"><div style="color:var(--ink2);font-size:10px">本日合計</div><strong style="font-size:15px;color:var(--red)">${grandTotal.toLocaleString()}円</strong></div>
+    <div><div style="color:var(--ink2);font-size:10px">未精算</div><strong style="color:var(--unassigned)">${totals.unpaid.toLocaleString()}円</strong></div>`;
+}
+
+function setPayMethod(key,method){if(!checkoutData[key])checkoutData[key]={extraItems:[],paid:false};checkoutData[key].payMethod=method;saveCheckoutData();renderCheckout();}
+function togglePaid(key){if(!checkoutData[key])checkoutData[key]={extraItems:[],paid:false};checkoutData[key].paid=!checkoutData[key].paid;saveCheckoutData();renderCheckout();}
+function addExtra(key){if(!checkoutData[key])checkoutData[key]={extraItems:[],paid:false};if(!checkoutData[key].extraItems)checkoutData[key].extraItems=[];checkoutData[key].extraItems.push({label:'',price:0});saveCheckoutData();renderCheckout();}
+function removeExtra(key,idx){checkoutData[key].extraItems.splice(idx,1);saveCheckoutData();renderCheckout();}
+function updateExtra(key,idx,field,val){if(!checkoutData[key]||!checkoutData[key].extraItems)return;checkoutData[key].extraItems[idx][field]=val;saveCheckoutData();}
+
+function copyCheckoutMsg(){
+  initCheckoutDate();
+  const dateStr=document.getElementById('checkoutDate').value;if(!dateStr){alert('日付を選択してください');return;}
+  const ciRooms=[];
+  Object.entries(bks).forEach(([key,bk])=>{if(bk.isStart===false)return;const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);if(ds===dateStr)ciRooms.push({room,bk,key});});
+  ciRooms.sort((a,b)=>a.room.localeCompare(b.room));
+  const [y,mo,d]=dateStr.split('-');
+  const PAY_LABELS={cash:'現金',card:'カード',ota_rakuten:'楽天精算',ota_jalan:'じゃらん精算',ota_yahoo:'Yahoo精算',ota_yukoyuko:'ゆこゆこ精算',paypay:'PayPay',dpay:'d払い'};
+  let msg=`🧾 精算一覧 ${y}年${parseInt(mo)}月${parseInt(d)}日\n━━━━━━━━━━━━━━━\n`;
+  let grandTotal=0;
+  ciRooms.forEach(({room,bk,key})=>{
+    const cd=checkoutData[key]||{extraItems:[],paid:false};
+    const base=parseInt(bk.price||0);
+    const pet=['rakuten','jalan','yahoo','yukoyuko'].includes(bk.src||'')&&bk.pet&&bk.pet!==''?1000*(bk.nights||1):0;
+    const extra=(cd.extraItems||[]).reduce((s,e)=>s+parseInt(e.price||0),0);
+    const total=base+pet+extra;
+    grandTotal+=total;
+    msg+=`\n【${room}号室】${bk.name||''}\n${total.toLocaleString()}円　${PAY_LABELS[cd.payMethod]||'未設定'}　${cd.paid?'✅精算済':'⏳未精算'}\n`;
+  });
+  msg+=`\n━━━━━━━━━━━━━━━\n合計: ${grandTotal.toLocaleString()}円`;
+  try{const ta=document.getElementById('checkoutCopyText');ta.value=msg;ta.select();document.execCommand('copy');alert('📋 コピーしました！');}
+  catch(e){if(navigator.clipboard)navigator.clipboard.writeText(msg).then(()=>alert('📋 コピーしました！'));}
+}
+
+// ===== 設定 =====
+function renderSettings(){
+  const bc=document.getElementById('bksCount');if(bc)bc.textContent=Object.values(bks).filter(b=>b.isStart!==false).length;
+  const uc=document.getElementById('uaCount');if(uc)uc.textContent=unassigned.length;
+  initGasUrlInput();
+  renderKinmuStaffSettings();
+}
+
+function resetAll(){
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML=`<div style="background:#fff;border-radius:12px;padding:24px;width:100%;max-width:320px;text-align:center">
+    <div style="font-size:18px;margin-bottom:8px">🗑️ リセット確認</div>
+    <div style="font-size:13px;color:#666;margin-bottom:20px">全予約データを削除します。<br>この操作は取り消せません。</div>
+    <div style="display:flex;gap:10px">
+      <button id="resetCancel" style="flex:1;padding:12px;border:1.5px solid #ddd;border-radius:8px;background:#fff;font-size:14px;cursor:pointer">キャンセル</button>
+      <button id="resetOk" style="flex:1;padding:12px;border:none;border-radius:8px;background:#d64b3a;color:#fff;font-size:14px;font-weight:700;cursor:pointer">削除する</button>
+    </div></div>`;
+  document.body.appendChild(ov);
+  document.getElementById('resetCancel').onclick=()=>ov.remove();
+  document.getElementById('resetOk').onclick=()=>{
+    ov.remove();
+    ['yado_bks','yado_ua','yado_rs','yado_co'].forEach(k=>localStorage.removeItem(k));
+    bks={};unassigned=[];roomStatus={};checkoutData={};
+    save();render();renderUnassigned();renderLedger();renderSettings();
+    showToast('✅ リセットしました');
+  };
+}
+
+// ===== 勤怠・給与管理 =====
+let kinmuRecords=[];
+let kinmuStaff=[
+  {id:'A',name:'スタッフA',hourlyWage:1050},
+  {id:'B',name:'スタッフB',hourlyWage:1050}
+];
+let kinmuSettings={transportFee:500,bathFee:1000};
+let kinmuCY,kinmuCM;
+let editingKinmuId=null;
+let kinmuPayslipMode=false;
+
+function loadKinmu(){
+  try{
+    const r=localStorage.getItem('yado_kinmu');
+    const s=localStorage.getItem('yado_kstaff');
+    const g=localStorage.getItem('yado_ksettings');
+    if(r)kinmuRecords=JSON.parse(r);
+    if(s)kinmuStaff=JSON.parse(s);
+    if(g)kinmuSettings=JSON.parse(g);
+  }catch(e){console.error(e);}
+}
+function saveKinmu(){
+  localStorage.setItem('yado_kinmu',JSON.stringify(kinmuRecords));
+  localStorage.setItem('yado_kstaff',JSON.stringify(kinmuStaff));
+  localStorage.setItem('yado_ksettings',JSON.stringify(kinmuSettings));
+}
+
+function calcKinmuHours(start,end){
+  if(!start||!end)return 0;
+  const [sh,sm]=start.split(':').map(Number);
+  const [eh,em]=end.split(':').map(Number);
+  return Math.max(0,((eh*60+em)-(sh*60+sm))/60);
+}
+function fmtKinmuHours(h){
+  const hh=Math.floor(h);const mm=Math.round((h-hh)*60);
+  return mm>0?`${hh}時間${mm}分`:`${hh}時間`;
+}
+function getKinmuStaff(id){return kinmuStaff.find(s=>s.id===id)||{name:'不明',hourlyWage:1050};}
+function calcKinmuPay(rec){
+  const staff=getKinmuStaff(rec.staffId);
+  const hours=calcKinmuHours(rec.start,rec.end);
+  const wage=Math.round(hours*staff.hourlyWage);
+  const transport=rec.transport?kinmuSettings.transportFee:0;
+  const bath=rec.bath?kinmuSettings.bathFee:0;
+  return{hours,wage,transport,bath,total:wage+transport+bath};
+}
+function getKinmuMonthRecs(y,m){
+  const prefix=`${y}-${String(m).padStart(2,'0')}`;
+  return kinmuRecords.filter(r=>r.date&&r.date.startsWith(prefix));
+}
+
+function mvKinmuMonth(n){
+  kinmuCM+=n;
+  if(kinmuCM<1){kinmuCM=12;kinmuCY--;}else if(kinmuCM>12){kinmuCM=1;kinmuCY++;}
+  renderKinmuMonthly();
+}
+function goKinmuThisMonth(){
+  const n=new Date();kinmuCY=n.getFullYear();kinmuCM=n.getMonth()+1;
+  renderKinmuMonthly();
+}
+function toggleKinmuPayslip(){
+  kinmuPayslipMode=!kinmuPayslipMode;
+  document.getElementById('btnKinmuPayslip').style.background=kinmuPayslipMode?'var(--hd)':'';
+  document.getElementById('btnKinmuPayslip').style.color=kinmuPayslipMode?'var(--gold)':'';
+  renderKinmuMonthly();
+}
+
+function renderKinmuMonthly(){
+  document.getElementById('kinmuMonthLabel').textContent=`${kinmuCY}年 ${kinmuCM}月`;
+  const recs=getKinmuMonthRecs(kinmuCY,kinmuCM);
+  const WD=['日','月','火','水','木','金','土'];
+  const badgeColors={A:'#c8a060',B:'#2a5fa8'};
+
+  // サマリー
+  document.getElementById('kinmuSummary').innerHTML=kinmuStaff.map(staff=>{
+    const sr=recs.filter(r=>r.staffId===staff.id);
+    const totH=sr.reduce((s,r)=>s+calcKinmuHours(r.start,r.end),0);
+    const totW=sr.reduce((s,r)=>s+calcKinmuPay(r).wage,0);
+    const totT=sr.reduce((s,r)=>s+calcKinmuPay(r).transport,0);
+    const totB=sr.reduce((s,r)=>s+calcKinmuPay(r).bath,0);
+    const total=totW+totT+totB;
+    const bc=badgeColors[staff.id]||'#888';
+    return `<div style="background:var(--paper);border-radius:8px;padding:12px;border:1.5px solid var(--border);box-shadow:0 2px 6px var(--shadow)">
+      <div style="font-size:11px;margin-bottom:4px"><span style="background:${bc};color:#fff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">${staff.name}</span></div>
+      <div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:700;color:var(--red)">${total.toLocaleString()}円</div>
+      <div style="font-size:10px;color:var(--ink3);margin-top:3px;line-height:1.7">
+        ${sr.length}日出勤　${fmtKinmuHours(totH)}<br>
+        時給計 ${totW.toLocaleString()}円　交通費 ${totT.toLocaleString()}円　風呂手当 ${totB.toLocaleString()}円
+      </div>
+    </div>`;
+  }).join('');
+
+  const main=document.getElementById('kinmuMain');
+
+  if(kinmuPayslipMode){
+    // 給与明細モード
+    if(!recs.length){main.innerHTML='<div style="text-align:center;padding:24px;color:var(--ink3)">この月の勤務記録はありません</div>';return;}
+    main.innerHTML=kinmuStaff.map(staff=>{
+      const sr=[...recs.filter(r=>r.staffId===staff.id)].sort((a,b)=>a.date.localeCompare(b.date));
+      if(!sr.length)return '';
+      const totH=sr.reduce((s,r)=>s+calcKinmuHours(r.start,r.end),0);
+      const totW=sr.reduce((s,r)=>s+calcKinmuPay(r).wage,0);
+      const totT=sr.reduce((s,r)=>s+calcKinmuPay(r).transport,0);
+      const totB=sr.reduce((s,r)=>s+calcKinmuPay(r).bath,0);
+      const total=totW+totT+totB;
+      const bc=badgeColors[staff.id]||'#888';
+      const rows=sr.map(r=>{
+        const p=calcKinmuPay(r);
+        const wd=WD[new Date(r.date).getDay()];
+        return `<tr><td>${r.date.substring(5)}(${wd})</td><td>${r.start}〜${r.end}</td>
+          <td style="text-align:right">${fmtKinmuHours(p.hours)}</td>
+          <td style="text-align:right">${p.wage.toLocaleString()}円</td>
+          <td style="text-align:center">${r.transport?'○':'–'}</td>
+          <td style="text-align:center">${r.bath?'○':'–'}</td></tr>`;
+      }).join('');
+      return `<div style="background:var(--paper);border:1.5px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;box-shadow:0 2px 8px var(--shadow)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="background:${bc};color:#fff;border-radius:4px;padding:3px 10px;font-size:12px;font-weight:700">${staff.name}</span>
+          <span style="font-family:'Shippori Mincho',serif;font-size:14px;font-weight:700">${kinmuCY}年${kinmuCM}月 給与明細</span>
+        </div>
+        <div style="font-size:11px;color:var(--ink2);margin-bottom:8px">対象期間：${kinmuCY}年${kinmuCM}月1日〜月末　支払日：翌月初勤務日</div>
+        <div style="overflow:auto;margin-bottom:10px">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;background:var(--paper)">
+            <thead><tr style="background:var(--hd);color:#f5f0e8"><th style="padding:5px 6px">日付</th><th style="padding:5px 6px">時間</th><th style="padding:5px 6px">勤務時間</th><th style="padding:5px 6px">時給計</th><th style="padding:5px 6px">交通費</th><th style="padding:5px 6px">風呂手当</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div style="background:#f8f5ef;border-radius:8px;padding:10px 12px">
+          <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--ink2)">出勤日数</span><span style="font-family:'DM Mono',monospace">${sr.length}日</span></div>
+          <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--ink2)">総勤務時間</span><span style="font-family:'DM Mono',monospace">${fmtKinmuHours(totH)}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--ink2)">時給（${staff.hourlyWage.toLocaleString()}円）</span><span style="font-family:'DM Mono',monospace">${totW.toLocaleString()}円</span></div>
+          <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--ink2)">交通費（${kinmuSettings.transportFee}円×${sr.filter(r=>r.transport).length}日）</span><span style="font-family:'DM Mono',monospace">${totT.toLocaleString()}円</span></div>
+          <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--ink2)">風呂手当（${kinmuSettings.bathFee}円×${sr.filter(r=>r.bath).length}回）</span><span style="font-family:'DM Mono',monospace">${totB.toLocaleString()}円</span></div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0 2px;font-size:15px;font-weight:700;border-top:2px solid var(--border2);margin-top:4px"><span>支給合計</span><span style="font-family:'DM Mono',monospace;color:var(--red)">${total.toLocaleString()}円</span></div>
+        </div>
+        <div style="font-size:10px;color:var(--ink3);margin-top:8px">妙見楽園荘　（確認印：　　　　　　）</div>
+      </div>`;
+    }).join('');
+  }else{
+    // 勤怠一覧モード
+    if(!recs.length){main.innerHTML='<div style="text-align:center;padding:24px;color:var(--ink3)">この月の勤務記録はありません<br><span style="font-size:11px">「＋ 勤務記録」ボタンから追加してください</span></div>';return;}
+    main.innerHTML=kinmuStaff.map(staff=>{
+      const sr=[...recs.filter(r=>r.staffId===staff.id)].sort((a,b)=>a.date.localeCompare(b.date));
+      if(!sr.length)return '';
+      const bc=badgeColors[staff.id]||'#888';
+      const rows=sr.map(r=>{
+        const p=calcKinmuPay(r);
+        const d=new Date(r.date);
+        const wd=WD[d.getDay()];
+        const wdColor=d.getDay()===0?'color:#d64b3a':d.getDay()===6?'color:#2a5fa8':'';
+        return `<tr onclick="openEditKinmuRecord('${r.id}')" style="cursor:pointer">
+          <td><span style="${wdColor}">${r.date.substring(5)}(${wd})</span></td>
+          <td style="font-family:'DM Mono',monospace;font-size:11px">${r.start}〜${r.end}</td>
+          <td style="font-family:'DM Mono',monospace">${fmtKinmuHours(p.hours)}</td>
+          <td style="font-family:'DM Mono',monospace">${p.wage.toLocaleString()}円</td>
+          <td style="text-align:center">${r.transport?'✅':'–'}</td>
+          <td style="text-align:center">${r.bath?'✅':'–'}</td>
+          <td style="font-size:10px;color:var(--ink3)">${r.memo||''}</td>
+        </tr>`;
+      }).join('');
+      return `<div style="background:var(--paper);border:1.5px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow)">
+        <div style="margin-bottom:10px"><span style="background:${bc};color:#fff;border-radius:4px;padding:3px 10px;font-size:12px;font-weight:700">${staff.name}</span></div>
+        <div style="overflow:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;background:var(--paper)">
+            <thead><tr style="background:var(--hd);color:#f5f0e8"><th style="padding:6px 5px">日付</th><th style="padding:6px 5px">時間</th><th style="padding:6px 5px">勤務時間</th><th style="padding:6px 5px">時給計</th><th style="padding:6px 5px">交通費</th><th style="padding:6px 5px">風呂手当</th><th style="padding:6px 5px">備考</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function openKinmuRecord(){
+  editingKinmuId=null;
+  document.getElementById('kinmuModTtl').textContent='勤務記録を追加';
+  document.getElementById('kDelBtn').style.display='none';
+  const today=new Date();
+  document.getElementById('kDate').value=fmt(today.getFullYear(),today.getMonth()+1,today.getDate());
+  document.getElementById('kStart').value='08:00';
+  document.getElementById('kEnd').value='13:00';
+  document.getElementById('kTransport').value='1';
+  document.getElementById('kBath').value='0';
+  document.getElementById('kMemo').value='';
+  const sel=document.getElementById('kStaff');
+  sel.innerHTML=kinmuStaff.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  updateKinmuPreview();
+  document.getElementById('kinmuMod').classList.add('on');
+}
+function openEditKinmuRecord(id){
+  const rec=kinmuRecords.find(r=>r.id===id);if(!rec)return;
+  editingKinmuId=id;
+  document.getElementById('kinmuModTtl').textContent='勤務記録を編集';
+  document.getElementById('kDelBtn').style.display='inline-flex';
+  const sel=document.getElementById('kStaff');
+  sel.innerHTML=kinmuStaff.map(s=>`<option value="${s.id}" ${s.id===rec.staffId?'selected':''}>${s.name}</option>`).join('');
+  document.getElementById('kDate').value=rec.date;
+  document.getElementById('kStart').value=rec.start||'08:00';
+  document.getElementById('kEnd').value=rec.end||'13:00';
+  document.getElementById('kTransport').value=rec.transport?'1':'0';
+  document.getElementById('kBath').value=rec.bath?'1':'0';
+  document.getElementById('kMemo').value=rec.memo||'';
+  updateKinmuPreview();
+  document.getElementById('kinmuMod').classList.add('on');
+}
+function closeKinmuMod(){document.getElementById('kinmuMod').classList.remove('on');editingKinmuId=null;}
+
+function updateKinmuPreview(){
+  const staffId=document.getElementById('kStaff').value;
+  const start=document.getElementById('kStart').value;
+  const end=document.getElementById('kEnd').value;
+  const transport=document.getElementById('kTransport').value==='1';
+  const bath=document.getElementById('kBath').value==='1';
+  const staff=getKinmuStaff(staffId);
+  const hours=calcKinmuHours(start,end);
+  const wage=Math.round(hours*staff.hourlyWage);
+  const transFee=transport?kinmuSettings.transportFee:0;
+  const bathFee=bath?kinmuSettings.bathFee:0;
+  const total=wage+transFee+bathFee;
+  document.getElementById('kCalcPreview').innerHTML=
+    `<span style="color:var(--ink2)">勤務時間：</span><strong>${fmtKinmuHours(hours)}</strong>　`+
+    `<span style="color:var(--ink2)">時給計：</span><strong>${wage.toLocaleString()}円</strong><br>`+
+    `<span style="color:var(--ink2)">交通費：</span><strong>${transFee.toLocaleString()}円</strong>　`+
+    `<span style="color:var(--ink2)">風呂手当：</span><strong>${bathFee.toLocaleString()}円</strong>　`+
+    `<span style="color:var(--ink2)">合計：</span><strong style="color:var(--red);font-size:14px">${total.toLocaleString()}円</strong>`;
+}
+function saveKinmuRecord(){
+  const staffId=document.getElementById('kStaff').value;
+  const date=document.getElementById('kDate').value;
+  if(!date){alert('勤務日を入力してください');return;}
+  const rec={
+    id:editingKinmuId||('k'+Date.now()),
+    staffId,date,
+    start:document.getElementById('kStart').value,
+    end:document.getElementById('kEnd').value,
+    transport:document.getElementById('kTransport').value==='1',
+    bath:document.getElementById('kBath').value==='1',
+    memo:document.getElementById('kMemo').value.trim()
+  };
+  if(editingKinmuId){
+    const idx=kinmuRecords.findIndex(r=>r.id===editingKinmuId);
+    if(idx>=0)kinmuRecords[idx]=rec;
+  }else{
+    kinmuRecords.push(rec);
+  }
+  saveKinmu();closeKinmuMod();renderKinmuMonthly();
+  showToast('✅ 保存しました');
+}
+function deleteKinmuRecord(){
+  if(!editingKinmuId)return;
+  if(!confirm('この記録を削除しますか？'))return;
+  kinmuRecords=kinmuRecords.filter(r=>r.id!==editingKinmuId);
+  saveKinmu();closeKinmuMod();renderKinmuMonthly();
+  showToast('🗑️ 削除しました');
+}
+
+function renderKinmuStaffSettings(){
+  const el=document.getElementById('kinmuStaffSettingList');if(!el)return;
+  el.innerHTML=kinmuStaff.map((s,i)=>{
+    const bc=i===0?'#c8a060':'#2a5fa8';
+    return `<div style="background:#f8f5ef;border-radius:8px;padding:10px;margin-bottom:8px;border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <span style="background:${bc};color:#fff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">${s.id}</span>
+        <strong style="font-size:13px">${s.name}</strong>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="fg"><label class="fl">名前</label><input class="fi" id="ksName${i}" value="${s.name}"></div>
+        <div class="fg"><label class="fl">時給（円）</label><input class="fi" id="ksWage${i}" type="number" value="${s.hourlyWage}"></div>
+      </div>
+    </div>`;
+  }).join('');
+  const tf=document.getElementById('kinmuTransportFee');
+  const bf=document.getElementById('kinmuBathFee');
+  if(tf)tf.value=kinmuSettings.transportFee;
+  if(bf)bf.value=kinmuSettings.bathFee;
+}
+function saveKinmuSettings(){
+  kinmuStaff.forEach((s,i)=>{
+    const n=document.getElementById('ksName'+i);
+    const w=document.getElementById('ksWage'+i);
+    if(n&&n.value.trim())s.name=n.value.trim();
+    if(w)s.hourlyWage=parseInt(w.value)||s.hourlyWage;
+  });
+  const tf=document.getElementById('kinmuTransportFee');
+  const bf=document.getElementById('kinmuBathFee');
+  if(tf)kinmuSettings.transportFee=parseInt(tf.value)||500;
+  if(bf)kinmuSettings.bathFee=parseInt(bf.value)||1000;
+  saveKinmu();showToast('✅ スタッフ設定を保存しました');renderKinmuStaffSettings();
+}
+
+// ===== Claude定型文コピー =====
+function copyClaudePrompt(){
+  const el=document.getElementById('claudePromptBox');
+  const text=el?el.textContent:'';
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(()=>showToast('📋 定型文をコピーしました！'));
+  }else{
+    const ta=document.createElement('textarea');
+    ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    showToast('📋 定型文をコピーしました！');
+  }
+}
+
+// ===== 初期化 =====
+function init(){
+  const n=new Date();cy=n.getFullYear();cm=n.getMonth();
+  kinmuCY=n.getFullYear();kinmuCM=n.getMonth()+1;
+  load();loadRoomStatus();loadKinmu();
+  autoMarkDirty();
+  render();renderUnassigned();renderLedger();
+}
+init();
+</script>
+</body>
+</html>

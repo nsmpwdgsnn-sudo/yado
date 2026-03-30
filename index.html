@@ -820,6 +820,9 @@ const GAS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbzF31TnwuXl41p_
 // ===== 状態 =====
 let cy, cm, bks={}, unassigned=[], editKey=null, currentOta='rakuten', parsedData=null, assigningIdx=null;
 let roomStatus={}, checkoutData={}, csvRows=[];
+let kinmuRecords=[];
+let kinmuStaff=[{id:'A',name:'スタッフA',hourlyWage:1000},{id:'B',name:'スタッフB',hourlyWage:1000}];
+let kinmuSettings={transportFee:500,bathFee:1000};
 
 // ===== 受付番号 =====
 // 年2桁+月2桁+連番3桁 例: 2603001
@@ -865,21 +868,22 @@ function save(){
   saveToGAS();
 }
 function saveToGAS(){
-  const data={action:'save',bks,unassigned,roomStatus,checkoutData};
+  const data={action:'save',bks,unassigned,roomStatus,checkoutData,kinmuRecords,kinmuStaff,kinmuSettings};
   fetch(getGasUrl(),{method:'POST',body:JSON.stringify(data)})
-    .then(r=>r.json()).then(d=>{if(d.status==='ok')showToast('☁️ クラウドに保存しました');})
+    .then(r=>r.text()).then(t=>{
+      try{const d=JSON.parse(t);if(d.status==='ok')showToast('☁️ クラウドに保存しました');}
+      catch(e){}
+    })
     .catch(()=>{});
 }
 function loadFromGAS(){
   showToast('☁️ 読み込み中...');
-  // GETとPOSTの両方を試みる（GASの設定によって異なる）
   fetch(getGasUrl()+'?action=load')
-    .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
-    .then(d=>applyGasData(d))
+    .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
+    .then(t=>{applyGasData(JSON.parse(t));})
     .catch(()=>{
-      // GETが失敗した場合POSTで試みる
       fetch(getGasUrl(),{method:'POST',body:JSON.stringify({action:'load'})})
-        .then(r=>r.json()).then(d=>applyGasData(d))
+        .then(r=>r.text()).then(t=>{applyGasData(JSON.parse(t));})
         .catch(()=>showToast('❌ 読み込み失敗。設定タブでURLを確認してください'));
     });
 }
@@ -889,9 +893,15 @@ function applyGasData(d){
     if(d.unassigned)unassigned=d.unassigned;
     if(d.roomStatus)roomStatus=d.roomStatus;
     if(d.checkoutData)checkoutData=d.checkoutData;
+    if(d.kinmuRecords)kinmuRecords=d.kinmuRecords;
+    if(d.kinmuStaff)kinmuStaff=d.kinmuStaff;
+    if(d.kinmuSettings)kinmuSettings=d.kinmuSettings;
     normalizeDates();
     localStorage.setItem('yado_bks',JSON.stringify(bks));
     localStorage.setItem('yado_ua',JSON.stringify(unassigned));
+    localStorage.setItem('yado_kinmu',JSON.stringify(kinmuRecords));
+    localStorage.setItem('yado_kstaff',JSON.stringify(kinmuStaff));
+    localStorage.setItem('yado_ksettings',JSON.stringify(kinmuSettings));
     render();renderUnassigned();renderLedger();renderSettings();
     showToast('✅ クラウドから読み込みました！');
   }else if(d.status==='empty'){
@@ -2465,12 +2475,6 @@ function resetAll(){
 }
 
 // ===== 勤怠・給与管理 =====
-let kinmuRecords=[];
-let kinmuStaff=[
-  {id:'A',name:'スタッフA',hourlyWage:1050},
-  {id:'B',name:'スタッフB',hourlyWage:1050}
-];
-let kinmuSettings={transportFee:500,bathFee:1000};
 let kinmuCY,kinmuCM;
 let editingKinmuId=null;
 let kinmuPayslipMode=false;
@@ -2489,6 +2493,7 @@ function saveKinmu(){
   localStorage.setItem('yado_kinmu',JSON.stringify(kinmuRecords));
   localStorage.setItem('yado_kstaff',JSON.stringify(kinmuStaff));
   localStorage.setItem('yado_ksettings',JSON.stringify(kinmuSettings));
+  saveToGAS();
 }
 
 function calcKinmuHours(start,end){

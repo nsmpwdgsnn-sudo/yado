@@ -853,7 +853,11 @@ function totalPax(bk){
 }
 
 // ===== GAS =====
-function getGasUrl(){return localStorage.getItem('yado_gas_url')||GAS_URL_DEFAULT;}
+function getGasUrl(){
+  const stored=localStorage.getItem('yado_gas_url');
+  // localStorageに保存されていれば使う、なければデフォルトURL
+  return (stored&&stored.startsWith('https://script.google.com'))?stored:GAS_URL_DEFAULT;
+}
 function saveGasUrl(){
   const val=document.getElementById('gasUrlInput').value.trim();
   if(!val||!val.startsWith('https://script.google.com')){alert('正しいGAS URLを入力してください');return;}

@@ -815,14 +815,11 @@ const SRC_HEX = {rakuten:'#cc0000',jalan:'#007a35',yahoo:'#cc0033',yukoyuko:'#d9
 const SRC_CSS = {rakuten:'bk-rakuten',jalan:'bk-jalan',yahoo:'bk-yahoo',yukoyuko:'bk-yukoyuko',hp:'bk-direct',tel:'bk-direct',sms:'bk-direct',insta:'bk-direct',kuchi:'bk-direct'};
 const SRC_TO_PAY = {rakuten:'ota_rakuten',jalan:'ota_jalan',yahoo:'ota_yahoo',yukoyuko:'ota_yukoyuko'};
 const WD = ['日','月','火','水','木','金','土'];
-const GAS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbyPL8g_cql7AfU0fWjy8ogKry2nWj_r6NoTpxDmRAX-vbhWA01wP6di0wSr-75i15jYmA/exec';
+const GAS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbzF31TnwuXl41p_peRR8mC1scY--NUeXsHFmGr31TF3JmGvkWbB5RtdcMNSOzyXJpdoUw/exec';
 
 // ===== 状態 =====
 let cy, cm, bks={}, unassigned=[], editKey=null, currentOta='rakuten', parsedData=null, assigningIdx=null;
 let roomStatus={}, checkoutData={}, csvRows=[];
-let kinmuRecords=[];
-let kinmuStaff=[{id:'A',name:'スタッフA',hourlyWage:1000},{id:'B',name:'スタッフB',hourlyWage:1000}];
-let kinmuSettings={transportFee:500,bathFee:1000};
 
 // ===== 受付番号 =====
 // 年2桁+月2桁+連番3桁 例: 2603001
@@ -853,11 +850,7 @@ function totalPax(bk){
 }
 
 // ===== GAS =====
-function getGasUrl(){
-  const stored=localStorage.getItem('yado_gas_url');
-  // localStorageに保存されていれば使う、なければデフォルトURL
-  return (stored&&stored.startsWith('https://script.google.com'))?stored:GAS_URL_DEFAULT;
-}
+function getGasUrl(){return localStorage.getItem('yado_gas_url')||GAS_URL_DEFAULT;}
 function saveGasUrl(){
   const val=document.getElementById('gasUrlInput').value.trim();
   if(!val||!val.startsWith('https://script.google.com')){alert('正しいGAS URLを入力してください');return;}
@@ -871,48 +864,25 @@ function save(){
   localStorage.setItem('yado_ua',JSON.stringify(unassigned));
   saveToGAS();
 }
-// ===== Supabase設定 =====
-const SUPABASE_URL = 'https://kcwskxxseypxprnpgbog.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_1IqTi36oDkYyp5cPib401w_wVclpQPb';
-const DATA_ID = 1;
-
 function saveToGAS(){
-  const data={bks,unassigned,roomStatus,checkoutData,kinmuRecords,kinmuStaff,kinmuSettings};
-  const payload={id:DATA_ID,payload:JSON.stringify(data)};
-  fetch(SUPABASE_URL+'/rest/v1/yado_data?id=eq.'+DATA_ID,{
-    method:'DELETE',
-    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
-  }).finally(()=>{
-    fetch(SUPABASE_URL+'/rest/v1/yado_data',{
-      method:'POST',
-      headers:{
-        'apikey':SUPABASE_KEY,
-        'Authorization':'Bearer '+SUPABASE_KEY,
-        'Content-Type':'application/json',
-        'Prefer':'return=minimal'
-      },
-      body:JSON.stringify(payload)
+  const data={action:'save',bks,unassigned,roomStatus,checkoutData};
+  fetch(getGasUrl(),{method:'POST',body:JSON.stringify(data)})
+    .then(r=>r.text()).then(t=>{
+      try{const d=JSON.parse(t);if(d.status==='ok')showToast('☁️ クラウドに保存しました');}
+      catch(e){}
     })
-    .then(r=>{
-      if(r.ok)showToast('☁️ クラウドに保存しました');
-      else showToast('❌ 保存失敗');
-    })
-    .catch(()=>showToast('❌ 保存失敗。通信を確認してください'));
-  });
+    .catch(()=>{});
 }
 function loadFromGAS(){
   showToast('☁️ 読み込み中...');
-  fetch(SUPABASE_URL+'/rest/v1/yado_data?id=eq.'+DATA_ID,{
-    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
-  })
-  .then(r=>r.json())
-  .then(rows=>{
-    if(!rows||!rows.length){showToast('クラウドにデータがありません');return;}
-    const d=JSON.parse(rows[0].payload);
-    d.status='ok';
-    applyGasData(d);
-  })
-  .catch(()=>showToast('❌ 読み込み失敗。通信を確認してください'));
+  fetch(getGasUrl()+'?action=load')
+    .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
+    .then(t=>{applyGasData(JSON.parse(t));})
+    .catch(()=>{
+      fetch(getGasUrl(),{method:'POST',body:JSON.stringify({action:'load'})})
+        .then(r=>r.text()).then(t=>{applyGasData(JSON.parse(t));})
+        .catch(()=>showToast('❌ 読み込み失敗。設定タブでURLを確認してください'));
+    });
 }
 function applyGasData(d){
   if(d.status==='ok'){
@@ -920,15 +890,9 @@ function applyGasData(d){
     if(d.unassigned)unassigned=d.unassigned;
     if(d.roomStatus)roomStatus=d.roomStatus;
     if(d.checkoutData)checkoutData=d.checkoutData;
-    if(d.kinmuRecords)kinmuRecords=d.kinmuRecords;
-    if(d.kinmuStaff)kinmuStaff=d.kinmuStaff;
-    if(d.kinmuSettings)kinmuSettings=d.kinmuSettings;
     normalizeDates();
     localStorage.setItem('yado_bks',JSON.stringify(bks));
     localStorage.setItem('yado_ua',JSON.stringify(unassigned));
-    localStorage.setItem('yado_kinmu',JSON.stringify(kinmuRecords));
-    localStorage.setItem('yado_kstaff',JSON.stringify(kinmuStaff));
-    localStorage.setItem('yado_ksettings',JSON.stringify(kinmuSettings));
     render();renderUnassigned();renderLedger();renderSettings();
     showToast('✅ クラウドから読み込みました！');
   }else if(d.status==='empty'){
@@ -2502,6 +2466,12 @@ function resetAll(){
 }
 
 // ===== 勤怠・給与管理 =====
+let kinmuRecords=[];
+let kinmuStaff=[
+  {id:'A',name:'スタッフA',hourlyWage:1050},
+  {id:'B',name:'スタッフB',hourlyWage:1050}
+];
+let kinmuSettings={transportFee:500,bathFee:1000};
 let kinmuCY,kinmuCM;
 let editingKinmuId=null;
 let kinmuPayslipMode=false;
@@ -2520,7 +2490,6 @@ function saveKinmu(){
   localStorage.setItem('yado_kinmu',JSON.stringify(kinmuRecords));
   localStorage.setItem('yado_kstaff',JSON.stringify(kinmuStaff));
   localStorage.setItem('yado_ksettings',JSON.stringify(kinmuSettings));
-  saveToGAS();
 }
 
 function calcKinmuHours(start,end){

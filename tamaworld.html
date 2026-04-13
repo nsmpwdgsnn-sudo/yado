@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>珠世の記録帳</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Noto+Serif+JP:wght@300;400&display=swap" rel="stylesheet">
+<style>:root{--ink:#1a1208;--paper:#f5f0e8;--deep:#2c1f0e;--gold:#b8922a;--gold-light:#d4aa4a;--moss:#3d5a3e;--moon:#e8dfc0;--terra:#8b5e3c;--blush:#c4735a;--violet:#7a5a9a;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Serif JP',serif;background:var(--paper);color:var(--ink);min-height:100vh;}
+.app{max-width:430px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding-bottom:80px;}
+.header{padding:16px 18px 10px;border-bottom:1px solid rgba(184,146,42,0.3);background:rgba(245,240,232,0.98);position:sticky;top:0;z-index:10;}
+.header-top{display:flex;justify-content:space-between;align-items:flex-start;}
+.app-title{font-family:'Cormorant Garamond',serif;font-size:10px;letter-spacing:0.3em;color:var(--gold);text-transform:uppercase;}
+.date-display{font-size:16px;font-weight:300;color:var(--deep);}
+.koyomi-line{font-size:10px;color:var(--terra);margin-top:2px;}
+.moon-widget{text-align:right;cursor:pointer;flex-shrink:0;}
+.moon-emoji{font-size:26px;display:block;animation:moonGlow 3s ease-in-out infinite;}
+@keyframes moonGlow{0%,100%{filter:drop-shadow(0 0 4px rgba(184,146,42,0.3));}50%{filter:drop-shadow(0 0 10px rgba(184,146,42,0.6));}}
+.moon-name{font-size:10px;color:var(--gold);}
+.cosmos-card{margin:10px 14px;padding:12px 14px;background:linear-gradient(135deg,var(--deep),#3d2b12);color:var(--moon);}
+.cosmos-label{font-family:'Cormorant Garamond',serif;font-size:10px;letter-spacing:0.3em;color:var(--gold-light);margin-bottom:4px;text-transform:uppercase;}
+.cosmos-text{font-size:11px;line-height:1.8;font-weight:300;}
+.cosmos-tags{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;}
+.cosmos-tag{font-size:10px;padding:2px 6px;border:1px solid rgba(184,146,42,0.4);color:var(--gold-light);}
+.section-title{font-family:'Cormorant Garamond',serif;font-size:11px;letter-spacing:0.25em;color:var(--gold);text-transform:uppercase;padding:0 14px;margin-top:14px;margin-bottom:8px;}
+.modal-overlay{position:fixed;inset:0;background:rgba(26,18,8,0.55);z-index:50;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.2s;}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal-box{background:var(--paper);width:100%;max-width:430px;padding:20px 18px 44px;border-top:2px solid var(--gold);transform:translateY(20px);transition:transform 0.25s ease;max-height:88vh;overflow-y:auto;}
+.modal-overlay.open .modal-box{transform:translateY(0);}
+.modal-title{font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--deep);margin-bottom:14px;}
+.modal-close{float:right;font-size:20px;color:var(--gold);cursor:pointer;}
+.field-label{font-size:11px;color:var(--terra);margin-bottom:6px;display:block;}
+.styled-select{width:100%;padding:11px;background:white;border:1px solid rgba(184,146,42,0.3);font-family:'Noto Serif JP',serif;font-size:14px;color:var(--ink);outline:none;cursor:pointer;margin-bottom:12px;}
+.intensity-wrap{margin-bottom:14px;}
+.intensity-row{display:flex;align-items:center;gap:12px;}
+.intensity-slider{flex:1;-webkit-appearance:none;height:4px;background:linear-gradient(to right,var(--moss),var(--gold),var(--blush));outline:none;border-radius:2px;}
+.intensity-slider::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--gold);cursor:pointer;border:2px solid white;}
+.intensity-val{font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--gold);min-width:28px;text-align:right;}
+.num-input{width:90px;padding:10px;border:1px solid rgba(184,146,42,0.3);background:white;font-family:'Noto Serif JP',serif;font-size:20px;text-align:center;color:var(--deep);outline:none;}
+.time-input-row{display:flex;gap:10px;align-items:center;margin-bottom:12px;}
+.time-unit{font-size:13px;color:var(--terra);}
+.modal-submit{width:100%;padding:13px;background:var(--deep);color:var(--moon);border:none;font-family:'Noto Serif JP',serif;font-size:13px;letter-spacing:0.2em;cursor:pointer;margin-top:6px;}
+.modal-textarea{width:100%;background:white;border:1px solid rgba(184,146,42,0.25);padding:10px;font-family:'Noto Serif JP',serif;font-size:13px;color:var(--ink);resize:none;height:56px;outline:none;margin-bottom:10px;}
+.photo-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.photo-btn{padding:14px 8px;border:1px dashed rgba(184,146,42,0.4);background:white;text-align:center;cursor:pointer;font-size:12px;color:var(--terra);}
+.photo-btn-icon{font-size:22px;display:block;margin-bottom:4px;}
+.photo-preview-img{width:100%;height:150px;object-fit:cover;margin-bottom:10px;display:none;}
+.quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:0 14px;}
+.quick-btn{background:white;border:1px solid rgba(184,146,42,0.25);padding:12px 11px;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:3px;position:relative;overflow:hidden;min-height:76px;}
+.quick-btn.recorded{border-color:var(--gold);background:linear-gradient(135deg,#fffdf5,#f9f3e0);}
+.btn-emoji{font-size:20px;}.btn-label{font-size:11px;color:var(--deep);}
+.btn-count{position:absolute;top:7px;right:9px;font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--gold);}
+.btn-sub{font-size:10px;color:var(--terra);opacity:0.85;}
+@keyframes ripple{0%{transform:scale(0);opacity:0.5;}100%{transform:scale(5);opacity:0;}}
+.ripple-effect{position:absolute;border-radius:50%;width:40px;height:40px;background:rgba(184,146,42,0.25);animation:ripple 0.5s ease-out forwards;pointer-events:none;}
+.weight-area{padding:0 14px;margin-top:10px;}
+.weight-row{display:flex;gap:8px;align-items:center;}
+.weight-input{flex:1;padding:10px;background:white;border:1px solid rgba(184,146,42,0.25);font-family:'Noto Serif JP',serif;font-size:18px;color:var(--deep);outline:none;text-align:center;}
+.weight-unit{font-size:13px;color:var(--terra);flex-shrink:0;}
+.weight-btn{padding:10px 12px;background:var(--deep);color:var(--moon);border:none;font-family:'Noto Serif JP',serif;font-size:11px;cursor:pointer;flex-shrink:0;}
+.weight-today{font-size:11px;color:var(--terra);margin-top:5px;}
+.memo-area{padding:0 14px;margin-top:10px;}
+.memo-input{width:100%;background:white;border:1px solid rgba(184,146,42,0.25);padding:11px;font-family:'Noto Serif JP',serif;font-size:13px;color:var(--ink);resize:none;height:58px;outline:none;}
+.memo-submit{margin-top:5px;width:100%;padding:10px;background:var(--deep);color:var(--moon);border:none;font-family:'Noto Serif JP',serif;font-size:12px;letter-spacing:0.2em;cursor:pointer;}
+.timeline{padding:0 14px;margin-top:12px;}
+.timeline-item{display:flex;align-items:flex-start;gap:9px;padding:9px 0;border-bottom:1px solid rgba(184,146,42,0.1);}
+.timeline-time{font-family:'Cormorant Garamond',serif;font-size:12px;color:var(--gold);min-width:36px;padding-top:2px;}
+.timeline-content{flex:1;font-size:12px;line-height:1.6;color:var(--deep);}
+.timeline-sub{font-size:10px;color:var(--terra);opacity:0.8;}
+.timeline-photo{width:100%;max-height:130px;object-fit:cover;margin-top:5px;}
+.timeline-delete{font-size:14px;color:rgba(184,146,42,0.35);cursor:pointer;padding:0 4px;line-height:1.8;flex-shrink:0;}
+.page{display:none;}.page.active{display:flex;flex-direction:column;flex:1;}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 6px;}
+.cal-nav-btn{background:none;border:none;font-size:22px;color:var(--gold);cursor:pointer;padding:2px 10px;}
+.cal-month-label{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--deep);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:0 14px 8px;}
+.cal-dow{font-size:10px;text-align:center;color:var(--terra);padding:3px 0;}
+.cal-dow.sun{color:var(--blush);}.cal-dow.sat{color:var(--moss);}
+.cal-cell{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;padding-top:4px;cursor:pointer;border-radius:2px;}
+.cal-cell.today .cal-day-num{background:var(--gold);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;}
+.cal-cell.selected{background:rgba(184,146,42,0.1);}
+.cal-cell.empty{cursor:default;}
+.cal-cell.sun .cal-day-num{color:var(--blush);}.cal-cell.sat .cal-day-num{color:var(--moss);}
+.cal-day-num{font-size:12px;color:var(--deep);line-height:20px;}
+.cal-dots{display:flex;gap:2px;margin-top:1px;flex-wrap:wrap;justify-content:center;}
+.cal-dot{width:4px;height:4px;border-radius:50%;}
+.cal-detail{margin:0 14px 12px;background:white;border:1px solid rgba(184,146,42,0.2);padding:12px;}
+.cal-detail-date{font-family:'Cormorant Garamond',serif;font-size:14px;color:var(--deep);margin-bottom:8px;border-bottom:1px solid rgba(184,146,42,0.12);padding-bottom:6px;}
+.cal-detail-row{display:flex;gap:8px;align-items:flex-start;padding:4px 0;border-bottom:1px solid rgba(184,146,42,0.06);font-size:11px;}
+.cal-detail-row:last-child{border-bottom:none;}
+.cal-detail-time{color:var(--gold);min-width:34px;font-family:'Cormorant Garamond',serif;}
+.cal-detail-photo{width:56px;height:42px;object-fit:cover;flex-shrink:0;}
+.cal-no-data{font-size:11px;color:rgba(26,18,8,0.3);text-align:center;padding:14px 0;}
+.aggr-tabs{display:flex;border-bottom:1px solid rgba(184,146,42,0.2);padding:0 14px;}
+.aggr-tab{flex:1;padding:9px 4px;text-align:center;font-size:11px;color:rgba(26,18,8,0.4);cursor:pointer;border-bottom:2px solid transparent;}
+.aggr-tab.active{color:var(--gold);border-bottom-color:var(--gold);}
+.aggr-content{display:none;padding:12px 14px;}.aggr-content.active{display:block;}
+.aggr-period-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:12px;}
+.aggr-period-btn{background:none;border:none;font-size:20px;color:var(--gold);cursor:pointer;padding:2px 8px;}
+.aggr-period-label{font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--deep);}
+.aggr-card{background:white;border:1px solid rgba(184,146,42,0.15);padding:12px;margin-bottom:10px;}
+.aggr-card-title{font-size:11px;color:var(--gold);margin-bottom:8px;}
+.aggr-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(184,146,42,0.07);font-size:12px;}
+.aggr-row:last-child{border-bottom:none;}
+.aggr-val{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--gold);}
+.bar-wrap{background:white;border:1px solid rgba(184,146,42,0.15);padding:12px;margin-bottom:10px;}
+.bar-wrap-title{font-size:11px;color:var(--gold);margin-bottom:8px;}
+.bar-chart{display:flex;align-items:flex-end;gap:3px;height:55px;}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%;justify-content:flex-end;}
+.bar{width:100%;border-radius:1px 1px 0 0;min-height:2px;}
+.bar-label{font-size:8px;color:rgba(26,18,8,0.4);}
+.wg-wrap{background:white;border:1px solid rgba(184,146,42,0.15);padding:12px;margin-bottom:10px;}
+.wg-title{font-size:11px;color:var(--gold);margin-bottom:8px;}
+.wg-no-data{font-size:11px;color:rgba(26,18,8,0.3);text-align:center;padding:20px 0;}
+.dream-card{background:linear-gradient(135deg,#f0eaf5,#e8e0f0);border:1px solid rgba(140,100,180,0.2);padding:13px;margin-bottom:9px;position:relative;}
+.dream-date{font-size:10px;color:var(--violet);margin-bottom:4px;}
+.dream-text{font-size:12px;line-height:1.8;color:var(--deep);}
+.dream-delete{position:absolute;top:9px;right:11px;font-size:14px;color:rgba(122,90,154,0.4);cursor:pointer;}
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:var(--deep);display:flex;padding:9px 0 18px;border-top:1px solid rgba(184,146,42,0.3);z-index:20;}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;opacity:0.45;}
+.nav-item.active{opacity:1;}
+.nav-emoji{font-size:18px;}.nav-label{font-size:9px;color:var(--moon);}
+.toast{position:fixed;top:14px;left:50%;transform:translateX(-50%) translateY(-80px);background:var(--deep);color:var(--moon);padding:9px 16px;font-size:11px;border-left:3px solid var(--gold);transition:transform 0.3s ease;z-index:100;white-space:nowrap;max-width:90vw;}
+.toast.show{transform:translateX(-50%) translateY(0);}</style>
+</head>
+<body>
+<div class="app">
+<div class="toast" id="toast"></div>
+<div class="page active" id="page-home">
+  <div class="header"><div class="header-top"><div><div class="app-title">珠世の記録帳</div><div class="date-display" id="date-display"></div><div class="koyomi-line" id="koyomi-line"></div></div><div class="moon-widget" onclick="showMoonToast()"><span class="moon-emoji" id="moon-emoji"></span><div class="moon-name" id="moon-name"></div></div></div></div>
+  <div class="cosmos-card"><div class="cosmos-label">✦ 今日の宇宙より</div><div class="cosmos-text" id="cosmos-text"></div><div class="cosmos-tags" id="cosmos-tags"></div></div>
+  <div class="section-title">✦ 今この瞬間を記録</div>
+  <div class="quick-grid">
+    <div class="quick-btn" id="btn-benpi" onclick="openModal('benpi')"><span class="btn-count" id="count-benpi"></span><span class="btn-emoji">💩</span><span class="btn-label">便通あり</span><span class="btn-sub" id="sub-benpi"></span></div>
+    <div class="quick-btn" id="btn-hainyou" onclick="quickRecord('hainyou','🚽','排尿',this)"><span class="btn-count" id="count-hainyou"></span><span class="btn-emoji">🚽</span><span class="btn-label">排尿</span><span class="btn-sub" id="sub-hainyou"></span></div>
+    <div class="quick-btn" id="btn-stress" onclick="openModal('stress')"><span class="btn-count" id="count-stress"></span><span class="btn-emoji">😤</span><span class="btn-label">ストレス</span><span class="btn-sub" id="sub-stress"></span></div>
+    <div class="quick-btn" id="btn-positive" onclick="openModal('positive')"><span class="btn-count" id="count-positive"></span><span class="btn-emoji">✨</span><span class="btn-label">嬉しい・穏やか</span><span class="btn-sub" id="sub-positive"></span></div>
+    <div class="quick-btn" id="btn-meiso" onclick="openModal('meiso')"><span class="btn-count" id="count-meiso"></span><span class="btn-emoji">🧘</span><span class="btn-label">瞑想</span><span class="btn-sub" id="sub-meiso"></span></div>
+    <div class="quick-btn" id="btn-shokuji" onclick="openModal('shokuji')"><span class="btn-count" id="count-shokuji"></span><span class="btn-emoji">🍽️</span><span class="btn-label">食事・写真</span><span class="btn-sub" id="sub-shokuji"></span></div>
+    <div class="quick-btn" id="btn-suimin" onclick="openModal('suimin')" style="grid-column:1/-1;min-height:60px;flex-direction:row;align-items:center;gap:10px;"><span class="btn-count" id="count-suimin"></span><span class="btn-emoji">😴</span><span class="btn-label">睡眠を記録</span><span class="btn-sub" id="sub-suimin" style="margin-left:auto;"></span></div>
+  </div>
+  <div class="weight-area"><div class="weight-row"><input type="number" class="weight-input" id="weight-input" placeholder="--.-" step="0.1" min="30" max="200"><span class="weight-unit">kg</span><button class="weight-btn" onclick="saveWeight()">体重を記録</button></div><div class="weight-today" id="weight-today"></div></div>
+  <div class="memo-area"><textarea class="memo-input" id="memo-input" placeholder="出来事・気づきをひとこと…"></textarea><button class="memo-submit" onclick="addMemo()">記録する</button></div>
+  <div class="section-title" style="margin-top:14px;">✦ 今日の記録</div>
+  <div class="timeline" id="timeline"></div>
+</div>
+<div class="page" id="page-cal">
+  <div class="header"><div class="app-title">珠世の記録帳</div><div class="date-display">カレンダー</div></div>
+  <div class="cal-nav"><button class="cal-nav-btn" onclick="calMove(-1)">&#8249;</button><span class="cal-month-label" id="cal-month-label"></span><button class="cal-nav-btn" onclick="calMove(1)">&#8250;</button></div>
+  <div class="cal-grid" id="cal-grid"></div><div id="cal-detail-wrap"></div>
+</div>
+<div class="page" id="page-aggr">
+  <div class="header"><div class="app-title">珠世の記録帳</div><div class="date-display">集計・グラフ</div></div>
+  <div class="aggr-tabs"><div class="aggr-tab active" onclick="switchAggr('month',this)">月次</div><div class="aggr-tab" onclick="switchAggr('year',this)">年次</div><div class="aggr-tab" onclick="switchAggr('weight',this)">体重</div></div>
+  <div class="aggr-content active" id="aggr-month"><div class="aggr-period-nav"><button class="aggr-period-btn" onclick="aggrMonthMove(-1)">&#8249;</button><span class="aggr-period-label" id="aggr-month-label"></span><button class="aggr-period-btn" onclick="aggrMonthMove(1)">&#8250;</button></div><div id="aggr-month-content"></div></div>
+  <div class="aggr-content" id="aggr-year"><div class="aggr-period-nav"><button class="aggr-period-btn" onclick="aggrYearMove(-1)">&#8249;</button><span class="aggr-period-label" id="aggr-year-label"></span><button class="aggr-period-btn" onclick="aggrYearMove(1)">&#8250;</button></div><div id="aggr-year-content"></div></div>
+  <div class="aggr-content" id="aggr-weight"><div class="aggr-period-nav"><button class="aggr-period-btn" onclick="aggrWeightMove(-1)">&#8249;</button><span class="aggr-period-label" id="aggr-weight-label"></span><button class="aggr-period-btn" onclick="aggrWeightMove(1)">&#8250;</button></div><div id="aggr-weight-content"></div></div>
+</div>
+<div class="page" id="page-dream">
+  <div class="header"><div class="app-title">珠世の記録帳</div><div class="date-display">夢日記 🌙</div></div>
+  <div style="padding:14px;"><textarea class="memo-input" id="dream-input" style="height:88px;" placeholder="今朝の夢を書き留めて…"></textarea><button class="memo-submit" onclick="saveDream()" style="margin-top:5px;">夢を記録する</button><div class="section-title" style="padding:0;margin-top:14px;">✦ 夢の記録</div><div id="dream-list"></div></div>
+</div>
+<div class="bottom-nav">
+  <div class="nav-item active" onclick="showPage('home',this)"><span class="nav-emoji">🏠</span><span class="nav-label">ホーム</span></div>
+  <div class="nav-item" onclick="showPage('cal',this)"><span class="nav-emoji">📅</span><span class="nav-label">カレンダー</span></div>
+  <div class="nav-item" onclick="showPage('aggr',this)"><span class="nav-emoji">📊</span><span class="nav-label">集計</span></div>
+  <div class="nav-item" onclick="showPage('dream',this)"><span class="nav-emoji">🌙</span><span class="nav-label">夢日記</span></div>
+</div>
+</div>
+<div class="modal-overlay" id="modal-benpi" onclick="closeModalOutside(event,'modal-benpi')"><div class="modal-box"><span class="modal-close" onclick="closeModal('modal-benpi')">✕</span><div class="modal-title">💩 便通を記録</div><span class="field-label">状態</span><select class="styled-select" id="benpi-state"><option value="">選択してください</option><option value="バナナ">バナナ（理想的）</option><option value="軟便">軟便</option><option value="下痢">下痢</option><option value="ボソボソ">ボソボソ</option><option value="コチコチ">コチコチ</option></select><button class="modal-submit" onclick="submitBenpi()">記録する</button></div></div>
+<div class="modal-overlay" id="modal-stress" onclick="closeModalOutside(event,'modal-stress')"><div class="modal-box"><span class="modal-close" onclick="closeModal('modal-stress')">✕</span><div class="modal-title">😤 ストレスを記録</div><span class="field-label">種類</span><select class="styled-select" id="stress-type"><option value="仕事・業務">仕事・業務</option><option value="人間関係">人間関係</option><option value="からだの不調">からだの不調</option><option value="気候・環境">気候・環境</option><option value="その他">その他</option></select><div class="intensity-wrap"><span class="field-label">強度（1〜10）</span><div class="intensity-row"><input type="range" class="intensity-slider" id="stress-intensity" min="1" max="10" value="5" oninput="document.getElementById('stress-val').textContent=this.value"><span class="intensity-val" id="stress-val">5</span></div></div><button class="modal-submit" onclick="submitStress()">記録する</button></div></div>
+<div class="modal-overlay" id="modal-positive" onclick="closeModalOutside(event,'modal-positive')"><div class="modal-box"><span class="modal-close" onclick="closeModal('modal-positive')">✕</span><div class="modal-title">✨ ポジティブな出来事</div><span class="field-label">種類</span><select class="styled-select" id="positive-type"><option value="嬉しいことがあった">嬉しいことがあった</option><option value="穏やかな気分">穏やかな気分</option><option value="感謝を感じた">感謝を感じた</option><option value="達成感">達成感</option><option value="自然・美しいものに触れた">自然・美しいものに触れた</option></select><div class="intensity-wrap"><span class="field-label">強度（1〜10）</span><div class="intensity-row"><input type="range" class="intensity-slider" id="positive-intensity" min="1" max="10" value="7" oninput="document.getElementById('positive-val').textContent=this.value"><span class="intensity-val" id="positive-val">7</span></div></div><button class="modal-submit" onclick="submitPositive()">記録する</button></div></div>
+<div class="modal-overlay" id="modal-meiso" onclick="closeModalOutside(event,'modal-meiso')"><div class="modal-box"><span class="modal-close" onclick="closeModal('modal-meiso')">✕</span><div class="modal-title">🧘 瞑想を記録</div><span class="field-label">種類</span><select class="styled-select" id="meiso-type"><option value="呼吸瞑想">呼吸瞑想</option><option value="チャカナの呼吸">チャカナの呼吸</option><option value="ボディスキャン">ボディスキャン</option><option value="チャクラ瞑想">チャクラ瞑想</option><option value="歩行瞑想">歩行瞑想</option><option value="その他">その他</option></select><span class="field-label">時間（分）</span><div class="time-input-row"><input type="number" class="num-input" id="meiso-min" value="10" min="1" max="180"><span class="time-unit">分</span></div><button class="modal-submit" onclick="submitMeiso()">記録する</button></div></div>
+<div class="modal-overlay" id="modal-shokuji" onclick="closeModalOutside(event,'modal-shokuji')"><div class="modal-box"><span class="modal-close" onclick="closeModal('modal-shokuji')">✕</span><div class="modal-title">🍽️ 食事を記録</div><span class="field-label">タイミング</span><select class="styled-select" id="shokuji-timing"><option value="朝食">朝食</option><option value="昼食">昼食</option><option value="夕食">夕食</option><option value="間食">間食</option></select><span class="field-label">写真</span><div class="photo-btns"><div class="photo-btn" onclick="document.getElementById('photo-camera').click()"><span class="photo-btn-icon">📷</span>カメラで撮影</div><div class="photo-btn" onclick="document.getElementById('photo-album').click()"><span class="photo-btn-icon">🖼️</span>アルバムから</div></div><input type="file" id="photo-camera" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(event)"><input type="file" id="photo-album" accept="image/*" style="display:none" onchange="handlePhoto(event)"><img class="photo-preview-img" id="photo-preview" alt=""><span class="field-label">メモ（任意）</span><textarea class="modal-textarea" id="shokuji-memo" placeholder="何を食べたか…"></textarea><button class="modal-submit" onclick="submitShokuji()">記録する</button></div></div>
+<div class="modal-overlay" id="modal-suimin" onclick="closeModalOutside(event,'modal-suimin')"><div class="modal-box"><span class="modal-close" onclick="closeModal('modal-suimin')">✕</span><div class="modal-title">😴 睡眠を記録</div><span class="field-label">就寝時刻</span><div class="time-input-row"><input type="number" class="num-input" id="suimin-h" value="23" min="0" max="23" style="width:70px;" oninput="updateSuiminCalc()"><span class="time-unit">時</span><input type="number" class="num-input" id="suimin-m" value="0" min="0" max="59" style="width:70px;" oninput="updateSuiminCalc()"><span class="time-unit">分</span></div><span class="field-label">起床時刻</span><div class="time-input-row"><input type="number" class="num-input" id="okiru-h" value="6" min="0" max="23" style="width:70px;" oninput="updateSuiminCalc()"><span class="time-unit">時</span><input type="number" class="num-input" id="okiru-m" value="30" min="0" max="59" style="width:70px;" oninput="updateSuiminCalc()"><span class="time-unit">分</span></div><span class="field-label">睡眠の質</span><select class="styled-select" id="suimin-quality"><option value="ぐっすり">ぐっすり 😊</option><option value="まあまあ">まあまあ 😐</option><option value="浅かった">浅かった 😞</option><option value="眠れなかった">眠れなかった 😩</option></select><div id="suimin-calc" style="font-size:13px;color:var(--gold);text-align:center;margin-bottom:10px;font-family:'Cormorant Garamond',serif;font-size:18px;"></div><button class="modal-submit" onclick="submitSuimin()">記録する</button></div></div>
+<script>
+
+var TODAY = new Date().toDateString();
+var calYear=new Date().getFullYear(), calMonth=new Date().getMonth(), calSelected=null;
+var agMY=new Date().getFullYear(), agMM=new Date().getMonth();
+var agY=new Date().getFullYear();
+var agWY=new Date().getFullYear(), agWM=new Date().getMonth();
+var currentPhoto=null;
+
+function getData(){try{return JSON.parse(localStorage.getItem('tw5')||'{}');}catch(e){return{};}}
+function saveData(d){localStorage.setItem('tw5',JSON.stringify(d));}
+function getTD(){var d=getData();if(!d[TODAY])d[TODAY]={counts:{},meisoMin:0,timeline:[],weight:null};return d;}
+
+function getMoon(date){
+  var diff=(date-new Date('2000-01-06'))/86400000;
+  var ph=((diff%29.53059)+29.53059)%29.53059;
+  if(ph<1.85) return{e:'🌑',n:'新月',a:'新しい意図を立てる時。静かに内側へ。',t:['新月','内省']};
+  if(ph<7.38) return{e:'🌒',n:'三日月',a:'種を蒔く時期。小さな一歩を。',t:['成長','計画']};
+  if(ph<11.07)return{e:'🌓',n:'上弦の月',a:'エネルギーが高まっています。積極的に。',t:['行動','前進']};
+  if(ph<14.77)return{e:'🌔',n:'十三夜',a:'もうすぐ満月。感情が高まりやすい時期。',t:['感情','注意']};
+  if(ph<16.61)return{e:'🌕',n:'満月',a:'感情と体が敏感になる満月。腸にも影響が出やすい時期です。',t:['満月','腸活']};
+  if(ph<22.15)return{e:'🌖',n:'十六夜',a:'手放しの時期。不要なものを解放して。',t:['手放し','浄化']};
+  if(ph<25.84)return{e:'🌗',n:'下弦の月',a:'整理と休息を。体も心も休ませて。',t:['休息','整理']};
+  return{e:'🌘',n:'晦日月',a:'新たなサイクルへ。静かに過ごして。',t:['準備','瞑想']};
+}
+function getSekki(date){
+  var m=date.getMonth()+1, d=date.getDate();
+  var list=[{m:1,d:6,n:'小寒'},{m:1,d:20,n:'大寒'},{m:2,d:4,n:'立春'},{m:2,d:19,n:'雨水'},
+    {m:3,d:6,n:'啓蟄'},{m:3,d:21,n:'春分'},{m:4,d:5,n:'清明'},{m:4,d:20,n:'穀雨'},
+    {m:5,d:6,n:'立夏'},{m:5,d:21,n:'小満'},{m:6,d:6,n:'芒種'},{m:6,d:21,n:'夏至'},
+    {m:7,d:7,n:'小暑'},{m:7,d:23,n:'大暑'},{m:8,d:7,n:'立秋'},{m:8,d:23,n:'処暑'},
+    {m:9,d:8,n:'白露'},{m:9,d:23,n:'秋分'},{m:10,d:8,n:'寒露'},{m:10,d:23,n:'霜降'},
+    {m:11,d:7,n:'立冬'},{m:11,d:22,n:'小雪'},{m:12,d:7,n:'大雪'},{m:12,d:22,n:'冬至'}];
+  var hit=null;
+  for(var i=0;i<list.length;i++){if(list[i].m===m&&Math.abs(list[i].d-d)<=3){hit=list[i];break;}}
+  if(!hit)return '';
+  if(hit.d===d)return '【'+hit.n+'】';
+  if(hit.d>d)return hit.n+'まであと'+(hit.d-d)+'日';
+  return hit.n+'から'+(d-hit.d)+'日';
+}
+function getRokuyo(date){return['先勝','友引','先負','仏滅','大安','赤口'][((date.getMonth()+1+date.getDate())%6+6)%6];}
+
+// 西洋占星術（太陽星座：獅子座）＋四柱推命（昭和42年8月3日）
+function getBirthHint(date){
+  // 太陽星座：獅子座（7/23-8/22）
+  // 四柱推命：丁未年・庚申月・甲午日 → 火・土・金・木のバランス
+  // 月のエネルギーと組み合わせて毎日変わるヒントを返す
+  var moon=getMoon(date);
+  var mo=date.getMonth()+1;
+  var d=date.getDate();
+  var seed=(mo*31+d)%7;
+
+  // 獅子座の本質メッセージ（7パターン）
+  var leoCore=[
+    '獅子座の太陽があなたに伝えます。あなたの輝きは誰かを照らすためにある。今日は自分を表現することを恐れないで。',
+    '丁（ひのと）の火を持つあなた。燃やしすぎず、灯台のように静かに照らす日。内なる知恵を大切にして。',
+    '未（ひつじ）の年生まれ。穏やかさと忍耐の中に強さがある。今日は急がず、丁寧に進んで。',
+    '獅子座は心の宮殿を司ります。今日はあなた自身の城を整える日。環境を整えると心も整います。',
+    '火のエネルギーが強い日。熱くなりすぎたと感じたら、深呼吸。水を飲んで、腸を労わって。',
+    '甲（きのえ）の木の力があなたを支えます。根を張り、天へ伸びる大樹のように。焦らなくていい。',
+    '午（うま）のエネルギー。走りたい衝動があるかも。でも今日は立ち止まって、自分の内側を聞いて。'
+  ];
+
+  // 月のフェーズと組み合わせる
+  var moonBonus='';
+  if(moon.n==='満月')moonBonus='満月の夜、獅子座の魂は特に感情が豊かになります。流れるままに感じて。';
+  else if(moon.n==='新月')moonBonus='新月はあなたの新しい意図を宇宙に伝えるチャンス。獅子座の力で堂々と願いを立てて。';
+  else if(mo>=7&&mo<=8)moonBonus='太陽があなたの星座・獅子座を照らす季節。本来の輝きが増す時期です。';
+
+  var hint=leoCore[seed];
+  if(moonBonus)hint+='　'+moonBonus;
+  return hint;
+}
+
+function getSekkiMessage(date){
+  var sk=getSekki(date);
+  if(!sk)return '';
+  // 節気ごとの体へのメッセージ
+  var sekkiBody={
+    '小寒':'寒さのピークへ。腸を温める食事を。白湯や生姜がおすすめ。',
+    '大寒':'一年で最も寒い時期。無理せず、内側を温めて。',
+    '立春':'春の始まり。体が動きたがっている。少しずつ活動量を増やして。',
+    '雨水':'潤いの季節。水分をしっかりとって。',
+    '啓蟄':'虫が動き出す頃。あなたの体も冬眠から目覚める時。',
+    '春分':'昼夜等分。バランスを整えるのに最適な日。',
+    '清明':'清らかな気が満ちる。デトックスに良い時期。',
+    '穀雨':'恵みの雨。体に必要なものを取り入れて。',
+    '立夏':'夏の始まり。心臓と小腸を労わる季節。',
+    '小満':'満ちてくる季節。過ごしやすい今のうちに整えて。',
+    '芒種':'種蒔きの時。新しい習慣を始めるのに最適。',
+    '夏至':'一年で最も昼が長い日。エネルギーが最高潮。でも無理しないで。',
+    '小暑':'本格的な暑さへ。水分と睡眠を大切に。',
+    '大暑':'暑さのピーク。腸が弱りやすい時期。冷たいものに注意。',
+    '立秋':'秋の始まり。肺を労わる季節。深呼吸を意識して。',
+    '処暑':'暑さが和らぐ頃。体を少しずつ秋モードへ。',
+    '白露':'朝露が降りる頃。乾燥に注意。肌と粘膜を労わって。',
+    '秋分':'収穫と感謝の日。今年得たものを振り返って。',
+    '寒露':'冷たい露の季節。温かくして過ごして。',
+    '霜降':'霜が降りる頃。体を冷やさないように。',
+    '立冬':'冬の始まり。腎臓を労わる季節。塩分と水分のバランスを。',
+    '小雪':'雪の季節へ。エネルギーを内側に蓄える時。',
+    '大雪':'本格的な冬。無理せず、休息を大切に。',
+    '冬至':'一年で最も夜が長い日。かぼちゃを食べて、ゆっくり過ごして。'
+  };
+  // sk は「【立春】」や「立春まであと3日」の形
+  var name='';
+  var m=sk.match(/【(.+?)】/);
+  if(m)name=m[1];
+  else{m=sk.match(/^(.+?)まで|^(.+?)から/);if(m)name=m[1]||m[2];}
+  if(name&&sekkiBody[name])return sk+'　'+sekkiBody[name];
+  return sk;
+}
+
+function initHeader(){
+  var now=new Date();
+  var days=['日','月','火','水','木','金','土'];
+  document.getElementById('date-display').textContent=now.getFullYear()+'年'+(now.getMonth()+1)+'月'+now.getDate()+'日（'+days[now.getDay()]+'）';
+  var moon=getMoon(now);
+  document.getElementById('moon-emoji').textContent=moon.e;
+  document.getElementById('moon-name').textContent=moon.n;
+  var ry=getRokuyo(now), sk=getSekki(now);
+  document.getElementById('koyomi-line').textContent='六曜：'+ry+(sk?'　節気：'+sk:'');
+
+  // 宇宙カードのテキスト：月＋季節＋節気＋誕生日占い
+  var mo=now.getMonth()+1;
+  var sea=mo>=3&&mo<=5?'春の気は上へ。':mo>=6&&mo<=8?'夏の熱を内に溜めないように。':mo>=9&&mo<=11?'秋は収穫と手放しの季節。':'冬は根を深く張る時期。';
+  var sekkiMsg=getSekkiMessage(now);
+  var birthHint=getBirthHint(now);
+  
+  // 宇宙カードを3ブロックに分けて表示
+  var cosmosEl=document.getElementById('cosmos-text');
+  cosmosEl.innerHTML=
+    '<div style="margin-bottom:6px;">'+moon.a+'　'+sea+'</div>'+
+    (sekkiMsg?'<div style="margin-bottom:6px;padding:5px 8px;border-left:2px solid rgba(184,146,42,0.5);font-size:10px;opacity:0.9;">'+sekkiMsg+'</div>':'')+
+    '<div style="padding:5px 8px;border-left:2px solid rgba(212,170,74,0.6);font-size:10px;opacity:0.85;">♌ '+birthHint+'</div>';
+
+  var tags=moon.t.map(function(t){return '<span class=\'cosmos-tag\'>'+t+'</span>';}).join('');
+  tags+='<span class=\'cosmos-tag\'>'+ry+'</span>';
+  tags+='<span class=\'cosmos-tag\'>獅子座</span>';
+  if(sk){var skName=sk.match(/【(.+?)】/);tags+='<span class=\'cosmos-tag\'>'+(skName?skName[1]:sk.split('まで')[0].split('から')[0])+'</span>';}
+  document.getElementById('cosmos-tags').innerHTML=tags;
+}
+
+function openModal(n){document.getElementById('modal-'+n).classList.add('open');if(n==='suimin')updateSuiminCalc();}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function closeModalOutside(e,id){if(e.target.classList.contains('modal-overlay'))closeModal(id);}
+
+function submitBenpi(){
+  var s=document.getElementById('benpi-state').value;
+  if(!s){showToast('状態を選んでください');return;}
+  addRecord('benpi','💩','便通',s);
+  document.getElementById('benpi-state').value='';
+  closeModal('modal-benpi');
+}
+function submitStress(){
+  addRecord('stress','😤','ストレス（'+document.getElementById('stress-type').value+'）','強度 '+document.getElementById('stress-intensity').value+'/10');
+  closeModal('modal-stress');
+}
+function submitPositive(){
+  addRecord('positive','✨',document.getElementById('positive-type').value,'強度 '+document.getElementById('positive-intensity').value+'/10');
+  closeModal('modal-positive');
+}
+function submitMeiso(){
+  var t=document.getElementById('meiso-type').value;
+  var min=parseInt(document.getElementById('meiso-min').value)||10;
+  var data=getTD(); data[TODAY].meisoMin=(data[TODAY].meisoMin||0)+min; saveData(data);
+  addRecord('meiso','🧘',t,min+'分');
+  closeModal('modal-meiso');
+}
+function handlePhoto(e){
+  var file=e.target.files[0]; if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var img=new Image();
+    img.onload=function(){
+      var canvas=document.createElement('canvas');
+      var maxW=600, maxH=600;
+      var w=img.width, h=img.height;
+      if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+      if(h>maxH){w=Math.round(w*maxH/h);h=maxH;}
+      canvas.width=w; canvas.height=h;
+      var ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0,w,h);
+      currentPhoto=canvas.toDataURL('image/jpeg',0.6);
+      var p=document.getElementById('photo-preview');
+      p.src=currentPhoto; p.style.display='block';
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file); e.target.value='';
+}
+function submitShokuji(){
+  var timing=document.getElementById('shokuji-timing').value;
+  var memo=document.getElementById('shokuji-memo').value.trim();
+  addRecord('shokuji','🍽️',timing,memo,currentPhoto);
+  document.getElementById('shokuji-memo').value='';
+  document.getElementById('photo-preview').style.display='none';
+  currentPhoto=null; closeModal('modal-shokuji');
+}
+function quickRecord(type,emoji,label,btn){
+  var r=document.createElement('div'); r.className='ripple-effect'; r.style.left='20px'; r.style.top='20px';
+  btn.appendChild(r); setTimeout(function(){if(r.parentNode)r.parentNode.removeChild(r);},500);
+  addRecord(type,emoji,label,'');
+}
+function addRecord(type,emoji,label,sub,photo){
+  photo=photo||null; sub=sub||'';
+  var data=getTD(); var now=new Date();
+  var time=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  var id=Date.now();
+  if(!data[TODAY].counts[type])data[TODAY].counts[type]=0;
+  data[TODAY].counts[type]++;
+  data[TODAY].timeline.unshift({id:id,emoji:emoji,label:label,sub:sub,time:time,type:type,photo:photo});
+  saveData(data); refreshCounts(); renderTimeline();
+  showToast(emoji+' '+label+' を記録しました');
+}
+function refreshCounts(){
+  var data=getTD(); var counts=data[TODAY].counts||{};
+  var types=['benpi','hainyou','stress','positive','meiso','shokuji','suimin'];
+  for(var i=0;i<types.length;i++){
+    var type=types[i]; var c=counts[type]||0;
+    var el=document.getElementById('count-'+type); if(el)el.textContent=c>0?c:'';
+    var btn=document.getElementById('btn-'+type); if(btn&&c>0)btn.classList.add('recorded');
+    var tl=data[TODAY].timeline||[]; var last=null;
+    for(var j=0;j<tl.length;j++){if(tl[j].type===type){last=tl[j];break;}}
+    var subEl=document.getElementById('sub-'+type);
+    if(subEl&&last)subEl.textContent=(last.sub?last.sub.substring(0,10)+' ':'')+last.time;
+  }
+  var w=data[TODAY].weight;
+  document.getElementById('weight-today').textContent=w?'今日の体重：'+w+' kg':'';
+}
+function renderTimeline(){
+  var data=getTD(); var tl=data[TODAY].timeline||[];
+  var el=document.getElementById('timeline');
+  if(!tl.length){el.innerHTML='<div style="padding:14px 0;text-align:center;font-size:12px;color:rgba(26,18,8,0.3);">まだ記録がありません</div>';return;}
+  var html='';
+  for(var i=0;i<tl.length;i++){
+    var item=tl[i];
+    html+='<div class="timeline-item">';
+    html+='<span class="timeline-time">'+item.time+'</span>';
+    html+='<div class="timeline-content">'+item.emoji+' '+item.label;
+    if(item.sub)html+='<div class="timeline-sub">'+item.sub+'</div>';
+    if(item.photo)html+='<img class="timeline-photo" src="'+item.photo+'" alt="">';
+    html+='</div>';
+    html+='<span class="timeline-delete" onclick="deleteRecord('+item.id+')">✕</span>';
+    html+='</div>';
+  }
+  el.innerHTML=html;
+}
+function deleteRecord(id){
+  var data=getTD(); var tl=data[TODAY].timeline; var idx=-1;
+  for(var i=0;i<tl.length;i++){if(tl[i].id===id){idx=i;break;}}
+  if(idx===-1)return;
+  var item=tl[idx];
+  if(data[TODAY].counts[item.type]>0)data[TODAY].counts[item.type]--;
+  if(item.type==='meiso'){var min=parseInt(item.sub)||0;data[TODAY].meisoMin=Math.max(0,(data[TODAY].meisoMin||0)-min);}
+  tl.splice(idx,1); saveData(data); refreshCounts(); renderTimeline();
+  showToast('記録を削除しました');
+}
+function addMemo(){
+  var input=document.getElementById('memo-input'); var text=input.value.trim(); if(!text)return;
+  input.value=''; addRecord('memo','📝',text,'');
+}
+function saveWeight(){
+  var val=parseFloat(document.getElementById('weight-input').value);
+  if(!val||val<30||val>200){showToast('体重を正しく入力してください');return;}
+  var data=getTD(); data[TODAY].weight=val; saveData(data);
+  document.getElementById('weight-input').value='';
+  document.getElementById('weight-today').textContent='今日の体重：'+val+' kg';
+  showToast('⚖️ '+val+'kgを記録しました');
+}
+function saveDream(){
+  var input=document.getElementById('dream-input'); var text=input.value.trim(); if(!text)return;
+  var data=getData(); if(!data.dreams)data.dreams=[];
+  var now=new Date(); var moon=getMoon(now);
+  data.dreams.unshift({id:Date.now(),date:now.getFullYear()+'年'+(now.getMonth()+1)+'月'+now.getDate()+'日',text:text,moon:moon.e});
+  saveData(data); input.value=''; renderDreams(); showToast('🌙 夢を記録しました');
+}
+function deleteDream(id){
+  var data=getData(); var arr=data.dreams||[]; var newArr=[];
+  for(var i=0;i<arr.length;i++){if(arr[i].id!==id)newArr.push(arr[i]);}
+  data.dreams=newArr; saveData(data); renderDreams();
+}
+function renderDreams(){
+  var data=getData(); var dreams=data.dreams||[]; var el=document.getElementById('dream-list');
+  if(!dreams.length){el.innerHTML='<div style="padding:14px 0;text-align:center;font-size:11px;color:rgba(26,18,8,0.3);">まだ夢の記録がありません</div>';return;}
+  var html='';
+  for(var i=0;i<dreams.length;i++){
+    var d=dreams[i];
+    html+='<div class="dream-card"><span class="dream-delete" onclick="deleteDream('+d.id+')">✕</span>';
+    html+='<div class="dream-date">'+d.moon+' '+d.date+'</div>';
+    html+='<div class="dream-text">'+d.text+'</div></div>';
+  }
+  el.innerHTML=html;
+}
+function renderCalendar(){
+  var now=new Date();
+  document.getElementById('cal-month-label').textContent=calYear+'年'+(calMonth+1)+'月';
+  var firstDay=new Date(calYear,calMonth,1).getDay();
+  var lastDate=new Date(calYear,calMonth+1,0).getDate();
+  var data=getData();
+  var dows=['日','月','火','水','木','金','土'];
+  var html='';
+  for(var di=0;di<7;di++){html+='<div class="cal-dow '+(di===0?'sun':di===6?'sat':'')+' ">'+dows[di]+'</div>';}
+  for(var fi=0;fi<firstDay;fi++)html+='<div class="cal-cell empty"></div>';
+  var dc={benpi:'#3d5a3e',hainyou:'#7a9ab8',stress:'#c4735a',positive:'#b8922a',meiso:'#7a5a9a',shokuji:'#d4aa4a',weight:'#5a8a7a'};
+  for(var d=1;d<=lastDate;d++){
+    var key=new Date(calYear,calMonth,d).toDateString();
+    var isToday=key===now.toDateString(); var isSel=key===calSelected;
+    var dow=new Date(calYear,calMonth,d).getDay();
+    var dd=data[key]; var dots='';
+    if(dd){
+      var keys=Object.keys(dc);
+      for(var k=0;k<keys.length;k++){
+        var type=keys[k];
+        if(type==='weight'&&dd.weight)dots+='<div class="cal-dot" style="background:'+dc[type]+'"></div>';
+        else if(dd.counts&&dd.counts[type])dots+='<div class="cal-dot" style="background:'+dc[type]+'"></div>';
+      }
+    }
+    html+='<div class="cal-cell '+(isToday?'today ':'')+(isSel?'selected ':'')+(dow===0?'sun ':dow===6?'sat ':'')+'" onclick="calSelectDay(\'' +key+ '\')"><div class="cal-day-num">'+d+'</div><div class="cal-dots">'+dots+'</div></div>';
+  }
+  document.getElementById('cal-grid').innerHTML=html;
+  if(calSelected)renderCalDetail(calSelected);
+}
+function calMove(dir){calMonth+=dir;if(calMonth<0){calMonth=11;calYear--;}else if(calMonth>11){calMonth=0;calYear++;}renderCalendar();}
+function calSelectDay(key){calSelected=key;renderCalendar();}
+function renderCalDetail(key){
+  var data=getData(); var dd=data[key]; var wrap=document.getElementById('cal-detail-wrap');
+  var dt=new Date(key); var dows=['日','月','火','水','木','金','土'];
+  var label=dt.getFullYear()+'年'+(dt.getMonth()+1)+'月'+dt.getDate()+'日（'+dows[dt.getDay()]+'）';
+  if(!dd||(!( dd.timeline&&dd.timeline.length)&&!dd.weight)){
+    wrap.innerHTML='<div class="cal-detail"><div class="cal-detail-date">'+label+'</div><div class="cal-no-data">記録なし</div></div>';return;
+  }
+  var rows='';
+  if(dd.weight)rows+='<div class="cal-detail-row"><span class="cal-detail-time">--</span><span>⚖️ 体重 '+dd.weight+'kg</span></div>';
+  var tl=dd.timeline||[];
+  for(var i=0;i<tl.length;i++){
+    var item=tl[i];
+    rows+='<div class="cal-detail-row"><span class="cal-detail-time">'+item.time+'</span>';
+    rows+='<div style="flex:1;font-size:11px;">'+item.emoji+' '+item.label;
+    if(item.sub)rows+='<div style="font-size:10px;color:#8b5e3c;">'+item.sub+'</div>';
+    rows+='</div>';
+    if(item.photo)rows+='<img class="cal-detail-photo" src="'+item.photo+'" alt="">';
+    rows+='</div>';
+  }
+  wrap.innerHTML='<div class="cal-detail"><div class="cal-detail-date">'+label+'</div>'+rows+'</div>';
+  wrap.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function switchAggr(tab,el){
+  var tabs=document.querySelectorAll('.aggr-tab'); for(var i=0;i<tabs.length;i++)tabs[i].classList.remove('active');
+  var contents=document.querySelectorAll('.aggr-content'); for(var i=0;i<contents.length;i++)contents[i].classList.remove('active');
+  el.classList.add('active'); document.getElementById('aggr-'+tab).classList.add('active');
+  if(tab==='month')renderAggrMonth(); else if(tab==='year')renderAggrYear(); else renderAggrWeight();
+}
+function getMS(y,m){
+  var data=getData();
+  var s={benpi:0,hainyou:0,stress:0,positive:0,meisoMin:0,shokuji:0,stressTotal:0,stressCount:0,weight:[]};
+  var days=new Date(y,m+1,0).getDate();
+  for(var d=1;d<=days;d++){
+    var dd=data[new Date(y,m,d).toDateString()]; if(!dd)continue;
+    var c=dd.counts||{};
+    s.benpi+=(c.benpi||0); s.hainyou+=(c.hainyou||0); s.stress+=(c.stress||0);
+    s.positive+=(c.positive||0); s.meisoMin+=(dd.meisoMin||0); s.shokuji+=(c.shokuji||0);
+    if(dd.weight)s.weight.push(dd.weight);
+    var tl=dd.timeline||[];
+    for(var i=0;i<tl.length;i++){
+      if(tl[i].type==='stress'){
+        var sub=tl[i].sub||''; var num=0;
+        var parts=sub.split('/'); if(parts.length>0){num=parseInt(parts[0].replace(/[^0-9]/g,''))||5;}
+        s.stressTotal+=num; s.stressCount++;
+      }
+    }
+  }
+  return s;
+}
+function aggrMonthMove(dir){agMM+=dir;if(agMM<0){agMM=11;agMY--;}else if(agMM>11){agMM=0;agMY++;}renderAggrMonth();}
+function renderAggrMonth(){
+  document.getElementById('aggr-month-label').textContent=agMY+'年'+(agMM+1)+'月';
+  var s=getMS(agMY,agMM);
+  var avgS=s.stressCount>0?Math.round(s.stressTotal/s.stressCount*10)/10:'-';
+  var avgW=s.weight.length>0?Math.round(s.weight.reduce(function(a,b){return a+b;},0)/s.weight.length*10)/10:'-';
+  var data=getData(); var days=new Date(agMY,agMM+1,0).getDate();
+  var suiminMins=[]; for(var d=1;d<=days;d++){var dd=data[new Date(agMY,agMM,d).toDateString()];if(dd&&dd.suiminMin)suiminMins.push(dd.suiminMin);}
+  var avgSuimin=suiminMins.length>0?Math.round(suiminMins.reduce(function(a,b){return a+b;},0)/suiminMins.length):0;
+  var avgSuiminStr=avgSuimin>0?(Math.floor(avgSuimin/60)+'時間'+avgSuimin%60+'分'):'-';
+  var summary='<div class="aggr-card"><div class="aggr-card-title">'+agMY+'年'+(agMM+1)+'月のまとめ</div>';
+  summary+='<div class="aggr-row"><span>💩 便通回数</span><span class="aggr-val">'+s.benpi+'</span></div>';
+  summary+='<div class="aggr-row"><span>🚽 排尿記録</span><span class="aggr-val">'+s.hainyou+'</span></div>';
+  summary+='<div class="aggr-row"><span>😤 ストレス回数</span><span class="aggr-val">'+s.stress+'</span></div>';
+  summary+='<div class="aggr-row"><span>😤 平均強度</span><span class="aggr-val">'+avgS+'</span></div>';
+  summary+='<div class="aggr-row"><span>✨ ポジティブ</span><span class="aggr-val">'+s.positive+'</span></div>';
+  summary+='<div class="aggr-row"><span>🧘 瞑想（分）</span><span class="aggr-val">'+s.meisoMin+'</span></div>';
+  summary+='<div class="aggr-row"><span>😴 平均睡眠</span><span class="aggr-val">'+avgSuiminStr+'</span></div>';
+  summary+='<div class="aggr-row"><span>🍽️ 食事記録</span><span class="aggr-val">'+s.shokuji+'</span></div>';
+  summary+='<div class="aggr-row"><span>⚖️ 平均体重</span><span class="aggr-val">'+avgW+(avgW!=='-'?'kg':'')+'</span></div></div>';
+  var charts='<div class="bar-wrap"><div class="bar-wrap-title">😤 ストレス強度（日別最大値）</div>'+makeMonthLineChart(agMY,agMM,'stress','#c4735a',10,null)+'</div>';
+  charts+='<div class="bar-wrap"><div class="bar-wrap-title">💩 便通（日別回数）</div>'+makeMonthLineChart(agMY,agMM,'benpi','#3d5a3e',5,null)+'</div>';
+  charts+='<div class="bar-wrap"><div class="bar-wrap-title">😴 睡眠時間（時間）</div>'+makeMonthLineChart(agMY,agMM,'suiminMin','#7a5a9a',10,function(v){return v+'時間';})+'</div>';
+  document.getElementById('aggr-month-content').innerHTML=summary+charts;
+}
+function aggrYearMove(dir){agY+=dir;renderAggrYear();}
+function renderAggrYear(){
+  document.getElementById('aggr-year-label').textContent=agY+'年';
+  var sd=[],bd=[],md=[];
+  for(var m=0;m<12;m++){var s=getMS(agY,m);sd.push(s.stress);bd.push(s.benpi);md.push(s.meisoMin);}
+  var totS=0,totB=0,totM=0;
+  for(var i=0;i<12;i++){totS+=sd[i];totB+=bd[i];totM+=md[i];}
+  var mxS=Math.max.apply(null,sd.concat([1])),mxB=Math.max.apply(null,bd.concat([1])),mxM=Math.max.apply(null,md.concat([1]));
+  var sPts=[],bPts=[],mPts=[];
+  for(var i=0;i<12;i++){if(sd[i]>0)sPts.push({d:i+1,v:sd[i]});if(bd[i]>0)bPts.push({d:i+1,v:bd[i]});if(md[i]>0)mPts.push({d:i+1,v:md[i]});}
+  document.getElementById('aggr-year-content').innerHTML='<div class="aggr-card"><div class="aggr-card-title">'+agY+'年 年間まとめ</div><div class="aggr-row"><span>😤 ストレス合計</span><span class="aggr-val">'+totS+'</span></div><div class="aggr-row"><span>💩 便通合計</span><span class="aggr-val">'+totB+'</span></div><div class="aggr-row"><span>🧘 瞑想合計（分）</span><span class="aggr-val">'+totM+'</span></div></div><div class="bar-wrap"><div class="bar-wrap-title">月別ストレス回数</div>'+makeLineChart(sPts,12,mxS,'#c4735a',null)+'</div><div class="bar-wrap"><div class="bar-wrap-title">月別便通回数</div>'+makeLineChart(bPts,12,mxB,'#3d5a3e',null)+'</div><div class="bar-wrap"><div class="bar-wrap-title">月別瞑想（分）</div>'+makeLineChart(mPts,12,mxM,'#7a5a9a',null)+'</div>';
+}
+function aggrWeightMove(dir){agWM+=dir;if(agWM<0){agWM=11;agWY--;}else if(agWM>11){agWM=0;agWY++;}renderAggrWeight();}
+function renderAggrWeight(){
+  document.getElementById('aggr-weight-label').textContent=agWY+'年'+(agWM+1)+'月';
+  var data=getData(); var days=new Date(agWY,agWM+1,0).getDate(); var pts=[];
+  for(var d=1;d<=days;d++){var dd=data[new Date(agWY,agWM,d).toDateString()];if(dd&&dd.weight)pts.push({d:d,w:dd.weight});}
+  var wrap=document.getElementById('aggr-weight-content');
+  if(!pts.length){wrap.innerHTML='<div class="wg-wrap"><div class="wg-title">⚖️ 体重グラフ</div><div class="wg-no-data">データがありません</div></div>';return;}
+  var wv=pts.map(function(p){return p.w;});
+  var minW=Math.min.apply(null,wv)-0.5, maxW=Math.max.apply(null,wv)+0.5;
+  var W=300,H=80;
+  function px(d){return((d-1)/(days-1||1))*W;}
+  function py(w){return H-((w-minW)/(maxW-minW||1))*H;}
+  var pathD='';
+  for(var i=0;i<pts.length;i++)pathD+=(i===0?'M':'L')+px(pts[i].d).toFixed(1)+','+py(pts[i].w).toFixed(1)+' ';
+  var dotsSvg='';
+  for(var i=0;i<pts.length;i++)dotsSvg+='<circle cx="'+px(pts[i].d).toFixed(1)+'" cy="'+py(pts[i].w).toFixed(1)+'" r="3" fill="#b8922a"/>';
+  var avgW=Math.round(wv.reduce(function(a,b){return a+b;},0)/wv.length*10)/10;
+  wrap.innerHTML='<div class="wg-wrap"><div class="wg-title">⚖️ '+agWY+'年'+(agWM+1)+'月 体重グラフ</div><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:90px;"><path d="'+pathD+'" fill="none" stroke="#b8922a" stroke-width="2"/>'+dotsSvg+'</svg></div><div class="aggr-card"><div class="aggr-card-title">体重サマリ</div><div class="aggr-row"><span>記録日数</span><span class="aggr-val">'+pts.length+'日</span></div><div class="aggr-row"><span>平均</span><span class="aggr-val">'+avgW+'kg</span></div><div class="aggr-row"><span>最低</span><span class="aggr-val">'+Math.min.apply(null,wv)+'kg</span></div><div class="aggr-row"><span>最高</span><span class="aggr-val">'+Math.max.apply(null,wv)+'kg</span></div></div>';
+}
+function showPage(name,navItem){
+  var pages=document.querySelectorAll('.page'); for(var i=0;i<pages.length;i++)pages[i].classList.remove('active');
+  var navs=document.querySelectorAll('.nav-item'); for(var i=0;i<navs.length;i++)navs[i].classList.remove('active');
+  document.getElementById('page-'+name).classList.add('active'); navItem.classList.add('active');
+  if(name==='cal')renderCalendar(); if(name==='aggr')renderAggrMonth(); if(name==='dream')renderDreams();
+}
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2200);}
+function showMoonToast(){var m=getMoon(new Date());showToast(m.e+' '+m.n+' — '+m.a);}
+
+function updateSuiminCalc(){
+  var sh=parseInt(document.getElementById('suimin-h').value)||0;
+  var sm=parseInt(document.getElementById('suimin-m').value)||0;
+  var oh=parseInt(document.getElementById('okiru-h').value)||0;
+  var om=parseInt(document.getElementById('okiru-m').value)||0;
+  var sleepMin=(oh*60+om)-(sh*60+sm);
+  if(sleepMin<0)sleepMin+=24*60;
+  var h=Math.floor(sleepMin/60), m=sleepMin%60;
+  document.getElementById('suimin-calc').textContent='睡眠時間：'+h+'時間'+m+'分';
+}
+function submitSuimin(){
+  var sh=parseInt(document.getElementById('suimin-h').value)||0;
+  var sm=parseInt(document.getElementById('suimin-m').value)||0;
+  var oh=parseInt(document.getElementById('okiru-h').value)||0;
+  var om=parseInt(document.getElementById('okiru-m').value)||0;
+  var sleepMin=(oh*60+om)-(sh*60+sm);
+  if(sleepMin<0)sleepMin+=24*60;
+  var h=Math.floor(sleepMin/60), m=sleepMin%60;
+  var quality=document.getElementById('suimin-quality').value;
+  var label=h+'時間'+m+'分（'+quality+'）';
+  var data=getTD();
+  data[TODAY].suiminMin=sleepMin;
+  saveData(data);
+  addRecord('suimin','😴','睡眠',label);
+  closeModal('modal-suimin');
+}
+
+// 折れ線グラフ（SVG）生成ユーティリティ
+function makeLineChart(pts, days, maxVal, color, labelFn){
+  if(!pts.length)return '<div style="font-size:11px;color:rgba(26,18,8,0.3);text-align:center;padding:20px 0;">データがありません</div>';
+  var W=300,H=70;
+  var minV=0, maxV=Math.max(maxVal, Math.max.apply(null,pts.map(function(p){return p.v;}))+1);
+  function px(d){return((d-1)/(days-1||1))*W;}
+  function py(v){return H-((v-minV)/(maxV-minV||1))*H;}
+  var pathD='';
+  for(var i=0;i<pts.length;i++)pathD+=(i===0?'M':'L')+px(pts[i].d).toFixed(1)+','+py(pts[i].v).toFixed(1)+' ';
+  var dotsSvg='';
+  for(var i=0;i<pts.length;i++){
+    var label=labelFn?labelFn(pts[i].v):pts[i].v;
+    dotsSvg+='<circle cx="'+px(pts[i].d).toFixed(1)+'" cy="'+py(pts[i].v).toFixed(1)+'" r="3" fill="'+color+'"><title>'+pts[i].d+'日: '+label+'</title></circle>';
+  }
+  // 横軸グリッド線
+  var grid='';
+  for(var g=0;g<=3;g++){var gv=Math.round(maxV/3*g);var gy=py(gv).toFixed(1);grid+='<line x1="0" y1="'+gy+'" x2="'+W+'" y2="'+gy+'" stroke="rgba(184,146,42,0.1)" stroke-width="1"/><text x="2" y="'+(parseFloat(gy)-2)+'" font-size="7" fill="rgba(26,18,8,0.3)">'+gv+'</text>';}
+  return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:80px;overflow:visible;">'+grid+'<path d="'+pathD+'" fill="none" stroke="'+color+'" stroke-width="2"/>'+dotsSvg+'</svg>';
+}
+
+function makeMonthLineChart(y,m,type,color,maxVal,labelFn){
+  var data=getData(); var days=new Date(y,m+1,0).getDate(); var pts=[];
+  for(var d=1;d<=days;d++){
+    var dd=data[new Date(y,m,d).toDateString()];
+    var v=0;
+    if(dd){
+      if(type==='weight')v=dd.weight||0;
+      else if(type==='suiminMin')v=dd.suiminMin?Math.round(dd.suiminMin/60*10)/10:0;
+      else if(type==='stress'){
+        var tl=dd.timeline||[];
+        for(var i=0;i<tl.length;i++){if(tl[i].type==='stress'){var num=parseInt((tl[i].sub||'').replace(/[^0-9]/g,'').substring(0,2))||5;v=Math.max(v,num);}}
+      }
+      else v=(dd.counts&&dd.counts[type])||0;
+    }
+    if(v>0)pts.push({d:d,v:v});
+  }
+  return makeLineChart(pts,days,maxVal,color,labelFn);
+}
+
+function makeYearLineChart(y,type,color,maxVal){
+  var pts=[];
+  for(var m=0;m<12;m++){
+    var s=getMS(y,m);
+    var v=type==='stress'?s.stress:type==='benpi'?s.benpi:s.meisoMin;
+    if(v>0)pts.push({d:m+1,v:v});
+  }
+  return makeLineChart(pts,12,maxVal,color,null);
+}
+initHeader(); refreshCounts(); renderTimeline();
+
+</script>
+</body>
+</html>

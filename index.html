@@ -441,8 +441,8 @@ td.c.bk:hover{filter:brightness(1.08)}
       <button class="btn btn-gold btn-sm" onclick="saveGasUrl()">保存</button>
     </div>
     <div id="gasSyncStatus" style="font-size:11px;margin-bottom:10px;padding:6px 10px;border-radius:6px;background:#f5f0e8;color:var(--ink2)">同期状態: 未確認</div>
-    <button class="btn btn-gold" onclick="loadFromGAS()" style="width:100%;justify-content:center;margin-bottom:8px">☁️ クラウドから読み込む</button>
-    <button class="btn btn-out" onclick="manualSaveToGAS()" style="width:100%;justify-content:center;margin-bottom:8px">📤 クラウドに手動保存する</button>
+    <button class="btn btn-gold" onclick="loadFromSupabase()" style="width:100%;justify-content:center;margin-bottom:8px">☁️ Supabaseから読み込む</button>
+    <button class="btn btn-out" onclick="saveToSupabase();showToast('📤 Supabaseに保存中...')" style="width:100%;justify-content:center;margin-bottom:8px">📤 Supabaseに手動保存する</button>
   </div>
 
   <!-- データ管理 -->
@@ -672,7 +672,10 @@ const SRC_CSS = {rakuten:'bk-rakuten',jalan:'bk-jalan',yahoo:'bk-yahoo',yukoyuko
 const SRC_TO_PAY = {rakuten:'ota_rakuten',jalan:'ota_jalan',yahoo:'ota_yahoo',yukoyuko:'ota_yukoyuko'};
 const WD = ['日','月','火','水','木','金','土'];
 const GAS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbzF31TnwuXl41p_peRR8mC1scY--NUeXsHFmGr31TF3JmGvkWbB5RtdcMNSOzyXJpdoUw/exec';
-const DIRECT_NO_START = 6400; // 直接予約通し番号の開始値
+const DIRECT_NO_START = 6400;
+const SUPABASE_URL = 'https://kcwskxxseypxprnpgbog.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtjd3NreHhzZXlweHBybnBnYm9nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNDMwNjEsImV4cCI6MjA5MDYxOTA2MX0.5ecX39PrkDnVKezTuP0n0_DkMgfz7Xiyzq0jlZHGiHQ';
+const SUPABASE_TABLE = 'yado_data'; // 直接予約通し番号の開始値
 
 // ===== 状態 =====
 let cy, cm, bks={}, unassigned=[], cancelledBks=[], editKey=null, currentOta='rakuten', parsedData=null, assigningIdx=null;
@@ -739,6 +742,7 @@ function save(){
   try{localStorage.setItem('yado_ts',String(ts));}catch(e){}
   // GASへキュー保存（失敗しても再試行する）
   queueGasSave(ts);
+  saveToSupabase();
 }
 function queueGasSave(ts){
   if(_gasSaving){_gasSaveQueued=true;return;}
@@ -785,6 +789,54 @@ function manualSaveToGAS(){
       else{updateSyncStatus('error');showToast('❌ 保存失敗');}
     })
     .catch(()=>{updateSyncStatus('offline');showToast('❌ オフライン - クラウド保存できません');});
+}
+// ===== Supabase =====
+function saveToSupabase(){
+  const payload={bks,unassigned,roomStatus,checkoutData,cancelledBks,ts:Date.now()};
+  fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.1',{
+    method:'PATCH',
+    headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+    body:JSON.stringify({id:1,payload:JSON.stringify(payload)})
+  }).then(r=>{
+    if(r.status===404||r.status===0){
+      // レコードがなければINSERT
+      fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+        body:JSON.stringify({id:1,payload:JSON.stringify(payload)})
+      }).catch(e=>console.error('Supabase insert error',e));
+    }
+  }).catch(e=>console.error('Supabase save error',e));
+}
+function loadFromSupabase(){
+  showToast('☁️ Supabaseから読み込み中...');
+  fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.1&select=payload',{
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+  }).then(r=>r.json()).then(rows=>{
+    if(!rows||!rows.length||!rows[0].payload){showToast('クラウドにデータがありません');return;}
+    const d=JSON.parse(rows[0].payload);
+    const localTs=parseInt(localStorage.getItem('yado_ts')||'0');
+    const cloudTs=parseInt(d.ts||'0');
+    if(localTs>cloudTs&&cloudTs>0){
+      if(!confirm('⚠️ ローカルの方が新しいデータがあります。\nSupabaseのデータで上書きしますか？'))return;
+    }
+    if(d.bks)bks=d.bks;
+    if(d.unassigned)unassigned=d.unassigned;
+    if(d.roomStatus)roomStatus=d.roomStatus;
+    if(d.checkoutData)checkoutData=d.checkoutData;
+    if(d.cancelledBks)cancelledBks=d.cancelledBks;
+    normalizeDates();
+    try{localStorage.setItem('yado_bks',JSON.stringify(bks));}catch(e){}
+    try{localStorage.setItem('yado_ua',JSON.stringify(unassigned));}catch(e){}
+    try{localStorage.setItem('yado_rs',JSON.stringify(roomStatus));}catch(e){}
+    try{localStorage.setItem('yado_co',JSON.stringify(checkoutData));}catch(e){}
+    try{localStorage.setItem('yado_cancelled',JSON.stringify(cancelledBks));}catch(e){}
+    if(d.ts)localStorage.setItem('yado_ts',String(d.ts));
+    ROOMS.forEach(r=>{if(!roomStatus[r.no])roomStatus[r.no]='empty';});
+    render();renderUnassigned();renderLedger();renderSettings();
+    updateSyncStatus('ok');
+    showToast('✅ Supabaseから読み込みました！');
+  }).catch(e=>{console.error(e);showToast('❌ 読み込み失敗');});
 }
 function loadFromGAS(){
   showToast('☁️ 読み込み中...');
@@ -1170,7 +1222,8 @@ function saveBk(){
     bks[key]=data;
     markSpan(room,ds,nights,key);
   }else{
-    // 未割当
+    // 未割当 - ciDateをハイフン形式に正規化
+    data.ciDate=ds; // saveBkで既にfmt()処理済みのdsを使う
     data.no=genReceiptNo(srcVal);
     data.id=Date.now();
     if(uindex!==''){

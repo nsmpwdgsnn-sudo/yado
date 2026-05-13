@@ -947,41 +947,33 @@ function render(){
   const tn=new Date(),tY=tn.getFullYear(),tM=tn.getMonth(),tD=tn.getDate();
   document.getElementById('mlabel').textContent=`${y}年 ${mo+1}月`;
 
-  // 各部屋・各日のセル状態を事前計算（isStart:falseに依存しない）
-  // roomCells[roomNo][d] = {type:'bk',bk,startD,span} or {type:'cont'} or {type:'empty'}
+  // 各部屋・各日のセル状態を事前計算（isStart:falseに一切依存しない）
   const roomCells={};
   ROOMS.forEach(room=>{
     const cells={};
-    // この月のすべての予約エントリを走査
+    // この部屋のisStart!==falseの予約だけを走査
     Object.entries(bks).forEach(([key,bk])=>{
       if(bk.isStart===false)return;
       const idx=key.indexOf('_');
       if(key.substring(0,idx)!==room.no)return;
       const ciStr=key.substring(idx+1);
-      // チェックインが今月より後か前かに関わらず、今月にかかる部分を計算
       const ciParts=ciStr.split('-').map(Number);
-      if(ciParts.length!==3)return;
-      const ciD=new Date(ciParts[0],ciParts[1]-1,ciParts[2]);
+      if(ciParts.length!==3||isNaN(ciParts[0]))return;
+      const ciYear=ciParts[0],ciMonth=ciParts[1],ciDay=ciParts[2];
       const nights=bk.nights||1;
-      // 今月の何日から何日まで占有するか
-      const monthStart=new Date(y,mo,1);
-      const monthEnd=new Date(y,mo+1,0);
-      const coD=new Date(ciParts[0],ciParts[1]-1,ciParts[2]+nights);
-      // 今月にかかっているか
-      if(ciD>monthEnd||coD<=monthStart)return;
-      // 今月内の開始日・終了日
-      const startInMonth=ciD<monthStart?1:ciParts[2];
-      const endInMonth=coD>monthEnd?days:ciParts[2]+nights-1;
-      for(let d=startInMonth;d<=endInMonth&&d<=days;d++){
-        if(d===startInMonth&&ciParts[0]===y&&ciParts[1]-1===mo){
-          // チェックイン日（今月内）
-          cells[d]={type:'bk',bk,key,span:Math.min(nights,days-d+1),ds:ciStr};
-        }else if(d===startInMonth){
-          // 前月から続いている（今月1日から表示、spanは残り泊数）
-          const remaining=endInMonth-d+1;
-          cells[d]={type:'bk',bk,key,span:remaining,ds:fmt(y,mo+1,d),continued:true};
-        }else{
-          cells[d]={type:'cont'};
+      // この予約が今月のどの日を占有するか計算
+      for(let n=0;n<nights;n++){
+        const date=new Date(ciYear,ciMonth-1,ciDay+n);
+        if(date.getFullYear()===y&&date.getMonth()===mo){
+          const d=date.getDate();
+          if(n===0){
+            // CI日（今月内）
+            const span=Math.min(nights,days-d+1);
+            cells[d]={type:'bk',bk,key,span,ds:ciStr};
+          } else {
+            // 宿泊中（スパン内）
+            cells[d]={type:'cont'};
+          }
         }
       }
     });

@@ -1649,7 +1649,7 @@ function renderRooms(){
       const autoSt=getAutoStatus(r.no);
       const manualSt=roomStatus[r.no]||'empty';
       const st=(manualSt==='cleaned'||manualSt==='closed')?manualSt:(autoSt||manualSt);
-      const si=STATUS_INFO[st];
+      const si=STATUS_INFO[st]||STATUS_INFO['empty'];
       const todayBk=bks[r.no+'_'+todayStr];
       let nextInfo='',coInfo='';
       if((st==='cleaning'||st==='empty')&&todayBk&&todayBk.isStart!==false){

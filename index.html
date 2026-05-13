@@ -946,6 +946,48 @@ function render(){
   const y=cy,mo=cm,days=new Date(y,mo+1,0).getDate();
   const tn=new Date(),tY=tn.getFullYear(),tM=tn.getMonth(),tD=tn.getDate();
   document.getElementById('mlabel').textContent=`${y}年 ${mo+1}月`;
+
+  // 各部屋・各日のセル状態を事前計算（isStart:falseに依存しない）
+  // roomCells[roomNo][d] = {type:'bk',bk,startD,span} or {type:'cont'} or {type:'empty'}
+  const roomCells={};
+  ROOMS.forEach(room=>{
+    const cells={};
+    // この月のすべての予約エントリを走査
+    Object.entries(bks).forEach(([key,bk])=>{
+      if(bk.isStart===false)return;
+      const idx=key.indexOf('_');
+      if(key.substring(0,idx)!==room.no)return;
+      const ciStr=key.substring(idx+1);
+      // チェックインが今月より後か前かに関わらず、今月にかかる部分を計算
+      const ciParts=ciStr.split('-').map(Number);
+      if(ciParts.length!==3)return;
+      const ciD=new Date(ciParts[0],ciParts[1]-1,ciParts[2]);
+      const nights=bk.nights||1;
+      // 今月の何日から何日まで占有するか
+      const monthStart=new Date(y,mo,1);
+      const monthEnd=new Date(y,mo+1,0);
+      const coD=new Date(ciParts[0],ciParts[1]-1,ciParts[2]+nights);
+      // 今月にかかっているか
+      if(ciD>monthEnd||coD<=monthStart)return;
+      // 今月内の開始日・終了日
+      const startInMonth=ciD<monthStart?1:ciParts[2];
+      const endInMonth=coD>monthEnd?days:ciParts[2]+nights-1;
+      for(let d=startInMonth;d<=endInMonth&&d<=days;d++){
+        if(d===startInMonth&&ciParts[0]===y&&ciParts[1]-1===mo){
+          // チェックイン日（今月内）
+          cells[d]={type:'bk',bk,key,span:Math.min(nights,days-d+1),ds:ciStr};
+        }else if(d===startInMonth){
+          // 前月から続いている（今月1日から表示、spanは残り泊数）
+          const remaining=endInMonth-d+1;
+          cells[d]={type:'bk',bk,key,span:remaining,ds:fmt(y,mo+1,d),continued:true};
+        }else{
+          cells[d]={type:'cont'};
+        }
+      }
+    });
+    roomCells[room.no]=cells;
+  });
+
   let h='<thead><tr><th class="th-corner">部屋</th>';
   for(let d=1;d<=days;d++){
     const wd=new Date(y,mo,d).getDay();
@@ -955,28 +997,31 @@ function render(){
       <span class="dn">${d}</span><span class="dw">${WD[wd]}</span></th>`;
   }
   h+='</tr></thead><tbody>';
+
   ROOMS.forEach((room,ri)=>{
     const alt=ri%2?' alt':'';
     h+=`<tr><th class="th-r${alt}">${room.no}</th>`;
+    const cells=roomCells[room.no]||{};
     let d=1;
     while(d<=days){
-      const ds=fmt(y,mo+1,d);
-      const key=room.no+'_'+ds;
-      const bk=bks[key];
+      const cell=cells[d];
       const wd=new Date(y,mo,d).getDay();
       const isT=(y===tY&&mo===tM&&d===tD);
       const wc=wd===0?'sun':wd===6?'sat':'';
-      if(bk&&bk.isStart!==false){
-        const span=Math.min(bk.nights||1,days-d+1);
+      const ds=fmt(y,mo+1,d);
+      if(cell&&cell.type==='bk'){
+        const bk=cell.bk;
+        const span=cell.span;
         const hex=SRC_HEX[bk.src]||'#888';
         const lbl=SRC_LABEL[bk.src]||bk.src||'';
         const paxStr=paxSummary(bk);
-        h+=`<td class="c bk ${wc}${isT?' tod':''}" colspan="${span}" style="background:${hex}" data-room="${room.no}" data-ds="${ds}" onclick="editBkEl(this)">
+        h+=`<td class="c bk ${wc}${isT?' tod':''}" colspan="${span}" style="background:${hex}" data-room="${room.no}" data-ds="${cell.ds}" onclick="editBkEl(this)">
           <div class="bi"><span class="bn">${esc(bk.name)}</span>
           <span class="bp">${paxStr}</span>
           <span class="bs">${lbl}${bk.futon?'　布'+bk.futon:''}</span></div></td>`;
         d+=span;
-      }else if(bk&&bk.isStart===false){d++;
+      }else if(cell&&cell.type==='cont'){
+        d++;
       }else{
         h+=`<td class="c ${wc}${isT?' tod':''}" data-room="${room.no}" data-ds="${ds}" onclick="openManualEl(this)"></td>`;
         d++;

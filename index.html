@@ -700,6 +700,8 @@ function genReceiptNo(src){
 // ===== ユーティリティ =====
 function fmt(y,m,d){return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`}
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+// タイムゾーンズレなしでDateを作る（'2026-05-16' → ローカル時間の5/16）
+function localDate(ds){const [y,m,d]=ds.split('-').map(Number);return new Date(y,m-1,d);}
 function fmtPrice(p){return p?Number(p).toLocaleString()+'円':''}
 function paxSummary(bk){
   const parts=[];
@@ -938,7 +940,7 @@ function goToday(){const n=new Date();cy=n.getFullYear();cm=n.getMonth();render(
 // ===== 日別ポップアップ =====
 function openDayPopup(ds){
   const [y,mo,d]=ds.split('-');
-  const wd=new Date(ds).getDay();
+  const wd=localDate(ds).getDay();
   document.getElementById('dayPopupTtl').textContent=`${parseInt(y)}年${parseInt(mo)}月${parseInt(d)}日（${WD[wd]}）の状態`;
   let html='';
   const today=ds;
@@ -956,7 +958,7 @@ function openDayPopup(ds){
       if(roomStatus[room.no]==='closed'){status='🚫 使用不可';color='#f8bbd0';}
       else{
         // CO確認（昨日宿泊 → 今日CO → 未清掃）
-        const prev=new Date(ds);prev.setDate(prev.getDate()-1);
+        const prev=localDate(ds);prev.setDate(prev.getDate()-1);
         const pds=fmt(prev.getFullYear(),prev.getMonth()+1,prev.getDate());
         const pbk=bks[room.no+'_'+pds];
         // さらに複数泊遡って「宿泊中のCO日」も拾う
@@ -964,7 +966,7 @@ function openDayPopup(ds){
         Object.entries(bks).forEach(([k,v])=>{
           if(v.isStart===false)return;
           const i=k.indexOf('_');const r=k.substring(0,i);if(r!==room.no)return;
-          const coD=new Date(k.substring(i+1));coD.setDate(coD.getDate()+(v.nights||1));
+          const coD=localDate(k.substring(i+1));coD.setDate(coD.getDate()+(v.nights||1));
           if(fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate())===ds)isCoDay=true;
         });
         if(isCoDay){
@@ -1292,7 +1294,7 @@ function doAssign(){
     assigningIdx=null;
     save();closeAssign();renderUnassigned();renderLedger();
     showTab('assign');
-    try{const dateObj=new Date(ds);if(!isNaN(dateObj)){cy=dateObj.getFullYear();cm=dateObj.getMonth();}}catch(e){}
+    try{const dateObj=localDate(ds);if(!isNaN(dateObj)){cy=dateObj.getFullYear();cm=dateObj.getMonth();}}catch(e){}
     render();
   }catch(e){alert('割り当てエラー: '+e.message);}
 }
@@ -1629,7 +1631,7 @@ function getAutoStatus(roomNo){
     if(bk.isStart===false)continue;
     const idx=key.indexOf('_');const room=key.substring(0,idx);if(room!==roomNo)continue;
     const ds=key.substring(idx+1);
-    const coD=new Date(ds);coD.setDate(coD.getDate()+(bk.nights||1));
+    const coD=localDate(ds);coD.setDate(coD.getDate()+(bk.nights||1));
     const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
     if(ds<=todayStr&&todayStr<coStr)return 'occupied';
   }
@@ -1655,7 +1657,7 @@ function renderRooms(){
           if(bk.isStart===false)continue;
           const idx=key.indexOf('_');if(key.substring(0,idx)!==r.no)continue;
           const ds=key.substring(idx+1);
-          const coD=new Date(ds);coD.setDate(coD.getDate()+(bk.nights||1));
+          const coD=localDate(ds);coD.setDate(coD.getDate()+(bk.nights||1));
           const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
           if(ds<=todayStr&&todayStr<coStr){coInfo=`CO: ${coStr}　${(bk.name||'').substring(0,6)}`;break;}
         }
@@ -1689,7 +1691,7 @@ function renderCleaning(){
   Object.entries(bks).forEach(([key,bk])=>{
     if(bk.isStart===false)return;
     const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
-    const coD=new Date(ds);coD.setDate(coD.getDate()+(bk.nights||1));
+    const coD=localDate(ds);coD.setDate(coD.getDate()+(bk.nights||1));
     const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
     if(coStr===dateStr)coRooms.push({room,bk,ds,carry:false});
   });
@@ -1705,7 +1707,7 @@ function renderCleaning(){
         if(bk.isStart===false)return;
         const i=key.indexOf('_');if(key.substring(0,i)!==r.no)return;
         const ds=key.substring(i+1);
-        const coD=new Date(ds);coD.setDate(coD.getDate()+(bk.nights||1));
+        const coD=localDate(ds);coD.setDate(coD.getDate()+(bk.nights||1));
         const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
         if(coStr<dateStr&&coStr>(lastCoDs||'0000-00-00')){lastCoBk=bk;lastCoDs=coStr;}
       });
@@ -1792,7 +1794,7 @@ function copyCleaningMsg(){
   Object.entries(bks).forEach(([key,bk])=>{
     if(bk.isStart===false)return;
     const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
-    const coD=new Date(ds);coD.setDate(coD.getDate()+(bk.nights||1));
+    const coD=localDate(ds);coD.setDate(coD.getDate()+(bk.nights||1));
     const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
     if(coStr===dateStr)coRooms.push({room,bk});
   });

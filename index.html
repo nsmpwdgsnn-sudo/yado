@@ -458,6 +458,7 @@ td.c.bk:hover{filter:brightness(1.08)}
     </label>
     <div style="font-size:11px;color:var(--ink2);margin-bottom:6px">予約台帳について：台帳のデータはブラウザ内に保存されます。バックアップJSONを取り出してExcelで開くことができます。</div>
     <button class="btn btn-out" onclick="fixBracketNames()" style="width:100%;justify-content:center;margin-bottom:8px">🔧 名前の先頭の ] を一括削除</button>
+    <button class="btn btn-out" onclick="fixAllDates()" style="width:100%;justify-content:center;margin-bottom:8px">📅 日付形式を一括修正（/ → -）</button>
   </div>
 
   <!-- 危険ゾーン（分離） -->
@@ -1116,8 +1117,10 @@ function saveBk(){
   const room=document.getElementById('fRoom').value;
   const dsRaw=document.getElementById('fCI').value;
   if(!dsRaw){alert('チェックイン日を入力してください');return;}
-  const dsParts=dsRaw.replace(/\//g,'-').split('-');
-  const ds=dsParts.length===3?fmt(parseInt(dsParts[0]),parseInt(dsParts[1]),parseInt(dsParts[2])):dsRaw;
+  // Safariは 2026/05/16 形式で返すことがあるため正規化
+  const dsParts=dsRaw.replace(/\//g,'-').split('-').map(s=>parseInt(s,10));
+  if(dsParts.length!==3||isNaN(dsParts[0])||isNaN(dsParts[1])||isNaN(dsParts[2])){alert('日付の形式が正しくありません');return;}
+  const ds=fmt(dsParts[0],dsParts[1],dsParts[2]);
   const nights=parseInt(document.getElementById('fNights').value)||1;
   const uindex=document.getElementById('manualMod').getAttribute('data-uindex')||'';
 
@@ -1952,6 +1955,22 @@ function copyCheckoutMsg(){
 }
 
 // ===== 設定 =====
+function fixAllDates(){
+  let count=0;
+  const newBks={};
+  Object.entries(bks).forEach(([key,bk])=>{
+    const newKey=key.replace(/\//g,'-');
+    if(newKey!==key)count++;
+    if(bk.ciDate)bk.ciDate=bk.ciDate.replace(/\//g,'-');
+    if(bk.parentKey)bk.parentKey=bk.parentKey.replace(/\//g,'-');
+    newBks[newKey]=bk;
+  });
+  bks=newBks;
+  unassigned.forEach(u=>{if(u.ciDate)u.ciDate=u.ciDate.replace(/\//g,'-');});
+  cancelledBks.forEach(u=>{if(u.ciDate)u.ciDate=u.ciDate.replace(/\//g,'-');});
+  save();render();renderUnassigned();renderLedger();
+  showToast(count>0?'✅ '+count+'件の日付を修正しました':'✅ 日付を確認しました（変更なし）');
+}
 function fixBracketNames(){
   // bks と unassigned の名前先頭の ] [ 】【 を除去
   let count=0;

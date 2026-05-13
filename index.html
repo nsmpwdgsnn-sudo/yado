@@ -17,8 +17,8 @@
   --sun:#d64b3a;--sun-bg:#fff2f0;--sun-cell:#fef6f5;
   --sat:#2a5fa8;--sat-bg:#f0f4ff;--sat-cell:#f5f7ff;
   --hd:#1e1810;
-  --rakuten:#cc0000;--jalan:#007a35;--yahoo:#cc0033;--yukoyuko:#d97000;--hp:#2a5fa8;
-  --tel:#6b4c9a;--sms:#20b2aa;--insta:#c13584;--kuchi:#888;
+  --rakuten:#cc0000;--jalan:#007a35;--yahoo:#cc0033;--yukoyuko:#d97000;--hp:#6b4c9a;
+  --tel:#6b4c9a;--sms:#6b4c9a;--insta:#6b4c9a;--kuchi:#6b4c9a;
   --unassigned:#e8a000;--green:#2a7a4b;--red:#d64b3a;--gold:#c8a060;
   --shadow:rgba(20,15,8,.12);
 }
@@ -219,8 +219,8 @@ td.c.bk:hover{filter:brightness(1.08)}
 /* OTA色 */
 .bk-rakuten{background:#cc0000!important}.bk-jalan{background:#007a35!important}
 .bk-yahoo{background:#cc0033!important}.bk-yukoyuko{background:#d97000!important}
-.bk-hp{background:#2a5fa8!important}.bk-tel{background:#6b4c9a!important}
-.bk-sms{background:#20b2aa!important}.bk-insta{background:#c13584!important}.bk-kuchi{background:#888888!important}
+.bk-hp{background:#6b4c9a!important}.bk-tel{background:#6b4c9a!important}
+.bk-sms{background:#6b4c9a!important}.bk-insta{background:#6b4c9a!important}.bk-kuchi{background:#6b4c9a!important}
 .ota-badge.bk-rakuten{background:#cc0000}.ota-badge.bk-jalan{background:#007a35}
 .ota-badge.bk-yahoo{background:#cc0033}.ota-badge.bk-yukoyuko{background:#d97000}
 .ota-badge.bk-hp{background:#2a5fa8}.ota-badge.bk-tel{background:#6b4c9a}
@@ -280,8 +280,7 @@ td.c.bk:hover{filter:brightness(1.08)}
     <div class="leg"><div class="ldot" style="background:var(--jalan)"></div>じゃらん</div>
     <div class="leg"><div class="ldot" style="background:var(--yahoo)"></div>Yahoo</div>
     <div class="leg"><div class="ldot" style="background:var(--yukoyuko)"></div>ゆこゆこ</div>
-    <div class="leg"><div class="ldot" style="background:var(--hp)"></div>HP</div>
-    <div class="leg"><div class="ldot" style="background:var(--tel)"></div>直接</div>
+    <div class="leg"><div class="ldot" style="background:var(--tel)"></div>直接予約</div>
     <div style="font-size:10px;color:var(--ink3);margin-left:4px">※日付をクリックで部屋状態表示</div>
   </div>
   <div class="twrap"><table id="tbl"></table></div>
@@ -393,12 +392,8 @@ td.c.bk:hover{filter:brightness(1.08)}
     <span style="background:#e3f2fd;border-radius:4px;padding:3px 8px">🛌 宿泊中</span>
     <span style="background:#fce4ec;border-radius:4px;padding:3px 8px">🚫 使用不可</span>
   </div>
-  <div style="font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.08em;margin-bottom:6px;padding:3px 10px;background:var(--hd);border-radius:6px;display:inline-block">本館近く</div>
-  <div class="room-grid" id="rg-honkan" style="margin-bottom:12px"></div>
-  <div style="font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.08em;margin-bottom:6px;padding:3px 10px;background:var(--hd);border-radius:6px;display:inline-block">川沿い</div>
-  <div class="room-grid" id="rg-kawazoi" style="margin-bottom:12px"></div>
-  <div style="font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.08em;margin-bottom:6px;padding:3px 10px;background:var(--hd);border-radius:6px;display:inline-block">特別室</div>
-  <div class="room-grid" id="rg-special"></div>
+
+  <div class="room-grid" id="rg-room"></div>
 </div>
 
 <!-- 清掃指示書 -->
@@ -664,14 +659,15 @@ td.c.bk:hover{filter:brightness(1.08)}
 <script>
 // ===== 定数 =====
 const ROOMS = [
-  {no:'305',type:'honkan'},{no:'306',type:'honkan'},{no:'307',type:'honkan'},{no:'308',type:'honkan'},
-  {no:'501',type:'kawazoi'},{no:'503',type:'kawazoi'},{no:'505',type:'kawazoi'},{no:'507',type:'kawazoi'},{no:'509',type:'kawazoi'},
-  {no:'309',type:'special'},{no:'500',type:'special'},{no:'502',type:'special'},{no:'506',type:'special'}
+  {no:'305',type:'room'},{no:'306',type:'room'},{no:'307',type:'room'},{no:'308',type:'room'},
+  {no:'309',type:'room'},{no:'500',type:'room'},{no:'501',type:'room'},{no:'502',type:'room'},
+  {no:'503',type:'room'},{no:'505',type:'room'},{no:'506',type:'room'},{no:'507',type:'room'},
+  {no:'508',type:'room'},{no:'509',type:'room'}
 ];
-const GRP_LABEL = {honkan:'本館近く',kawazoi:'川沿い',special:'特別室'};
+const GRP_LABEL = {room:''};
 const SRC_LABEL = {rakuten:'楽天',jalan:'じゃらん',yahoo:'Yahoo/一休',yukoyuko:'ゆこゆこ',hp:'HP',tel:'電話',sms:'SMS',insta:'インスタ',kuchi:'口頭・紹介'};
-const SRC_HEX = {rakuten:'#cc0000',jalan:'#007a35',yahoo:'#cc0033',yukoyuko:'#d97000',hp:'#2a5fa8',tel:'#6b4c9a',sms:'#20b2aa',insta:'#c13584',kuchi:'#888888'};
-const SRC_CSS = {rakuten:'bk-rakuten',jalan:'bk-jalan',yahoo:'bk-yahoo',yukoyuko:'bk-yukoyuko',hp:'bk-hp',tel:'bk-tel',sms:'bk-sms',insta:'bk-insta',kuchi:'bk-kuchi'};
+const SRC_HEX = {rakuten:'#cc0000',jalan:'#007a35',yahoo:'#cc0033',yukoyuko:'#d97000',hp:'#6b4c9a',tel:'#6b4c9a',sms:'#6b4c9a',insta:'#6b4c9a',kuchi:'#6b4c9a'};
+const SRC_CSS = {rakuten:'bk-rakuten',jalan:'bk-jalan',yahoo:'bk-yahoo',yukoyuko:'bk-yukoyuko',hp:'bk-tel',tel:'bk-tel',sms:'bk-tel',insta:'bk-tel',kuchi:'bk-tel'};
 const SRC_TO_PAY = {rakuten:'ota_rakuten',jalan:'ota_jalan',yahoo:'ota_yahoo',yukoyuko:'ota_yukoyuko'};
 const WD = ['日','月','火','水','木','金','土'];
 const GAS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbzF31TnwuXl41p_peRR8mC1scY--NUeXsHFmGr31TF3JmGvkWbB5RtdcMNSOzyXJpdoUw/exec';
@@ -904,17 +900,9 @@ function render(){
       <span class="dn">${d}</span><span class="dw">${WD[wd]}</span></th>`;
   }
   h+='</tr></thead><tbody>';
-  let lastType=null;
   ROOMS.forEach((room,ri)=>{
-    if(room.type!==lastType){
-      if(lastType!==null)h+=`<tr class="grp-row"><td colspan="${days+1}"></td></tr>`;
-      h+=`<tr><th class="grp-label">${GRP_LABEL[room.type]}</th>`;
-      for(let d=1;d<=days;d++)h+=`<td style="background:var(--bg);border:none;height:3px"></td>`;
-      h+=`</tr>`;
-      lastType=room.type;
-    }
     const alt=ri%2?' alt':'';
-    h+=`<tr><th class="th-r ${room.type}${alt}">${room.no}</th>`;
+    h+=`<tr><th class="th-r${alt}">${room.no}</th>`;
     let d=1;
     while(d<=days){
       const ds=fmt(y,mo+1,d);
@@ -1651,9 +1639,8 @@ function getAutoStatus(roomNo){
 function renderRooms(){
   loadRoomStatus();
   const today=new Date();const todayStr=fmt(today.getFullYear(),today.getMonth()+1,today.getDate());
-  ['honkan','kawazoi','special'].forEach(type=>{
-    const grid=document.getElementById('rg-'+type);if(!grid)return;
-    grid.innerHTML=ROOMS.filter(r=>r.type===type).map(r=>{
+  const grid=document.getElementById('rg-room');if(!grid)return;
+  grid.innerHTML=ROOMS.map(r=>{
       const autoSt=getAutoStatus(r.no);
       const manualSt=roomStatus[r.no]||'empty';
       const st=(manualSt==='cleaned'||manualSt==='closed')?manualSt:(autoSt||manualSt);
@@ -1684,7 +1671,6 @@ function renderRooms(){
         ${st==='empty'&&todayBk?`<div class="room-card-info" style="color:#2a5fa8;font-weight:600">CI待ち</div>`:''}
       </div>`;
     }).join('');
-  });
 }
 function cycleStatusManual(roomNo,currentSt){
   const flow={'occupied':'empty','cleaning':'cleaned','cleaned':'occupied','empty':'closed','closed':'empty'};
@@ -1739,8 +1725,7 @@ function renderCleaning(){
   coRooms.sort((a,b)=>a.room.localeCompare(b.room));
   content.innerHTML=coRooms.map(({room,bk,carry})=>{
     const nextBk=ciRooms[room];
-    const grp=ROOMS.find(r=>r.no===room);
-    const grpLabel=grp?GRP_LABEL[grp.type]:'';
+    const grpLabel='';
     const safeRoom=room.replace(/[^a-zA-Z0-9]/g,'_');
     // 既存の布団設定を取得
     const savedFuton=roomStatus['futon_'+room]||'';

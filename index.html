@@ -366,7 +366,7 @@ td.c.bk:hover{filter:brightness(1.08)}
 <!-- 予約台帳 -->
 <div class="sec" id="sec-ledger">
   <div class="search-bar">
-    <input class="search-input" id="searchInput" placeholder="名前・部屋番号・経路・CI日・受付番号で検索..." oninput="renderLedger()">
+    <input class="search-input" id="searchInput" placeholder="名前・部屋番号・経路・CI日・受付日・受付番号で検索..." oninput="renderLedger()">
     <select class="fsel" id="ledgerFilter" onchange="renderLedger()" style="max-width:120px;font-size:12px;padding:7px 8px">
       <option value="active">有効のみ</option>
       <option value="all">全件（キャンセル含む）</option>
@@ -430,15 +430,10 @@ td.c.bk:hover{filter:brightness(1.08)}
 
   <!-- クラウド同期 -->
   <div style="background:var(--paper);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow)">
-    <div style="font-size:13px;font-weight:700;margin-bottom:6px">☁️ クラウド同期（GAS）</div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:6px">☁️ クラウド同期（Supabase）</div>
     <div style="font-size:11px;color:var(--ink2);margin-bottom:8px;line-height:1.7">
-      GAS URLを登録すると予約データが自動でクラウドに保存されます。<br>
-      複数端末で使う場合は「クラウドから読み込む」を押してデータを同期してください。
-    </div>
-    <div style="font-size:10px;font-weight:700;color:var(--ink2);margin-bottom:4px">GAS デプロイURL</div>
-    <div style="display:flex;gap:6px;margin-bottom:10px">
-      <input type="text" id="gasUrlInput" class="fi" style="font-size:11px;font-family:'DM Mono',monospace" placeholder="https://script.google.com/macros/s/.../exec">
-      <button class="btn btn-gold btn-sm" onclick="saveGasUrl()">保存</button>
+      予約データは保存のたびに自動でSupabaseクラウドに保存されます。<br>
+      スマホ・PCなど複数端末で使う場合は下の「Supabaseから読み込む」を押して同期してください。
     </div>
     <div id="gasSyncStatus" style="font-size:11px;margin-bottom:10px;padding:6px 10px;border-radius:6px;background:#f5f0e8;color:var(--ink2)">同期状態: 未確認</div>
     <button class="btn btn-gold" onclick="loadFromSupabase()" style="width:100%;justify-content:center;margin-bottom:8px">☁️ Supabaseから読み込む</button>
@@ -731,49 +726,19 @@ function saveGasUrl(){
 function initGasUrlInput(){const el=document.getElementById('gasUrlInput');if(el)el.value=getGasUrl();}
 
 function save(){
-  // localStorage に確実に書く（メイン保存）
+  const ts=Date.now();
   try{localStorage.setItem('yado_bks',JSON.stringify(bks));}catch(e){console.error('save bks',e);}
   try{localStorage.setItem('yado_ua',JSON.stringify(unassigned));}catch(e){console.error('save ua',e);}
   try{localStorage.setItem('yado_co',JSON.stringify(checkoutData));}catch(e){console.error('save co',e);}
   try{localStorage.setItem('yado_rs',JSON.stringify(roomStatus));}catch(e){console.error('save rs',e);}
   try{localStorage.setItem('yado_cancelled',JSON.stringify(cancelledBks));}catch(e){}
-  // タイムスタンプを記録（複数端末の競合検出用）
-  const ts=Date.now();
   try{localStorage.setItem('yado_ts',String(ts));}catch(e){}
-  // GASへキュー保存（失敗しても再試行する）
-  queueGasSave(ts);
-  saveToSupabase();
+  saveToSupabase(ts);
 }
-function queueGasSave(ts){
-  if(_gasSaving){_gasSaveQueued=true;return;}
-  _gasSaving=true;_gasSaveQueued=false;
-  const data={action:'save',bks,unassigned,roomStatus,checkoutData,cancelledBks,ts};
-  const gasUrl=getGasUrl();
-  updateSyncStatus('saving');
-  fetch(gasUrl,{method:'POST',body:JSON.stringify(data)})
-    .then(r=>r.json())
-    .then(d=>{
-      _gasSaving=false;
-      if(d.status==='ok'){
-        updateSyncStatus('ok');
-        showToast('☁️ クラウド保存完了');
-        if(_gasSaveQueued)queueGasSave(Date.now());
-      }else{
-        updateSyncStatus('error');
-        showToast('⚠️ クラウド保存失敗（ローカルは保存済み）');
-      }
-    })
-    .catch(()=>{
-      _gasSaving=false;
-      updateSyncStatus('offline');
-      // オフライン時はペンディングフラグを立てて後で再試行
-      localStorage.setItem('yado_pending_save','1');
-      if(_gasSaveQueued)queueGasSave(Date.now());
-    });
-}
+function queueGasSave(){}
 function updateSyncStatus(state){
   const el=document.getElementById('gasSyncStatus');if(!el)return;
-  const map={saving:'⏳ 保存中...',ok:'✅ クラウド同期済み ('+new Date().toLocaleTimeString('ja-JP')+')',error:'❌ 保存失敗（ローカルは保存済み）',offline:'📴 オフライン（ローカルは保存済み）'};
+  const map={saving:'⏳ Supabase保存中...',ok:'✅ Supabase同期済み ('+new Date().toLocaleTimeString('ja-JP')+')',error:'❌ Supabase保存失敗（ローカルは保存済み）',offline:'📴 オフライン（ローカルは保存済み）'};
   el.textContent='同期状態: '+(map[state]||state);
   el.style.background=state==='ok'?'#e8f5e9':state==='saving'?'#fff8e1':'#fce4ec';
   el.style.color=state==='ok'?'#2a7a4b':state==='saving'?'#e65100':'#c62828';
@@ -791,22 +756,27 @@ function manualSaveToGAS(){
     .catch(()=>{updateSyncStatus('offline');showToast('❌ オフライン - クラウド保存できません');});
 }
 // ===== Supabase =====
-function saveToSupabase(){
-  const payload={bks,unassigned,roomStatus,checkoutData,cancelledBks,ts:Date.now()};
+function saveToSupabase(ts){
+  ts=ts||Date.now();
+  const payload={bks,unassigned,roomStatus,checkoutData,cancelledBks,ts};
   fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.1',{
     method:'PATCH',
     headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
     body:JSON.stringify({id:1,payload:JSON.stringify(payload)})
   }).then(r=>{
     if(r.status===404||r.status===0){
-      // レコードがなければINSERT
       fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE,{
         method:'POST',
         headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
         body:JSON.stringify({id:1,payload:JSON.stringify(payload)})
-      }).catch(e=>console.error('Supabase insert error',e));
+      }).then(r2=>{if(r2.ok)updateSyncStatus('ok');else updateSyncStatus('error');})
+        .catch(e=>{console.error('Supabase insert error',e);updateSyncStatus('offline');});
+    } else if(r.ok){
+      updateSyncStatus('ok');
+    } else {
+      updateSyncStatus('error');
     }
-  }).catch(e=>console.error('Supabase save error',e));
+  }).catch(e=>{console.error('Supabase save error',e);updateSyncStatus('offline');});
 }
 function loadFromSupabase(){
   showToast('☁️ Supabaseから読み込み中...');
@@ -1022,14 +992,9 @@ function openDayPopup(ds){
       const pk=bk.parentKey;const pb=bks[pk];
       status='🛌 宿泊中';detail=pb?esc(pb.name):'';color='#b0c4de';
     }else{
-      // 使用不可チェック（手動設定）
+      // 使用不可は最優先
       if(roomStatus[room.no]==='closed'){status='🚫 使用不可';color='#f8bbd0';}
       else{
-        // CO確認（昨日宿泊 → 今日CO → 未清掃）
-        const prev=localDate(ds);prev.setDate(prev.getDate()-1);
-        const pds=fmt(prev.getFullYear(),prev.getMonth()+1,prev.getDate());
-        const pbk=bks[room.no+'_'+pds];
-        // さらに複数泊遡って「宿泊中のCO日」も拾う
         let isCoDay=false;
         Object.entries(bks).forEach(([k,v])=>{
           if(v.isStart===false)return;
@@ -1038,10 +1003,9 @@ function openDayPopup(ds){
           if(fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate())===ds)isCoDay=true;
         });
         if(isCoDay){
-          // CO日 → 清掃済みかどうか確認
           if(roomStatus[room.no]==='cleaned'){status='✅ 清掃済み空室';color='#c8e6c9';}
           else{status='🧹 未清掃（要清掃）';color='#fff3cd';}
-        }else if(roomStatus[room.no]==='cleaning'){status='🧹 清掃中';color='#fff3cd';}
+        }else if(roomStatus[room.no]==='cleaning'){status='🧹 清掃中（持ち越し）';color='#ffe082';}
         else if(roomStatus[room.no]==='cleaned'){status='✅ 清掃済み空室';color='#c8e6c9';}
         else{status='✓ 空室';color='#eae4d8';}
       }
@@ -1082,6 +1046,16 @@ function setSrc(src,el){
   document.querySelectorAll('.src-btn').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
   updateDiscountVisibility();
+  // 直接予約の場合、次の受付番号をプレビュー表示
+  const OTA_SRCS=['rakuten','jalan','yahoo','yukoyuko'];
+  const prev=document.getElementById('directNoPreview');
+  if(prev){
+    if(!OTA_SRCS.includes(src)&&!editKey){
+      const stored=parseInt(localStorage.getItem('yado_direct_seq')||String(DIRECT_NO_START-1));
+      prev.textContent='受付番号: '+String(stored+1)+'（保存時に自動採番）';
+      prev.style.display='block';
+    }else{prev.style.display='none';}
+  }
 }
 
 function openManual(room,ds){
@@ -1380,7 +1354,7 @@ function selOta(name,el){
 function clearPaste(){document.getElementById('pasteArea').value='';document.getElementById('parseResult').classList.remove('show');parsedData=null;}
 function normDate(s){if(!s)return '';const m=s.match(/(\d{4})[年\/\-](\d{1,2})[月\/\-](\d{1,2})/);if(!m)return '';return fmt(parseInt(m[1]),parseInt(m[2]),parseInt(m[3]));}
 function normTime(s){if(!s)return '15:00';const m=s.match(/(\d{1,2})[時:](\d{0,2})/);if(!m)return '15:00';return `${String(m[1]).padStart(2,'0')}:${String(m[2]||'00').padStart(2,'0')}`;}
-function cleanName(s){if(!s)return '';return s.replace(/^\s*[\]\[】【「」]/,'').replace(/[（(][^）)]*[）)]/g,'').replace(/\s*(様|さま)\s*$/,'').replace(/　/g,' ').trim();}
+function cleanName(s){if(!s)return '';return s.replace(/^[\s\]\[】【「」、。・\-―─]+/,'').replace(/[（(][^）)]*[）)]/g,'').replace(/\s*(様|さま)\s*$/,'').replace(/　/g,' ').trim();}
 
 function parseOta(){
   const text=document.getElementById('pasteArea').value;
@@ -1770,6 +1744,7 @@ function renderCleaning(){
   const coRoomNos=new Set(coRooms.map(r=>r.room));
   ROOMS.forEach(r=>{
     if(coRoomNos.has(r.no))return; // 本日COと重複しない
+    if(roomStatus[r.no]==='closed')return; // 使用不可は除外
     if(roomStatus[r.no]==='cleaning'||
        (roomStatus[r.no]!=='cleaned'&&roomStatus[r.no]!=='closed'&&roomStatus[r.no]!=='occupied')){
       // 過去のCOで未清掃かどうか確認
@@ -1919,7 +1894,6 @@ function renderCheckout(){
   Object.entries(bks).forEach(([key,bk])=>{
     if(bk.isStart===false)return;
     const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
-    // CO日（CI日 + 泊数）が選択日と一致する予約を抽出
     const coD=localDate(ds);coD.setDate(coD.getDate()+(bk.nights||1));
     const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
     if(coStr===dateStr)ciRooms.push({room,bk,key});
@@ -1960,8 +1934,8 @@ function renderCheckout(){
         <div class="price-row"><span class="price-label">宿泊料金（定価）</span><span class="price-val">${basePrice.toLocaleString()}円</span></div>
         ${petFee>0?`<div class="price-row"><span class="price-label">ペット料金（${bk.nights||1}泊×1,000円）</span><span class="price-val">${petFee.toLocaleString()}円</span></div>`:''}
         ${(cd.extraItems||[]).map(e=>`<div class="price-row"><span class="price-label">${esc(e.label||'追加')}</span><span class="price-val">${parseInt(e.price||0).toLocaleString()}円</span></div>`).join('')}
-        ${discount>0?`<div class="price-row" style="color:#2a7a4b"><span class="price-label">${bk.subsidy?esc(bk.subsidy):(isOta?'OTAポイント割引':'補助金・割引')}</span><span class="price-val">-${discount.toLocaleString()}円</span></div>`:''}
-        ${discount>0?`<div class="price-row" style="font-size:11px;color:var(--ink3)"><span class="price-label">補助金口座振込額</span><span class="price-val">${discount.toLocaleString()}円</span></div>`:''}
+        ${discount>0?`<div class="price-row" style="color:#c0392b"><span class="price-label">${isOta?'OTAポイント・事前割引':esc(bk.subsidy||'補助金・割引')}</span><span class="price-val">-${discount.toLocaleString()}円</span></div>`:''}
+        ${discount>0&&!isOta?`<div class="price-row" style="font-size:11px;background:#f0fdf4;border-radius:4px;padding:4px 6px"><span class="price-label">💳 補助金（口座振込予定）</span><span class="price-val" style="color:#2a7a4b">${discount.toLocaleString()}円</span></div>`:''}
         <div class="price-row total"><span class="price-label">現地受取額</span><span class="price-val" style="font-size:18px;color:var(--red)">${actualPay.toLocaleString()}円</span></div>
       </div>
       <div style="margin-bottom:10px">
@@ -2089,11 +2063,8 @@ function init(){
   render();renderUnassigned();renderLedger();
   // オンライン復帰時にペンディング保存を再試行
   window.addEventListener('online',()=>{
-    if(localStorage.getItem('yado_pending_save')==='1'){
-      localStorage.removeItem('yado_pending_save');
-      showToast('🌐 オンライン復帰 - クラウド保存中...');
-      manualSaveToGAS();
-    }
+    showToast('🌐 オンライン復帰 - Supabaseに保存中...');
+    saveToSupabase();
   });
 }
 init();

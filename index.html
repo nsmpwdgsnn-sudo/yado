@@ -1919,12 +1919,15 @@ function renderCheckout(){
   Object.entries(bks).forEach(([key,bk])=>{
     if(bk.isStart===false)return;
     const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
-    if(ds===dateStr)ciRooms.push({room,bk,key});
+    // CO日（CI日 + 泊数）が選択日と一致する予約を抽出
+    const coD=localDate(ds);coD.setDate(coD.getDate()+(bk.nights||1));
+    const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
+    if(coStr===dateStr)ciRooms.push({room,bk,key});
   });
   ciRooms.sort((a,b)=>a.room.localeCompare(b.room));
   const content=document.getElementById('checkoutContent');
   const summary=document.getElementById('checkoutSummary');
-  if(!ciRooms.length){content.innerHTML='<div class="empty-msg">この日のチェックインはありません</div>';summary.innerHTML='';return;}
+  if(!ciRooms.length){content.innerHTML='<div class="empty-msg">この日のチェックアウトはありません</div>';summary.innerHTML='';return;}
 
   const PAY_LABELS={cash:'現金',card:'カード',ota_rakuten:'楽天精算',ota_jalan:'じゃらん精算',ota_yahoo:'Yahoo精算',ota_yukoyuko:'ゆこゆこ精算',paypay:'PayPay',dpay:'d払い'};
   const PAY_METHODS=['cash','card','ota_rakuten','ota_jalan','ota_yahoo','ota_yukoyuko','paypay','dpay'];
@@ -2001,7 +2004,7 @@ function copyCheckoutMsg(){
   initCheckoutDate();
   const dateStr=document.getElementById('checkoutDate').value;if(!dateStr){alert('日付を選択してください');return;}
   const ciRooms=[];
-  Object.entries(bks).forEach(([key,bk])=>{if(bk.isStart===false)return;const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);if(ds===dateStr)ciRooms.push({room,bk,key});});
+  Object.entries(bks).forEach(([key,bk])=>{if(bk.isStart===false)return;const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);const coD=localDate(ds);coD.setDate(coD.getDate()+(bk.nights||1));const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());if(coStr===dateStr)ciRooms.push({room,bk,key});});
   ciRooms.sort((a,b)=>a.room.localeCompare(b.room));
   const [y,mo,d]=dateStr.split('-');
   const PAY_LABELS={cash:'現金',card:'カード',ota_rakuten:'楽天精算',ota_jalan:'じゃらん精算',ota_yahoo:'Yahoo精算',ota_yukoyuko:'ゆこゆこ精算',paypay:'PayPay',dpay:'d払い'};

@@ -1024,6 +1024,14 @@ function render(){
           <span class="bs">${lbl}${bk.futon?'　布'+bk.futon:''}</span></div></td>`;
         d+=span;
       }else if(bk&&bk.isStart===false){
+        // 月をまたぐスパン：親キーが当月より前なら空セルとして描画
+        const pk=bk.parentKey||'';
+        const pkDs=pk.indexOf('_')>=0?pk.substring(pk.indexOf('_')+1):'';
+        const pkMo=pkDs?parseInt(pkDs.split('-')[1]||'0'):0;
+        const pkYr=pkDs?parseInt(pkDs.split('-')[0]||'0'):0;
+        if(pkYr<y||(pkYr===y&&pkMo<mo+1)){
+          h+=`<td class="c ${wc}${isT?' tod':''}" data-room="${room.no}" data-ds="${ds}" onclick="openManualEl(this)"></td>`;
+        }
         d++;
       }else{
         h+=`<td class="c ${wc}${isT?' tod':''}" data-room="${room.no}" data-ds="${ds}" onclick="openManualEl(this)"></td>`;

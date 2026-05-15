@@ -415,13 +415,32 @@ td.c.bk:hover{filter:brightness(1.08)}
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
     <div style="font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700">🧾 精算・伝票</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-sm" id="coTabDaily" onclick="switchCoTab('daily')" style="background:var(--hd);color:#f5f0e8">日次</button>
+      <button class="btn btn-out btn-sm" id="coTabMonthly" onclick="switchCoTab('monthly')">月次</button>
+    </div>
+  </div>
+  <!-- 日次精算 -->
+  <div id="coSectionDaily">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
       <input type="date" id="checkoutDate" class="fi" style="width:auto;font-size:12px;padding:6px 10px" onchange="renderCheckout()">
       <button class="btn btn-gold btn-sm" onclick="window.print()">🖨️ 印刷</button>
       <button class="btn btn-out btn-sm" onclick="copyCheckoutMsg()">📋 LINE</button>
     </div>
+    <div id="checkoutSummary" style="background:var(--paper);border-radius:8px;padding:12px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow);display:flex;gap:12px;flex-wrap:wrap;font-size:12px"></div>
+    <div id="checkoutContent"></div>
   </div>
-  <div id="checkoutSummary" style="background:var(--paper);border-radius:8px;padding:12px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow);display:flex;gap:12px;flex-wrap:wrap;font-size:12px"></div>
-  <div id="checkoutContent"></div>
+  <!-- 月次精算 -->
+  <div id="coSectionMonthly" style="display:none">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-out btn-sm" onclick="coMonthlyMv(-1)">◀</button>
+      <div id="coMonthlyLabel" style="font-family:'Shippori Mincho',serif;font-size:16px;font-weight:700;min-width:110px;text-align:center"></div>
+      <button class="btn btn-out btn-sm" onclick="coMonthlyMv(1)">▶</button>
+      <button class="btn btn-red btn-sm" onclick="coMonthlyGoNow()">今月</button>
+      <button class="btn btn-gold btn-sm" onclick="window.print()" style="margin-left:auto">🖨️ 印刷</button>
+    </div>
+    <div id="coMonthlySummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px"></div>
+    <div id="coMonthlyContent"></div>
+  </div>
   <textarea id="checkoutCopyText" style="position:fixed;left:-9999px;opacity:0"></textarea>
 </div>
 
@@ -962,7 +981,7 @@ function showTab(id){
   if(id==='ledger')renderLedger();
   if(id==='rooms')renderRooms();
   if(id==='cleaning')renderCleaning();
-  if(id==='checkout')renderCheckout();
+  if(id==='checkout'){renderCheckout();const n=new Date();if(!coMonthlyY){coMonthlyY=n.getFullYear();coMonthlyM=n.getMonth()+1;}}
   if(id==='kinmu'){kinmuLoad();kinmuRenderMonthly();}
   if(id==='settings')renderSettings();
 }
@@ -1966,6 +1985,114 @@ function initCheckoutDate(){
   if(el&&!el.value){const n=new Date();el.value=fmt(n.getFullYear(),n.getMonth()+1,n.getDate());}
 }
 
+// 日次/月次タブ切り替え
+let coCurrentTab='daily';
+let coMonthlyY, coMonthlyM;
+function switchCoTab(tab){
+  coCurrentTab=tab;
+  document.getElementById('coSectionDaily').style.display=tab==='daily'?'':'none';
+  document.getElementById('coSectionMonthly').style.display=tab==='monthly'?'':'none';
+  document.getElementById('coTabDaily').style.background=tab==='daily'?'var(--hd)':'';
+  document.getElementById('coTabDaily').style.color=tab==='daily'?'#f5f0e8':'';
+  document.getElementById('coTabDaily').className='btn btn-sm'+(tab==='daily'?'':' btn-out');
+  document.getElementById('coTabMonthly').style.background=tab==='monthly'?'var(--hd)':'';
+  document.getElementById('coTabMonthly').style.color=tab==='monthly'?'#f5f0e8':'';
+  document.getElementById('coTabMonthly').className='btn btn-sm'+(tab==='monthly'?'':' btn-out');
+  if(tab==='monthly')renderMonthlyCheckout();
+}
+function coMonthlyMv(n){
+  coMonthlyM+=n;
+  if(coMonthlyM<1){coMonthlyM=12;coMonthlyY--;}else if(coMonthlyM>12){coMonthlyM=1;coMonthlyY++;}
+  renderMonthlyCheckout();
+}
+function coMonthlyGoNow(){const n=new Date();coMonthlyY=n.getFullYear();coMonthlyM=n.getMonth()+1;renderMonthlyCheckout();}
+
+function renderMonthlyCheckout(){
+  const n=new Date();
+  if(!coMonthlyY){coMonthlyY=n.getFullYear();coMonthlyM=n.getMonth()+1;}
+  document.getElementById('coMonthlyLabel').textContent=`${coMonthlyY}年 ${coMonthlyM}月`;
+  const PAY_LABELS={cash:'現金',card:'カード',ota_rakuten:'楽天精算',ota_jalan:'じゃらん精算',ota_yahoo:'Yahoo精算',ota_yukoyuko:'ゆこゆこ精算',paypay:'PayPay',dpay:'d払い'};
+  const SRC_OTA=['rakuten','jalan','yahoo','yukoyuko'];
+  // 当月にCIした予約を収集
+  const prefix=`${coMonthlyY}-${String(coMonthlyM).padStart(2,'0')}`;
+  const rows=[];
+  Object.entries(bks).forEach(([key,bk])=>{
+    if(bk.isStart===false)return;
+    const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
+    if(!ds.startsWith(prefix))return;
+    const cd=checkoutData[key]||{};
+    const isOta=SRC_OTA.includes(bk.src);
+    const basePrice=parseInt(bk.price||0);
+    const discount=parseInt(bk.discountAmount||bk.discount||0);
+    const petFee=(bk.pet&&bk.pet!=='なし')?(bk.nights||1)*1000:0;
+    const extraTotal=(cd.extraItems||[]).reduce((s,e)=>s+parseInt(e.price||0),0);
+    const actualPay=basePrice-discount+petFee+extraTotal;
+    rows.push({room,bk,key,cd,isOta,basePrice,discount,petFee,extraTotal,actualPay,ds});
+  });
+  rows.sort((a,b)=>a.ds.localeCompare(b.ds)||a.room.localeCompare(b.room));
+
+  // サマリー集計
+  const totRevenue=rows.reduce((s,r)=>s+r.basePrice,0);
+  const totDiscount=rows.reduce((s,r)=>s+r.discount,0);
+  const totPet=rows.reduce((s,r)=>s+r.petFee,0);
+  const totExtra=rows.reduce((s,r)=>s+r.extraTotal,0);
+  const totActual=rows.reduce((s,r)=>s+r.actualPay,0);
+  const totPaid=rows.filter(r=>r.cd.paid).reduce((s,r)=>s+r.actualPay,0);
+  const totUnpaid=rows.filter(r=>!r.cd.paid).reduce((s,r)=>s+r.actualPay,0);
+  const totOta=rows.filter(r=>r.isOta).reduce((s,r)=>s+r.actualPay,0);
+  const totDirect=rows.filter(r=>!r.isOta).reduce((s,r)=>s+r.actualPay,0);
+  const summaryEl=document.getElementById('coMonthlySummary');
+  summaryEl.innerHTML=[
+    ['宿泊件数',rows.length+'件'],
+    ['定価合計',totRevenue.toLocaleString()+'円'],
+    ['割引・ポイント計','-'+totDiscount.toLocaleString()+'円'],
+    ['現地受取合計',totActual.toLocaleString()+'円'],
+    ['OTA経由',totOta.toLocaleString()+'円'],
+    ['直接予約',totDirect.toLocaleString()+'円'],
+    ['精算済み','<span style="color:var(--green)">'+totPaid.toLocaleString()+'円</span>'],
+    ['未精算','<span style="color:var(--red)">'+totUnpaid.toLocaleString()+'円</span>'],
+  ].map(([l,v])=>`<div style="background:var(--paper);border-radius:8px;padding:10px;border:1.5px solid var(--border);box-shadow:0 2px 6px var(--shadow)"><div style="font-size:10px;color:var(--ink2);margin-bottom:3px">${l}</div><div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700">${v}</div></div>`).join('');
+
+  if(!rows.length){document.getElementById('coMonthlyContent').innerHTML='<div class="empty-msg">この月の予約はありません</div>';return;}
+
+  // 一覧テーブル
+  const SRC_LABEL_MAP={rakuten:'楽天',jalan:'じゃらん',yahoo:'Yahoo',yukoyuko:'ゆこゆこ',tel:'電話',sms:'SMS',insta:'インスタ',intro:'口頭',hp:'HP'};
+  const tableRows=rows.map(r=>{
+    const payLbl=PAY_LABELS[r.cd.payMethod]||'未設定';
+    const statusLbl=r.cd.paid?'<span style="color:var(--green)">✅精算済</span>':'<span style="color:var(--red)">⏳未精算</span>';
+    return `<tr>
+      <td>${r.ds.substring(5)}</td>
+      <td>${r.room}</td>
+      <td>${esc(r.bk.name||'')}</td>
+      <td>${r.bk.nights||1}泊</td>
+      <td style="font-family:'DM Mono',monospace">${r.basePrice.toLocaleString()}</td>
+      <td style="font-family:'DM Mono',monospace;color:var(--red)">${r.discount>0?'-'+r.discount.toLocaleString():''}</td>
+      <td style="font-family:'DM Mono',monospace;font-weight:700">${r.actualPay.toLocaleString()}</td>
+      <td>${SRC_LABEL_MAP[r.bk.src]||r.bk.src||''}</td>
+      <td>${payLbl}</td>
+      <td>${statusLbl}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('coMonthlyContent').innerHTML=`
+    <div style="overflow:auto;border-radius:10px;box-shadow:0 2px 8px var(--shadow)">
+      <table style="width:100%;border-collapse:collapse;background:var(--paper);font-size:12px">
+        <thead><tr>
+          <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:left;font-size:10px">CI日</th>
+          <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:left;font-size:10px">部屋</th>
+          <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:left;font-size:10px">お客様名</th>
+          <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:left;font-size:10px">泊数</th>
+          <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:right;font-size:10px">定価</th>
+          <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:right;font-size:10px">割引</th>
+          <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:right;font-size:10px">受取額</th>
+          <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:left;font-size:10px">経路</th>
+          <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:left;font-size:10px">支払</th>
+          <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:left;font-size:10px">状態</th>
+        </tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>`;
+}
+
 function renderCheckout(){
   initCheckoutDate();
   const dateStr=document.getElementById('checkoutDate').value;if(!dateStr)return;
@@ -1973,14 +2100,12 @@ function renderCheckout(){
   Object.entries(bks).forEach(([key,bk])=>{
     if(bk.isStart===false)return;
     const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
-    const coD=localDate(ds);coD.setDate(coD.getDate()+(bk.nights||1));
-    const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
-    if(coStr===dateStr)ciRooms.push({room,bk,key});
+    if(ds===dateStr)ciRooms.push({room,bk,key});
   });
   ciRooms.sort((a,b)=>a.room.localeCompare(b.room));
   const content=document.getElementById('checkoutContent');
   const summary=document.getElementById('checkoutSummary');
-  if(!ciRooms.length){content.innerHTML='<div class="empty-msg">この日のチェックアウトはありません</div>';summary.innerHTML='';return;}
+  if(!ciRooms.length){content.innerHTML='<div class="empty-msg">この日のチェックインはありません</div>';summary.innerHTML='';return;}
 
   const PAY_LABELS={cash:'現金',card:'カード',ota_rakuten:'楽天精算',ota_jalan:'じゃらん精算',ota_yahoo:'Yahoo精算',ota_yukoyuko:'ゆこゆこ精算',paypay:'PayPay',dpay:'d払い'};
   const PAY_METHODS=['cash','card','ota_rakuten','ota_jalan','ota_yahoo','ota_yukoyuko','paypay','dpay'];
@@ -2057,7 +2182,7 @@ function copyCheckoutMsg(){
   initCheckoutDate();
   const dateStr=document.getElementById('checkoutDate').value;if(!dateStr){alert('日付を選択してください');return;}
   const ciRooms=[];
-  Object.entries(bks).forEach(([key,bk])=>{if(bk.isStart===false)return;const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);const coD=localDate(ds);coD.setDate(coD.getDate()+(bk.nights||1));const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());if(coStr===dateStr)ciRooms.push({room,bk,key});});
+  Object.entries(bks).forEach(([key,bk])=>{if(bk.isStart===false)return;const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);if(ds===dateStr)ciRooms.push({room,bk,key});});
   ciRooms.sort((a,b)=>a.room.localeCompare(b.room));
   const [y,mo,d]=dateStr.split('-');
   const PAY_LABELS={cash:'現金',card:'カード',ota_rakuten:'楽天精算',ota_jalan:'じゃらん精算',ota_yahoo:'Yahoo精算',ota_yukoyuko:'ゆこゆこ精算',paypay:'PayPay',dpay:'d払い'};

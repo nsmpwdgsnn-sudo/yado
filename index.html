@@ -1766,8 +1766,15 @@ function renderLedger(){
   const filterEl=document.getElementById('ledgerFilter');
   const q=(searchEl?.value||'').toLowerCase().trim();
   const filterVal=filterEl?.value||'active';
+  const tbl=document.getElementById('ledgerTable');
+  if(!tbl)return;
+  if(!q){
+    tbl.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--ink3)">🔍 名前・部屋番号・受付番号などで検索してください</td></tr>`;
+    window._ledgerCache=[];
+    return;
+  }
   const base=allBookings(filterVal);
-  const all=q?base.filter(b=>{
+  const all=base.filter(b=>{
     return (b.name||'').toLowerCase().includes(q)
       ||(b.room||'').includes(q)
       ||(SRC_LABEL[b.src]||'').toLowerCase().includes(q)
@@ -1777,7 +1784,7 @@ function renderLedger(){
       ||(b.otaNo||'').toLowerCase().includes(q)
       ||(b.tel||'').includes(q)
       ||(b.memo||'').toLowerCase().includes(q);
-  }):base;
+  });
   // キャッシュは描画前にセット（行クリックと順番を一致させる）
   window._ledgerCache=all;
   const tbl=document.getElementById('ledgerTable');

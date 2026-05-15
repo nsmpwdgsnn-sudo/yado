@@ -367,7 +367,7 @@ td.c.bk:hover{filter:brightness(1.08)}
 <!-- 予約台帳 -->
 <div class="sec" id="sec-ledger">
   <div class="search-bar">
-    <input class="search-input" id="searchInput" placeholder="名前・部屋・経路・CI日・受付日・受付番号・OTA番号で絞り込み..." oninput="renderLedger()" onkeydown="if(event.key==='Enter'){event.preventDefault();renderLedger();}" oncompositionend="renderLedger()">>
+    <input class="search-input" id="searchInput" placeholder="名前・部屋・経路・CI日・受付日・受付番号・OTA番号で検索..." onkeydown="if(event.key==='Enter'){event.preventDefault();doSearch();}">
     <button class="btn btn-gold" onclick="doSearch()" style="flex-shrink:0">🔍 検索</button>
     <select class="fsel" id="ledgerFilter" onchange="renderLedger()" style="max-width:120px;font-size:12px;padding:7px 8px">
       <option value="active">有効のみ</option>
@@ -982,11 +982,11 @@ function showToast(msg){
 // ===== タブ =====
 function showTab(id){
   document.querySelectorAll('.tab').forEach((t,i)=>{
-    t.classList.toggle('on',['assign','unassigned','import','ledger','rooms','cleaning','checkout','settings'][i]===id);
+    t.classList.toggle('on',['assign','unassigned','import','ledger','rooms','cleaning','checkout','kinmu','settings'][i]===id);
   });
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
   document.getElementById('sec-'+id).classList.add('on');
-  if(id==='ledger'){renderLedger();}
+  if(id==='ledger')renderLedger();
   if(id==='rooms')renderRooms();
   if(id==='cleaning')renderCleaning();
   if(id==='checkout'){renderCheckout();const n=new Date();if(!coMonthlyY){coMonthlyY=n.getFullYear();coMonthlyM=n.getMonth()+1;}}
@@ -1760,28 +1760,26 @@ function doSearch(){
 function renderLedger(){
   const searchEl=document.getElementById('searchInput');
   const filterEl=document.getElementById('ledgerFilter');
-  const q=((searchEl?.value)||'').toLowerCase().trim();
+  const q=((searchEl?searchEl.value:'')||'').toLowerCase().trim();
   const filterVal=filterEl?.value||'active';
   const tbl=document.getElementById('ledgerTable');
   if(!tbl)return;
   const base=allBookings(filterVal);
-  const all=q
-    ? base.filter(b=>{
-        return (b.name||'').toLowerCase().includes(q)
-          ||(b.room||'').includes(q)
-          ||(SRC_LABEL[b.src]||'').toLowerCase().includes(q)
-          ||(b.ciDate||'').includes(q)
-          ||(b.no||'').toLowerCase().includes(q)
-          ||(b.bookDate||'').includes(q)
-          ||(b.otaNo||'').toLowerCase().includes(q)
-          ||(b.tel||'').includes(q)
-          ||(b.memo||'').toLowerCase().includes(q);
-      })
-    : base;
+  const all=base.filter(b=>{
+    return (b.name||'').toLowerCase().includes(q)
+      ||(b.room||'').includes(q)
+      ||(SRC_LABEL[b.src]||'').toLowerCase().includes(q)
+      ||(b.ciDate||'').includes(q)
+      ||(b.no||'').toLowerCase().includes(q)
+      ||(b.bookDate||'').includes(q)
+      ||(b.otaNo||'').toLowerCase().includes(q)
+      ||(b.tel||'').includes(q)
+      ||(b.memo||'').toLowerCase().includes(q);
+  });
   // キャッシュは描画前にセット（行クリックと順番を一致させる）
   window._ledgerCache=all;
   if(!all.length){
-    tbl.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--ink3)">${q?'「'+q+'」に一致する予約はありません':'予約データがありません（上のフィルターで表示範囲を変更できます）'}</td></tr>`;
+    tbl.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--ink3)">${q?'「'+q+'」に一致する予約はありません':'予約データがありません'}</td></tr>`;
     return;
   }
   let h=`<thead><tr><th>受付番号</th><th>お客様名</th><th>受付日</th><th>CI日</th><th>泊</th><th>部屋</th><th>人数</th><th>料金</th><th>経路</th><th>OTA番号</th></tr></thead><tbody>`;

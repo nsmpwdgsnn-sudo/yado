@@ -1003,10 +1003,14 @@ function selImportTab(name,el){
 // ===== アサイン帳 =====
 function rebuildAllSpans(){
   // isStart:false のゴーストを安全に全消去（先にキー一覧を取得してから削除）
-  const ghostKeys=Object.keys(bks).filter(k=>bks[k]&&bks[k].isStart===false);
+  const ghostKeys=Object.keys(bks).filter(k=>{
+    const v=bks[k];
+    return v&&(v.isStart===false||v.isStart===0||v.isStart==='false');
+  });
   ghostKeys.forEach(k=>delete bks[k]);
-  // isStart:true（通常予約）をCI日順にソートして再構築
-  const entries=Object.entries(bks).filter(([k,v])=>v&&v.isStart!==false);
+  const entries=Object.entries(bks).filter(([k,v])=>{
+    return v&&v.isStart!==false&&v.isStart!==0&&v.isStart!=='false';
+  });
   entries.sort((a,b)=>{
     const da=a[0].substring(a[0].indexOf('_')+1);
     const db=b[0].substring(b[0].indexOf('_')+1);
@@ -1022,7 +1026,7 @@ function rebuildAllSpans(){
   });
 }
 function render(){
-  // rebuildAllSpansはload/import時のみ呼ぶ。render毎に呼ぶとデータ破壊の原因になる
+  rebuildAllSpans();
   const y=cy,mo=cm,days=new Date(y,mo+1,0).getDate();
   const tn=new Date(),tY=tn.getFullYear(),tM=tn.getMonth(),tD=tn.getDate();
   document.getElementById('mlabel').textContent=`${y}年 ${mo+1}月`;
@@ -1046,7 +1050,9 @@ function render(){
       const wd=new Date(y,mo,d).getDay();
       const isT=(y===tY&&mo===tM&&d===tD);
       const wc=wd===0?'sun':wd===6?'sat':'';
-      if(bk&&bk.isStart!==false){
+      // isStartがfalse/0/"false"のいずれでもなければ通常予約として描画
+      const isGhost=(bk&&(bk.isStart===false||bk.isStart===0||bk.isStart==='false'));
+      if(bk&&!isGhost){
         const span=Math.min(bk.nights||1,days-d+1);
         const hex=SRC_HEX[bk.src]||'#888';
         const lbl=SRC_LABEL[bk.src]||bk.src||'';
@@ -1056,7 +1062,7 @@ function render(){
           <span class="bp">${paxStr}</span>
           <span class="bs">${lbl}${bk.futon?'　布'+bk.futon:''}</span></div></td>`;
         d+=span;
-      }else if(bk&&bk.isStart===false){
+      }else if(isGhost){
         const pk=bk.parentKey||'';
         const pkDs=pk.indexOf('_')>=0?pk.substring(pk.indexOf('_')+1):'';
         const pkMo=pkDs?parseInt(pkDs.split('-')[1]||'0'):0;

@@ -367,8 +367,8 @@ td.c.bk:hover{filter:brightness(1.08)}
 <!-- 予約台帳 -->
 <div class="sec" id="sec-ledger">
   <div class="search-bar">
-    <input class="search-input" id="searchInput" placeholder="名前・部屋・経路・CI日・受付日・受付番号・OTA番号で検索..." oninput="clearTimeout(window._st);window._st=setTimeout(renderLedger,100)" onkeyup="if(event.key==='Enter')renderLedger()" onkeydown="if(event.key==='Enter')renderLedger()">
-    <button class="btn btn-gold" onclick="renderLedger()" style="flex-shrink:0">🔍 検索</button>
+    <input class="search-input" id="searchInput" placeholder="名前・部屋・経路・CI日・受付日・受付番号・OTA番号で検索..." onkeydown="if(event.key==='Enter'){event.preventDefault();doSearch();}">
+    <button class="btn btn-gold" onclick="doSearch()" style="flex-shrink:0">🔍 検索</button>
     <select class="fsel" id="ledgerFilter" onchange="renderLedger()" style="max-width:120px;font-size:12px;padding:7px 8px">
       <option value="active">有効のみ</option>
       <option value="all">全件（キャンセル含む）</option>
@@ -1761,10 +1761,19 @@ function allBookings(filter){
   list.sort((a,b)=>(a.ciDate||'').localeCompare(b.ciDate||''));
   return list;
 }
+function doSearch(){
+  const si=document.getElementById('searchInput');
+  if(!si)return;
+  // 値を強制的に取得してrenderLedgerを呼ぶ
+  window._searchQuery=si.value;
+  renderLedger();
+}
 function renderLedger(){
   const searchEl=document.getElementById('searchInput');
   const filterEl=document.getElementById('ledgerFilter');
-  const q=(searchEl?.value||'').toLowerCase().trim();
+  // window._searchQueryがあればそれを優先（ボタン押下時）
+  const q=((window._searchQuery!==undefined?window._searchQuery:searchEl?.value)||'').toLowerCase().trim();
+  window._searchQuery=undefined;
   const filterVal=filterEl?.value||'active';
   const tbl=document.getElementById('ledgerTable');
   if(!tbl)return;

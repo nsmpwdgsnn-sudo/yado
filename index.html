@@ -815,8 +815,7 @@ function save(){
   try{localStorage.setItem('yado_cancelled',JSON.stringify(cancelledBks));}catch(e){}
   try{localStorage.setItem('yado_ts',String(ts));}catch(e){}
   saveToSupabase(ts);
-}
-function queueGasSave(){}
+}function queueGasSave(){}
 function updateSyncStatus(state){
   const el=document.getElementById('gasSyncStatus');if(!el)return;
   const map={saving:'⏳ Supabase保存中...',ok:'✅ Supabase同期済み ('+new Date().toLocaleTimeString('ja-JP')+')',error:'❌ Supabase保存失敗（ローカルは保存済み）',offline:'📴 オフライン（ローカルは保存済み）'};
@@ -839,7 +838,7 @@ function manualSaveToGAS(){
 // ===== Supabase =====
 function saveToSupabase(ts){
   ts=ts||Date.now();
-  const payload={bks,unassigned,roomStatus,checkoutData,cancelledBks,ts};
+  const payload={bks,unassigned,roomStatus,checkoutData,cancelledBks,kinmuRecords,kinmuStaffList,kinmuSettings,ts};
   fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.1',{
     method:'PATCH',
     headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
@@ -876,14 +875,21 @@ function loadFromSupabase(){
     if(d.roomStatus)roomStatus=d.roomStatus;
     if(d.checkoutData)checkoutData=d.checkoutData;
     if(d.cancelledBks)cancelledBks=d.cancelledBks;
+    if(d.kinmuRecords)kinmuRecords=d.kinmuRecords;
+    if(d.kinmuStaffList)kinmuStaffList=d.kinmuStaffList;
+    if(d.kinmuSettings)kinmuSettings=d.kinmuSettings;
     normalizeDates();
     try{localStorage.setItem('yado_bks',JSON.stringify(bks));}catch(e){}
     try{localStorage.setItem('yado_ua',JSON.stringify(unassigned));}catch(e){}
     try{localStorage.setItem('yado_rs',JSON.stringify(roomStatus));}catch(e){}
     try{localStorage.setItem('yado_co',JSON.stringify(checkoutData));}catch(e){}
     try{localStorage.setItem('yado_cancelled',JSON.stringify(cancelledBks));}catch(e){}
+    try{localStorage.setItem('kinmu_records',JSON.stringify(kinmuRecords));}catch(e){}
+    try{localStorage.setItem('kinmu_staff',JSON.stringify(kinmuStaffList));}catch(e){}
+    try{localStorage.setItem('kinmu_settings',JSON.stringify(kinmuSettings));}catch(e){}
     if(d.ts)localStorage.setItem('yado_ts',String(d.ts));
     ROOMS.forEach(r=>{if(!roomStatus[r.no])roomStatus[r.no]='empty';});
+    rebuildAllSpans();
     render();renderUnassigned();renderLedger();renderSettings();
     updateSyncStatus('ok');
     showToast('✅ Supabaseから読み込みました！');
@@ -2333,6 +2339,7 @@ function kinmuSave(){
   try{localStorage.setItem('kinmu_records',JSON.stringify(kinmuRecords));}catch(e){}
   try{localStorage.setItem('kinmu_staff',JSON.stringify(kinmuStaffList));}catch(e){}
   try{localStorage.setItem('kinmu_settings',JSON.stringify(kinmuSettings));}catch(e){}
+  saveToSupabase(); // 勤怠もクラウドに同期
 }
 function kinmuLoad(){
   try{const r=localStorage.getItem('kinmu_records');if(r)kinmuRecords=JSON.parse(r);}catch(e){}
@@ -2571,8 +2578,41 @@ function init(){
   if(si){
     si.addEventListener('input',renderLedger);
     si.addEventListener('keyup',renderLedger);
-    si.addEventListener('compositionend',renderLedger); // IME（日本語入力）確定時
+    si.addEventListener('compositionend',renderLedger);
   }
+  // 起動時にSupabaseから自動読み込み（クラウドが新しければ自動反映）
+  fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.1&select=payload',{
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+  }).then(r=>r.json()).then(rows=>{
+    if(!rows||!rows.length||!rows[0].payload)return;
+    const d=JSON.parse(rows[0].payload);
+    const localTs=parseInt(localStorage.getItem('yado_ts')||'0');
+    const cloudTs=parseInt(d.ts||'0');
+    if(cloudTs<=localTs)return; // ローカルが新しければ何もしない
+    // クラウドが新しい → 自動反映
+    if(d.bks)bks=d.bks;
+    if(d.unassigned)unassigned=d.unassigned;
+    if(d.roomStatus)roomStatus=d.roomStatus;
+    if(d.checkoutData)checkoutData=d.checkoutData;
+    if(d.cancelledBks)cancelledBks=d.cancelledBks;
+    if(d.kinmuRecords)kinmuRecords=d.kinmuRecords;
+    if(d.kinmuStaffList)kinmuStaffList=d.kinmuStaffList;
+    if(d.kinmuSettings)kinmuSettings=d.kinmuSettings;
+    normalizeDates();
+    try{localStorage.setItem('yado_bks',JSON.stringify(bks));}catch(e){}
+    try{localStorage.setItem('yado_ua',JSON.stringify(unassigned));}catch(e){}
+    try{localStorage.setItem('yado_rs',JSON.stringify(roomStatus));}catch(e){}
+    try{localStorage.setItem('yado_co',JSON.stringify(checkoutData));}catch(e){}
+    try{localStorage.setItem('yado_cancelled',JSON.stringify(cancelledBks));}catch(e){}
+    try{localStorage.setItem('kinmu_records',JSON.stringify(kinmuRecords));}catch(e){}
+    try{localStorage.setItem('kinmu_staff',JSON.stringify(kinmuStaffList));}catch(e){}
+    try{localStorage.setItem('kinmu_settings',JSON.stringify(kinmuSettings));}catch(e){}
+    localStorage.setItem('yado_ts',String(cloudTs));
+    ROOMS.forEach(r=>{if(!roomStatus[r.no])roomStatus[r.no]='empty';});
+    rebuildAllSpans();
+    render();renderUnassigned();renderLedger();
+    showToast('☁️ クラウドから最新データを読み込みました');
+  }).catch(e=>console.error('auto-load error',e));
   // オンライン復帰時にペンディング保存を再試行
   ['kRStaff','kRStart','kREnd','kRTransport','kRBath'].forEach(id=>{
     const el=document.getElementById(id);

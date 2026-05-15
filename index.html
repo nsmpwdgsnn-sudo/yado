@@ -1002,27 +1002,30 @@ function selImportTab(name,el){
 
 // ===== アサイン帳 =====
 function rebuildAllSpans(){
-  // isStart:false のゴーストを安全に全消去（先にキー一覧を取得してから削除）
-  const ghostKeys=Object.keys(bks).filter(k=>{
+  // 通常予約（isStart!==false）のキーを先に全収集
+  const realKeys=new Set(Object.keys(bks).filter(k=>{
     const v=bks[k];
-    return v&&(v.isStart===false||v.isStart===0||v.isStart==='false');
-  });
-  ghostKeys.forEach(k=>delete bks[k]);
-  const entries=Object.entries(bks).filter(([k,v])=>{
     return v&&v.isStart!==false&&v.isStart!==0&&v.isStart!=='false';
+  }));
+  // ゴーストキー（isStart:false）のうち、realKeysと被らないものだけ削除
+  Object.keys(bks).forEach(k=>{
+    if(!realKeys.has(k)){
+      const v=bks[k];
+      if(v&&(v.isStart===false||v.isStart===0||v.isStart==='false')){
+        delete bks[k];
+      }
+    }
   });
-  entries.sort((a,b)=>{
-    const da=a[0].substring(a[0].indexOf('_')+1);
-    const db=b[0].substring(b[0].indexOf('_')+1);
-    return da.localeCompare(db);
-  });
-  entries.forEach(([key,bk])=>{
+  // 通常予約からスパンを再生成（nights>1のみ）
+  realKeys.forEach(key=>{
+    const bk=bks[key];
+    if(!bk||!bk.nights||bk.nights<=1)return;
     const idx=key.indexOf('_');
     const room=key.substring(0,idx);
     const ds=key.substring(idx+1);
     const parts=ds.split('-').map(Number);
     if(parts.length!==3||isNaN(parts[0])||isNaN(parts[1])||isNaN(parts[2]))return;
-    if(bk.nights&&bk.nights>1)markSpan(room,ds,bk.nights,key);
+    markSpan(room,ds,bk.nights,key);
   });
 }
 function render(){

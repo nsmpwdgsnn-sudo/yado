@@ -367,7 +367,7 @@ td.c.bk:hover{filter:brightness(1.08)}
 <!-- 予約台帳 -->
 <div class="sec" id="sec-ledger">
   <div class="search-bar">
-    <input class="search-input" id="searchInput" placeholder="名前・部屋・経路・CI日・受付日・受付番号・OTA番号で検索..." oninput="renderLedger()" onkeyup="renderLedger()">
+    <input class="search-input" id="searchInput" placeholder="名前・部屋・経路・CI日・受付日・受付番号・OTA番号で検索..." oninput="clearTimeout(window._st);window._st=setTimeout(renderLedger,50)" onkeyup="clearTimeout(window._st);window._st=setTimeout(renderLedger,50)" onsearch="renderLedger()">
     <select class="fsel" id="ledgerFilter" onchange="renderLedger()" style="max-width:120px;font-size:12px;padding:7px 8px">
       <option value="active">有効のみ</option>
       <option value="all">全件（キャンセル含む）</option>
@@ -985,7 +985,14 @@ function showTab(id){
   });
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
   document.getElementById('sec-'+id).classList.add('on');
-  if(id==='ledger')renderLedger();
+  if(id==='ledger'){renderLedger();
+    const si=document.getElementById('searchInput');
+    if(si&&!si._bound){si._bound=true;
+      si.addEventListener('input',renderLedger);
+      si.addEventListener('keyup',renderLedger);
+      si.addEventListener('compositionend',renderLedger);
+    }
+  }
   if(id==='rooms')renderRooms();
   if(id==='cleaning')renderCleaning();
   if(id==='checkout'){renderCheckout();const n=new Date();if(!coMonthlyY){coMonthlyY=n.getFullYear();coMonthlyM=n.getMonth()+1;}}

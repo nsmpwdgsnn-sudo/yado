@@ -1787,8 +1787,6 @@ function renderLedger(){
   });
   // キャッシュは描画前にセット（行クリックと順番を一致させる）
   window._ledgerCache=all;
-  const tbl=document.getElementById('ledgerTable');
-  if(!tbl)return;
   if(!all.length){
     tbl.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--ink3)">${q?'「'+q+'」に一致する予約はありません':'予約データがありません'}</td></tr>`;
     return;

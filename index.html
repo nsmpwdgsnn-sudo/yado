@@ -1766,15 +1766,8 @@ function renderLedger(){
   if(!tbl)return;
   const base=allBookings(filterVal);
   const all=base.filter(b=>{
-    return (b.name||'').toLowerCase().includes(q)
-      ||(b.room||'').includes(q)
-      ||(SRC_LABEL[b.src]||'').toLowerCase().includes(q)
-      ||(b.ciDate||'').includes(q)
-      ||(b.no||'').toLowerCase().includes(q)
-      ||(b.bookDate||'').includes(q)
-      ||(b.otaNo||'').toLowerCase().includes(q)
-      ||(b.tel||'').includes(q)
-      ||(b.memo||'').toLowerCase().includes(q);
+    const s=(...v)=>v.map(x=>String(x||'')).join(' ').toLowerCase();
+    return s(b.name,b.room,b.ciDate,b.no,b.bookDate,b.otaNo,b.tel,b.memo,SRC_LABEL[b.src]).includes(q);
   });
   // キャッシュは描画前にセット（行クリックと順番を一致させる）
   window._ledgerCache=all;

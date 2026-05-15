@@ -936,6 +936,7 @@ function load(){
   try{const s=localStorage.getItem('yado_rs');if(s)roomStatus=JSON.parse(s);}catch(e){console.error('load rs',e);}
   try{const x=localStorage.getItem('yado_cancelled');if(x)cancelledBks=JSON.parse(x);}catch(e){}
   ROOMS.forEach(r=>{if(!roomStatus[r.no])roomStatus[r.no]='empty';});
+  rebuildAllSpans();
 }
 function exportData(){
   const data={bks,unassigned,roomStatus,checkoutData,cancelledBks,exportedAt:new Date().toISOString()};
@@ -995,8 +996,9 @@ function selImportTab(name,el){
 
 // ===== アサイン帳 =====
 function rebuildAllSpans(){
-  // isStart:false のゴーストを全消去
-  Object.keys(bks).forEach(k=>{if(bks[k]&&bks[k].isStart===false)delete bks[k];});
+  // isStart:false のゴーストを安全に全消去（先にキー一覧を取得してから削除）
+  const ghostKeys=Object.keys(bks).filter(k=>bks[k]&&bks[k].isStart===false);
+  ghostKeys.forEach(k=>delete bks[k]);
   // isStart:true（通常予約）をCI日順にソートして再構築
   const entries=Object.entries(bks).filter(([k,v])=>v&&v.isStart!==false);
   entries.sort((a,b)=>{
@@ -1014,7 +1016,7 @@ function rebuildAllSpans(){
   });
 }
 function render(){
-  rebuildAllSpans();
+  // rebuildAllSpansはload/import時のみ呼ぶ。render毎に呼ぶとデータ破壊の原因になる
   const y=cy,mo=cm,days=new Date(y,mo+1,0).getDate();
   const tn=new Date(),tY=tn.getFullYear(),tM=tn.getMonth(),tD=tn.getDate();
   document.getElementById('mlabel').textContent=`${y}年 ${mo+1}月`;

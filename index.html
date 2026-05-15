@@ -367,7 +367,7 @@ td.c.bk:hover{filter:brightness(1.08)}
 <!-- 予約台帳 -->
 <div class="sec" id="sec-ledger">
   <div class="search-bar">
-    <input class="search-input" id="searchInput" placeholder="名前・部屋番号・経路・CI日・受付日・受付番号で検索..." oninput="renderLedger()">
+    <input class="search-input" id="searchInput" placeholder="名前・部屋・経路・CI日・受付日・受付番号・OTA番号で検索..." oninput="renderLedger()" onkeyup="renderLedger()">
     <select class="fsel" id="ledgerFilter" onchange="renderLedger()" style="max-width:120px;font-size:12px;padding:7px 8px">
       <option value="active">有効のみ</option>
       <option value="all">全件（キャンセル含む）</option>
@@ -1322,18 +1322,33 @@ function saveBk(){
 
 function delBk(){
   if(!editKey)return;
-  const choice=confirm('この予約をキャンセルとして台帳に残しますか？\n\n[OK] → キャンセル記録として残す（推奨）\n[キャンセル] → 完全に削除する');
-  if(choice===null)return; // ダイアログ外クリック
+  // まずキャンセルか完全削除かを選択
+  const keep=confirm('この予約をキャンセルとして台帳に残しますか？\n\n[OK] → キャンセル記録として残す（推奨）\n[キャンセル] → 完全に削除する');
+  // 未割当のキャンセルにも対応
   const bk=bks[editKey];
   if(bk){
     const idx=editKey.indexOf('_');
     const room=editKey.substring(0,idx);
-    const cancelledEntry={...bk,room,cancelledAt:new Date().toISOString(),originalKey:editKey};
-    if(choice){cancelledBks.push(cancelledEntry);}
+    if(keep){
+      const cancelledEntry={...bk,room,cancelledAt:new Date().toISOString(),originalKey:editKey};
+      cancelledBks.push(cancelledEntry);
+    }
   }
   clearSpan(editKey);
   delete bks[editKey];
   save();closeManual();render();renderUnassigned();renderLedger();
+  showToast(keep?'🚫 キャンセルとして台帳に保存しました':'🗑️ 予約を削除しました');
+}
+
+function delUnassignedBk(idx){
+  const u=unassigned[idx];if(!u)return;
+  const keep=confirm('この予約をキャンセルとして台帳に残しますか？\n\n[OK] → キャンセル記録として残す（推奨）\n[キャンセル] → 完全に削除する');
+  if(keep){
+    cancelledBks.push({...u,room:'未割当（キャンセル）',cancelledAt:new Date().toISOString()});
+  }
+  unassigned.splice(idx,1);
+  save();closeManual();renderUnassigned();renderLedger();
+  showToast(keep?'🚫 キャンセルとして台帳に保存しました':'🗑️ 予約を削除しました');
 }
 
 // ===== 未割当 =====
@@ -1363,13 +1378,13 @@ function renderUnassigned(){
       <div class="ucard-actions">
         <button class="btn btn-gold btn-sm" onclick="openAssign(${i})">🏠 部屋を割り当て</button>
         <button class="btn btn-out btn-sm" onclick="editUnassigned(${i})">編集</button>
-        <button class="btn-xs" style="background:var(--red);color:#fff" onclick="delUnassigned(${i})">削除</button>
+        <button class="btn-xs" style="background:var(--red);color:#fff" onclick="delUnassignedBk(${i})">🚫 削除</button>
       </div>
     </div>`;
   }).join('');
 }
 
-function delUnassigned(i){if(!confirm('削除しますか？'))return;unassigned.splice(i,1);save();renderUnassigned();renderLedger();}
+function delUnassigned(i){delUnassignedBk(i);}
 
 function editUnassigned(i){
   const u=unassigned[i];
@@ -1714,14 +1729,31 @@ function allBookings(filter){
   return list;
 }
 function renderLedger(){
-  const q=(document.getElementById('searchInput')?.value||'').toLowerCase();
-  const filterVal=document.getElementById('ledgerFilter')?.value||'active';
-  const all=allBookings(filterVal).filter(b=>{
-    if(!q)return true;
-    return (b.name||'').toLowerCase().includes(q)||(b.room||'').includes(q)||(SRC_LABEL[b.src]||'').toLowerCase().includes(q)||(b.ciDate||'').includes(q)||(b.no||'').toLowerCase().includes(q)||(b.bookDate||'').includes(q);
-  });
-  if(!all.length){document.getElementById('ledgerTable').innerHTML='<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--ink3)">予約データがありません</td></tr>';return;}
-  let h=`<thead><tr><th>受付番号</th><th>お客様名</th><th>受付日</th><th>CI日</th><th>泊</th><th>部屋</th><th>人数</th><th>料金</th><th>経路</th></tr></thead><tbody>`;
+  const searchEl=document.getElementById('searchInput');
+  const filterEl=document.getElementById('ledgerFilter');
+  const q=(searchEl?.value||'').toLowerCase().trim();
+  const filterVal=filterEl?.value||'active';
+  const base=allBookings(filterVal);
+  const all=q?base.filter(b=>{
+    return (b.name||'').toLowerCase().includes(q)
+      ||(b.room||'').includes(q)
+      ||(SRC_LABEL[b.src]||'').toLowerCase().includes(q)
+      ||(b.ciDate||'').includes(q)
+      ||(b.no||'').toLowerCase().includes(q)
+      ||(b.bookDate||'').includes(q)
+      ||(b.otaNo||'').toLowerCase().includes(q)
+      ||(b.tel||'').includes(q)
+      ||(b.memo||'').toLowerCase().includes(q);
+  }):base;
+  // キャッシュは描画前にセット（行クリックと順番を一致させる）
+  window._ledgerCache=all;
+  const tbl=document.getElementById('ledgerTable');
+  if(!tbl)return;
+  if(!all.length){
+    tbl.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--ink3)">${q?'「'+q+'」に一致する予約はありません':'予約データがありません'}</td></tr>`;
+    return;
+  }
+  let h=`<thead><tr><th>受付番号</th><th>お客様名</th><th>受付日</th><th>CI日</th><th>泊</th><th>部屋</th><th>人数</th><th>料金</th><th>経路</th><th>OTA番号</th></tr></thead><tbody>`;
   all.forEach((b,bi)=>{
     const lbl=SRC_LABEL[b.src]||b.src||'';
     const css=SRC_CSS[b.src]||'bk-kuchi';
@@ -1736,18 +1768,34 @@ function renderLedger(){
       <td>${paxSummary(b)||'–'}</td>
       <td>${b.price?fmtPrice(b.price):'–'}</td>
       <td><span class="ota-badge ${css}" style="padding:2px 5px;font-size:10px">${lbl}</span></td>
+      <td style="font-family:'DM Mono',monospace;font-size:10px;color:var(--ink3)">${esc(b.otaNo||'')}</td>
     </tr>`;
   });
-  window._ledgerCache=all;
-  document.getElementById('ledgerTable').innerHTML=h+'</tbody>';
+  tbl.innerHTML=h+'</tbody>';
 }
 function editFromLedgerIdx(tr){
   try{
     const b=window._ledgerCache&&window._ledgerCache[parseInt(tr.dataset.idx)];
     if(!b)return;
-    if(b.assigned&&b.room&&b.ciDate)editBk(b.room,b.ciDate);
-    else{const idx=unassigned.findIndex(u=>u.id===b.id||(u.ciDate===b.ciDate&&u.name===b.name));if(idx>=0)editUnassigned(idx);}
+    if(b.cancelled){
+      // キャンセル行 → 詳細ポップアップ表示
+      openCancelledDetail(b);
+    } else if(b.assigned&&b.room&&b.ciDate){
+      editBk(b.room,b.ciDate);
+    } else {
+      const idx=unassigned.findIndex(u=>u.id===b.id||(u.ciDate===b.ciDate&&u.name===b.name));
+      if(idx>=0)editUnassigned(idx);
+    }
   }catch(e){console.error(e);}
+}
+
+function openCancelledDetail(b){
+  const at=b.cancelledAt?new Date(b.cancelledAt).toLocaleString('ja-JP'):'不明';
+  const msg=`【キャンセル予約】\n\nお客様: ${b.name||'–'}\nCI日: ${b.ciDate||'–'}　${b.nights||1}泊\n部屋: ${b.room||'–'}\n受付番号: ${b.no||'–'}\n料金: ${b.price?fmtPrice(b.price):'–'}\n\nキャンセル日時: ${at}`;
+  if(confirm(msg+'\n\n[OK] → このキャンセル記録を完全に削除する\n[キャンセル] → 閉じる')){
+    const idx=cancelledBks.findIndex(c=>c.no===b.no&&c.cancelledAt===b.cancelledAt);
+    if(idx>=0){cancelledBks.splice(idx,1);save();renderLedger();showToast('🗑️ キャンセル記録を削除しました');}
+  }
 }
 
 // ===== 部屋状態 =====
@@ -2508,6 +2556,13 @@ function init(){
   kinmuLoad();
   render();renderUnassigned();renderLedger();
   const _kn=new Date();kinmuCy=_kn.getFullYear();kinmuCm=_kn.getMonth()+1;
+  // 検索バーのイベントをJSでも確実にバインド
+  const si=document.getElementById('searchInput');
+  if(si){
+    si.addEventListener('input',renderLedger);
+    si.addEventListener('keyup',renderLedger);
+    si.addEventListener('compositionend',renderLedger); // IME（日本語入力）確定時
+  }
   // オンライン復帰時にペンディング保存を再試行
   ['kRStaff','kRStart','kREnd','kRTransport','kRBath'].forEach(id=>{
     const el=document.getElementById(id);

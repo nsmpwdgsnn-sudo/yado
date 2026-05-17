@@ -244,8 +244,7 @@ td.c.bk:hover{filter:brightness(1.08)}
     <div class="logo-sub">妙見楽園荘　客室アサインシステム</div>
   </div>
   <div class="hdr-r">
-    <button class="btn btn-sm" style="background:var(--red);color:#fff" onclick="openDirectInput()">＋ 直接予約</button>
-    <button class="btn btn-gold btn-sm" onclick="openManual(null,null)">＋ 手動入力</button>
+    <button class="btn btn-gold btn-sm" onclick="openManual(null,null)">＋ 予約入力</button>
   </div>
 </div>
 
@@ -584,7 +583,7 @@ td.c.bk:hover{filter:brightness(1.08)}
     <div class="fr2">
       <div class="fg">
         <label class="fl">チェックイン日 *</label>
-        <input class="fi" id="fCI" type="text" placeholder="YYYY-MM-DD" maxlength="10" oninput="autoHyphen(this)">
+        <input class="fi" id="fCI" type="date">
       </div>
       <div class="fg">
         <label class="fl">宿泊日数 *</label>

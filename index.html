@@ -233,6 +233,10 @@ td.c.bk:hover{filter:brightness(1.08)}
 /* トースト */
 #toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1e1810;color:#f5f0e8;padding:10px 20px;border-radius:20px;font-size:12px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
 .checkout-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+/* 同期バナー */
+#syncBanner{display:none;background:#fff3cd;border-bottom:2px solid #ffc107;padding:8px 14px;font-size:12px;color:#7a5800;align-items:center;gap:8px;flex-wrap:wrap}
+#syncBanner.on{display:flex}
+#syncTs{font-size:10px;color:var(--ink3);padding:2px 10px;font-family:'DM Mono',monospace;margin-left:auto}
 </style>
 </head>
 <body>
@@ -263,6 +267,14 @@ td.c.bk:hover{filter:brightness(1.08)}
   <div class="tab" onclick="showTab('checkout')">🧾 精算</div>
   <div class="tab" onclick="showTab('kinmu')">👷 勤怠</div>
   <div class="tab" onclick="showTab('settings')">⚙️ 設定</div>
+</div>
+
+<!-- 同期バナー -->
+<div id="syncBanner">
+  <span id="syncBannerMsg">⚠️ 別の端末で保存されたデータがあります。</span>
+  <button class="btn btn-sm" style="background:#ffc107;color:#1e1810;padding:4px 10px;font-size:11px" onclick="syncBannerAccept()">クラウドのデータを反映する</button>
+  <button class="btn btn-sm" style="background:transparent;border:1px solid #aaa;color:#555;padding:4px 10px;font-size:11px" onclick="syncBannerDismiss()">今は無視</button>
+  <span id="syncTs"></span>
 </div>
 
 <!-- アサイン帳 -->
@@ -2571,6 +2583,42 @@ function kinmuDeleteRecord(){
   kinmuSave();kinmuCloseRecord();kinmuRenderMonthly();
   showToast('🗑️ 削除しました');
 }
+// ===== 同期バナー =====
+function syncBannerAccept(){
+  const d=window._pendingCloudData;
+  if(!d){document.getElementById('syncBanner').classList.remove('on');return;}
+  if(d.bks)bks=d.bks;
+  if(d.unassigned)unassigned=d.unassigned;
+  if(d.roomStatus)roomStatus=d.roomStatus;
+  if(d.checkoutData)checkoutData=d.checkoutData;
+  if(d.cancelledBks)cancelledBks=d.cancelledBks;
+  if(d.kinmuRecords)kinmuRecords=d.kinmuRecords;
+  if(d.kinmuStaffList)kinmuStaffList=d.kinmuStaffList;
+  if(d.kinmuSettings)kinmuSettings=d.kinmuSettings;
+  normalizeDates();
+  try{localStorage.setItem('yado_bks',JSON.stringify(bks));}catch(e){}
+  try{localStorage.setItem('yado_ua',JSON.stringify(unassigned));}catch(e){}
+  try{localStorage.setItem('yado_rs',JSON.stringify(roomStatus));}catch(e){}
+  try{localStorage.setItem('yado_co',JSON.stringify(checkoutData));}catch(e){}
+  try{localStorage.setItem('yado_cancelled',JSON.stringify(cancelledBks));}catch(e){}
+  try{localStorage.setItem('kinmu_records',JSON.stringify(kinmuRecords));}catch(e){}
+  try{localStorage.setItem('kinmu_staff',JSON.stringify(kinmuStaffList));}catch(e){}
+  try{localStorage.setItem('kinmu_settings',JSON.stringify(kinmuSettings));}catch(e){}
+  localStorage.setItem('yado_ts',String(d.ts));
+  ROOMS.forEach(r=>{if(!roomStatus[r.no])roomStatus[r.no]='empty';});
+  rebuildAllSpans();
+  render();renderUnassigned();renderLedger();
+  window._pendingCloudData=null;
+  document.getElementById('syncBanner').classList.remove('on');
+  showToast('✅ クラウドのデータを反映しました');
+}
+function syncBannerDismiss(){
+  // 今は無視 → ローカルのデータをそのままSupabaseに上書き保存（ローカルが正しいとして確定）
+  window._pendingCloudData=null;
+  document.getElementById('syncBanner').classList.remove('on');
+  save(); // ローカルをSupabaseに保存して確定
+  showToast('📌 このデバイスのデータで保存しました');
+}
 // ===== 初期化 =====
 function init(){
   const n=new Date();cy=n.getFullYear();cm=n.getMonth();
@@ -2578,7 +2626,7 @@ function init(){
   kinmuLoad();
   render();renderUnassigned();renderLedger();
   const _kn=new Date();kinmuCy=_kn.getFullYear();kinmuCm=_kn.getMonth()+1;
-  // 起動時にSupabaseから自動読み込み（クラウドが新しければ自動反映）
+  // 起動時にSupabaseから確認（クラウドが新しければバナーで通知）
   fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.1&select=payload',{
     headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
   }).then(r=>r.json()).then(rows=>{
@@ -2586,30 +2634,14 @@ function init(){
     const d=JSON.parse(rows[0].payload);
     const localTs=parseInt(localStorage.getItem('yado_ts')||'0');
     const cloudTs=parseInt(d.ts||'0');
-    if(cloudTs<=localTs)return; // ローカルが新しければ何もしない
-    // クラウドが新しい → 自動反映
-    if(d.bks)bks=d.bks;
-    if(d.unassigned)unassigned=d.unassigned;
-    if(d.roomStatus)roomStatus=d.roomStatus;
-    if(d.checkoutData)checkoutData=d.checkoutData;
-    if(d.cancelledBks)cancelledBks=d.cancelledBks;
-    if(d.kinmuRecords)kinmuRecords=d.kinmuRecords;
-    if(d.kinmuStaffList)kinmuStaffList=d.kinmuStaffList;
-    if(d.kinmuSettings)kinmuSettings=d.kinmuSettings;
-    normalizeDates();
-    try{localStorage.setItem('yado_bks',JSON.stringify(bks));}catch(e){}
-    try{localStorage.setItem('yado_ua',JSON.stringify(unassigned));}catch(e){}
-    try{localStorage.setItem('yado_rs',JSON.stringify(roomStatus));}catch(e){}
-    try{localStorage.setItem('yado_co',JSON.stringify(checkoutData));}catch(e){}
-    try{localStorage.setItem('yado_cancelled',JSON.stringify(cancelledBks));}catch(e){}
-    try{localStorage.setItem('kinmu_records',JSON.stringify(kinmuRecords));}catch(e){}
-    try{localStorage.setItem('kinmu_staff',JSON.stringify(kinmuStaffList));}catch(e){}
-    try{localStorage.setItem('kinmu_settings',JSON.stringify(kinmuSettings));}catch(e){}
-    localStorage.setItem('yado_ts',String(cloudTs));
-    ROOMS.forEach(r=>{if(!roomStatus[r.no])roomStatus[r.no]='empty';});
-    rebuildAllSpans();
-    render();renderUnassigned();renderLedger();
-    showToast('☁️ クラウドから最新データを読み込みました');
+    if(cloudTs<=localTs)return; // ローカルが同じか新しければ何もしない
+    // クラウドが新しい → バナーで通知（サイレント上書きしない）
+    window._pendingCloudData=d;
+    const diff=cloudTs-localTs;
+    const cloudTime=new Date(cloudTs).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    document.getElementById('syncBannerMsg').textContent='⚠️ 別の端末で保存されたデータがあります（クラウド: '+cloudTime+'）';
+    document.getElementById('syncTs').textContent='ローカル保存: '+new Date(localTs).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    document.getElementById('syncBanner').classList.add('on');
   }).catch(e=>console.error('auto-load error',e));
   // オンライン復帰時にペンディング保存を再試行
   ['kRStaff','kRStart','kREnd','kRTransport','kRBath'].forEach(id=>{

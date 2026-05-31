@@ -683,8 +683,8 @@ td.c.bk:hover{filter:brightness(1.08)}
       <input class="fi" id="fAddr" placeholder="〒000-0000 ○○県...">
     </div>
     <div class="fg">
-      <label class="fl">OTA予約番号 / 直接予約番号</label>
-      <input class="fi" id="fOtaNo" placeholder="OTA番号 または 直接予約は自動採番">
+      <label class="fl" id="fOtaNoLabel">OTA予約番号 / 直接予約番号</label>
+      <input class="fi" id="fOtaNo" placeholder="OTA番号 または 空欄で自動採番">
       <div id="directNoPreview" style="font-size:10px;color:var(--ink3);margin-top:3px;display:none"></div>
     </div>
     <div class="fg">
@@ -1333,7 +1333,9 @@ function saveBk(){
     markSpan(targetRoom,ds,nights,newKey);
   }else if(room){
     // 新規 部屋あり
-    data.no=genReceiptNo(srcVal);
+    const manualNo=data.otaNo.trim();
+    const OTA_SRCS2=['rakuten','jalan','yahoo','yukoyuko'];
+    data.no=manualNo&&!OTA_SRCS2.includes(srcVal)?manualNo:genReceiptNo(srcVal);
     const key=room+'_'+ds;
     if(bks[key]&&bks[key].isStart!==false)clearSpan(key);
     data.room=room;
@@ -1342,7 +1344,9 @@ function saveBk(){
   }else{
     // 未割当 - ciDateをハイフン形式に正規化
     data.ciDate=ds; // saveBkで既にfmt()処理済みのdsを使う
-    data.no=genReceiptNo(srcVal);
+    const manualNo2=data.otaNo.trim();
+    const OTA_SRCS3=['rakuten','jalan','yahoo','yukoyuko'];
+    data.no=manualNo2&&!OTA_SRCS3.includes(srcVal)?manualNo2:genReceiptNo(srcVal);
     data.id=Date.now();
     if(uindex!==''){
       const ui=parseInt(uindex);
@@ -1473,12 +1477,48 @@ function doAssign(){
     if(!dsRaw){alert('チェックイン日が未設定です。先に編集してください');closeAssign();return;}
     const dsParts=dsRaw.replace(/\//g,'-').split('-');
     const ds=dsParts.length===3?fmt(parseInt(dsParts[0]),parseInt(dsParts[1]),parseInt(dsParts[2])):dsRaw;
+    const nights=parseInt(u.nights)||1;
+
+    // ===== 先約チェック =====
+    // 割り当てようとしている泊数分の日付を全部チェック
+    const conflicts=[];
+    for(let i=0;i<nights;i++){
+      const nd=new Date(...ds.split('-').map((v,j)=>j===1?parseInt(v)-1:parseInt(v)));
+      nd.setDate(nd.getDate()+i);
+      const checkDs=fmt(nd.getFullYear(),nd.getMonth()+1,nd.getDate());
+      const checkKey=room+'_'+checkDs;
+      const existing=bks[checkKey];
+      if(!existing)continue;
+      if(existing.isStart===false){
+        // 宿泊中のゴーストセル → 親予約を探す
+        const parentBk=bks[existing.parentKey];
+        if(parentBk&&!conflicts.find(c=>c.key===existing.parentKey)){
+          conflicts.push({key:existing.parentKey,name:parentBk.name,ciDate:existing.parentKey.split('_')[1],nights:parentBk.nights});
+        }
+      }else{
+        if(!conflicts.find(c=>c.key===checkKey)){
+          conflicts.push({key:checkKey,name:existing.name,ciDate:checkDs,nights:existing.nights});
+        }
+      }
+    }
+
+    if(conflicts.length>0){
+      const conflictMsg=conflicts.map(c=>`・${c.name}様（CI: ${c.ciDate}　${c.nights}泊）`).join('\n');
+      const ok=confirm(
+        `⚠️ ${room}号室に先約があります！\n\n${conflictMsg}\n\n上書きして割り当てますか？\n（先約は削除されます）`
+      );
+      if(!ok)return; // キャンセルなら中断
+      // OK なら先約を消してから割り当て
+      conflicts.forEach(c=>{clearSpan(c.key);delete bks[c.key];});
+    }
+    // ======================
+
     const key=room+'_'+ds;
     if(bks[key]&&bks[key].isStart!==false)clearSpan(key);
     const data=JSON.parse(JSON.stringify(u));
     data.isStart=true;data.room=room;
     bks[key]=data;
-    markSpan(room,ds,parseInt(u.nights)||1,key);
+    markSpan(room,ds,nights,key);
     unassigned.splice(assigningIdx,1);
     assigningIdx=null;
     save();closeAssign();renderUnassigned();renderLedger();
@@ -1559,7 +1599,7 @@ function parseOta(){
     m=text.match(/チェックイン時間\s*\n?(\d{1,2}:\d{2})/)||text.match(/チェックイン.*?(\d{1,2}:\d{2})/);if(m)d.ci=m[1];
     m=text.match(/お名前\s*\n?([^\n]+)/)||text.match(/\[お名前\]\s*(.+)/);if(m)d.name=cleanName(m[1]);
     m=text.match(/住所\s*\n?([^\n]+)/)||text.match(/\[住所\]\s*(.+)/);if(m)d.addr=m[1].replace(/^\s*[\]\[】【]/,'').trim();
-    m=text.match(/電話番号\s*\n?([^\n]+)/)||text.match(/\[電話番号\]\s*(\S+)/);if(m)d.tel=m[1].trim();
+    m=text.match(/電話番号\s*\n?([^\n]+)/)||text.match(/\[電話番号\]\s*(\S+)/);if(m)d.tel=m[1].replace(/^[\s」\]】]+/,'').trim();
     m=text.match(/ペットの有無\s*\n?([^\n]+)/)||text.match(/\[ペットの有無\]\s*(.+)/);if(m&&!m[1].match(/ではありません/))d.pet=m[1].trim();
     m=text.match(/備考[　\s]*ご希望など\s*\n([^\n]*)/);if(m&&m[1].trim())d.memo=m[1].trim();
   }
@@ -2122,6 +2162,8 @@ function renderMonthlyCheckout(){
   const totUnpaid=rows.filter(r=>!r.cd.paid).reduce((s,r)=>s+r.actualPay,0);
   const totOta=rows.filter(r=>r.isOta).reduce((s,r)=>s+r.actualPay,0);
   const totDirect=rows.filter(r=>!r.isOta).reduce((s,r)=>s+r.actualPay,0);
+  // 補助金（直接予約のdiscountは後日口座振込）
+  const totSubsidy=rows.filter(r=>!r.isOta).reduce((s,r)=>s+r.discount,0);
   const summaryEl=document.getElementById('coMonthlySummary');
   summaryEl.innerHTML=[
     ['宿泊件数',rows.length+'件'],
@@ -2132,6 +2174,8 @@ function renderMonthlyCheckout(){
     ['直接予約',totDirect.toLocaleString()+'円'],
     ['精算済み','<span style="color:var(--green)">'+totPaid.toLocaleString()+'円</span>'],
     ['未精算','<span style="color:var(--red)">'+totUnpaid.toLocaleString()+'円</span>'],
+    ...(totSubsidy>0?[['💳 補助金振込予定','<span style="color:#2a7a4b;font-weight:700">'+totSubsidy.toLocaleString()+'円</span>']]:[]),
+    ...(totSubsidy>0?[['総売上（現地+補助金）','<span style="color:var(--red);font-weight:700">'+(totActual+totSubsidy).toLocaleString()+'円</span>']]:[]),
   ].map(([l,v])=>`<div style="background:var(--paper);border-radius:8px;padding:10px;border:1.5px solid var(--border);box-shadow:0 2px 6px var(--shadow)"><div style="font-size:10px;color:var(--ink2);margin-bottom:3px">${l}</div><div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700">${v}</div></div>`).join('');
 
   if(!rows.length){document.getElementById('coMonthlyContent').innerHTML='<div class="empty-msg">この月の予約はありません</div>';return;}
@@ -2141,6 +2185,7 @@ function renderMonthlyCheckout(){
   const tableRows=rows.map(r=>{
     const payLbl=PAY_LABELS[r.cd.payMethod]||'未設定';
     const statusLbl=r.cd.paid?'<span style="color:var(--green)">✅精算済</span>':'<span style="color:var(--red)">⏳未精算</span>';
+    const subsidyLbl=(!r.isOta&&r.discount>0)?`<span style="color:#2a7a4b;font-size:10px">💳${r.discount.toLocaleString()}円</span>`:'';
     return `<tr>
       <td>${r.ds.substring(5)}</td>
       <td>${r.room}</td>
@@ -2149,6 +2194,7 @@ function renderMonthlyCheckout(){
       <td style="font-family:'DM Mono',monospace">${r.basePrice.toLocaleString()}</td>
       <td style="font-family:'DM Mono',monospace;color:var(--red)">${r.discount>0?'-'+r.discount.toLocaleString():''}</td>
       <td style="font-family:'DM Mono',monospace;font-weight:700">${r.actualPay.toLocaleString()}</td>
+      <td>${subsidyLbl}</td>
       <td>${SRC_LABEL_MAP[r.bk.src]||r.bk.src||''}</td>
       <td>${payLbl}</td>
       <td>${statusLbl}</td>
@@ -2165,6 +2211,7 @@ function renderMonthlyCheckout(){
           <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:right;font-size:10px">定価</th>
           <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:right;font-size:10px">割引</th>
           <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:right;font-size:10px">受取額</th>
+          <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:left;font-size:10px">補助金</th>
           <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:left;font-size:10px">経路</th>
           <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:left;font-size:10px">支払</th>
           <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:left;font-size:10px">状態</th>

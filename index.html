@@ -2406,8 +2406,15 @@ function renderCheckout(){
     const petFee=isOta&&hasPet?1000*(bk.nights||1):0;
     const extraTotal=(cd.extraItems||[]).reduce((s,e)=>s+parseInt(e.price||0),0);
     const total=basePrice+petFee+extraTotal; // 定価合計
-    const actualPay=total-discount; // 現地受取額
-    if(cd.paid){if(totals[cd.payMethod]!==undefined)totals[cd.payMethod]+=actualPay;}else{totals.unpaid+=actualPay;}
+    const prepaid=parseInt(bk.prepaid||0);
+    const actualPay=prepaid>0&&parseInt(bk.actualPrice||0)===0?0:total-discount; // 事前決済は現地0円
+    const billedAmount=prepaid>0?prepaid:actualPay; // 集計に使う金額
+    if(cd.paid){if(totals[cd.payMethod]!==undefined)totals[cd.payMethod]+=billedAmount;}else{totals.unpaid+=billedAmount;}
+    // OTA振込予定（ポイント・クーポン分）を別途加算
+    if(cd.paid&&isOta&&discount>0&&prepaid===0){
+      const otaKey='ota_'+bk.src;
+      if(totals[otaKey]!==undefined)totals[otaKey]+=discount;
+    }
     const safeKey=key.replace(/[^a-zA-Z0-9]/g,'_');
     return `<div class="checkout-card" id="cc_${safeKey}">
       <div class="checkout-hd">

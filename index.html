@@ -2422,8 +2422,10 @@ function renderCheckout(){
         <div class="price-row"><span class="price-label">宿泊料金（定価）</span><span class="price-val">${basePrice.toLocaleString()}円</span></div>
         ${petFee>0?`<div class="price-row"><span class="price-label">ペット料金（${bk.nights||1}泊×1,000円）</span><span class="price-val">${petFee.toLocaleString()}円</span></div>`:''}
         ${(cd.extraItems||[]).map(e=>`<div class="price-row"><span class="price-label">${esc(e.label||'追加')}</span><span class="price-val">${parseInt(e.price||0).toLocaleString()}円</span></div>`).join('')}
-        ${discount>0?`<div class="price-row" style="color:#c0392b"><span class="price-label">${isOta?'OTAポイント・事前割引':esc(bk.subsidy||'補助金・割引')}</span><span class="price-val">-${discount.toLocaleString()}円</span></div>`:''}
+        ${discount>0?`<div class="price-row" style="color:#c0392b"><span class="price-label">${isOta?'OTAポイント・クーポン':esc(bk.subsidy||'補助金・割引')}</span><span class="price-val">-${discount.toLocaleString()}円</span></div>`:''}
+        ${discount>0&&isOta?`<div class="price-row" style="font-size:11px;background:#fff5f5;border-radius:4px;padding:4px 6px"><span class="price-label">🏦 じゃらん/OTA振込予定</span><span class="price-val" style="color:#c0392b">${(parseInt(bk.prepaid||0)||discount).toLocaleString()}円</span></div>`:''}
         ${discount>0&&!isOta?`<div class="price-row" style="font-size:11px;background:#f0fdf4;border-radius:4px;padding:4px 6px"><span class="price-label">💳 補助金（口座振込予定）</span><span class="price-val" style="color:#2a7a4b">${discount.toLocaleString()}円</span></div>`:''}
+        ${isOta&&parseInt(bk.prepaid||0)>discount&&parseInt(bk.prepaid||0)>0?`<div class="price-row" style="font-size:11px;background:#fff5f5;border-radius:4px;padding:4px 6px"><span class="price-label">🏦 事前決済振込予定</span><span class="price-val" style="color:#c0392b">${parseInt(bk.prepaid||0).toLocaleString()}円</span></div>`:''}
         <div class="price-row total"><span class="price-label">現地受取額</span><span class="price-val" style="font-size:18px;color:var(--red)">${actualPay.toLocaleString()}円</span></div>
       </div>
       <div style="margin-bottom:10px">

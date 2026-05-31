@@ -2415,6 +2415,10 @@ function renderCheckout(){
       const otaKey='ota_'+bk.src;
       if(totals[otaKey]!==undefined)totals[otaKey]+=discount;
     }
+    // 補助金（直接予約のdiscount）を別途加算
+    if(cd.paid&&!isOta&&discount>0){
+      totals.subsidy=(totals.subsidy||0)+discount;
+    }
     const safeKey=key.replace(/[^a-zA-Z0-9]/g,'_');
     return `<div class="checkout-card" id="cc_${safeKey}">
       <div class="checkout-hd">
@@ -2447,7 +2451,8 @@ function renderCheckout(){
   }).join('');
 
   const otaAll=totals.ota_rakuten+totals.ota_jalan+totals.ota_yahoo+totals.ota_yukoyuko;
-  const grandTotal=totals.cash+totals.card+otaAll+(totals.paypay||0)+(totals.dpay||0);
+  const subsidy=totals.subsidy||0;
+  const grandTotal=totals.cash+totals.card+otaAll+(totals.paypay||0)+(totals.dpay||0)+subsidy;
   summary.innerHTML=`
     <div><div style="color:var(--ink2);font-size:10px">現金</div><strong>${totals.cash.toLocaleString()}円</strong></div>
     <div><div style="color:var(--ink2);font-size:10px">カード</div><strong>${totals.card.toLocaleString()}円</strong></div>
@@ -2461,6 +2466,7 @@ function renderCheckout(){
       </div>
     </div>
     <div><div style="color:var(--ink2);font-size:10px">QR決済</div><strong>${((totals.paypay||0)+(totals.dpay||0)).toLocaleString()}円</strong></div>
+    ${subsidy>0?`<div><div style="color:#2a7a4b;font-size:10px">💳 補助金振込</div><strong style="color:#2a7a4b">${subsidy.toLocaleString()}円</strong></div>`:''}
     <div style="border-left:2px solid var(--border);padding-left:14px"><div style="color:var(--ink2);font-size:10px">本日合計</div><strong style="font-size:15px;color:var(--red)">${grandTotal.toLocaleString()}円</strong></div>
     <div><div style="color:var(--ink2);font-size:10px">未精算</div><strong style="color:var(--unassigned)">${totals.unpaid.toLocaleString()}円</strong></div>`;
 }

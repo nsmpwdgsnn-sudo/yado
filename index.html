@@ -2297,10 +2297,19 @@ function renderMonthlyCheckout(){
   const totUnpaid=rows.filter(r=>!r.cd.paid).reduce((s,r)=>s+r.actualPay,0);
 
   // OTAごとの集計ヘルパー
+  const PAY_TO_SRC={ota_jalan:'jalan',ota_rakuten:'rakuten',ota_yahoo:'yahoo',ota_yukoyuko:'yukoyuko'};
   const otaSummary=(src)=>{
+    const otaPayKey='ota_'+src;
     const srcRows=rows.filter(r=>r.bk.src===src);
     const sales=srcRows.reduce((s,r)=>s+r.basePrice+r.petFee+r.extraTotal,0);
-    const transfer=srcRows.reduce((s,r)=>s+(parseInt(r.bk.prepaid||0)||r.discount),0);
+    const transfer=srcRows.reduce((s,r)=>{
+      const prepaid=parseInt(r.bk.prepaid||0);
+      const discount=r.discount;
+      // 支払方法がOTA精算（じゃらん精算など）の場合はactualPayをそのまま振込予定に
+      if(r.cd.payMethod===otaPayKey) return s+r.actualPay+(discount||0);
+      // prepaidがあればそれを使う、なければdiscount
+      return s+(prepaid||discount);
+    },0);
     const local=sales-transfer;
     return {sales,transfer,local,count:srcRows.length};
   };

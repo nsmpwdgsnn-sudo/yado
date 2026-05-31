@@ -2290,41 +2290,75 @@ function renderMonthlyCheckout(){
 
   // サマリー集計
   const totRevenue=rows.reduce((s,r)=>s+r.basePrice,0);
-  // 現地受取（現金・カード・QR全て合算）
+  // 現金・カード・QR（OTA・直接問わず支払方法で集計）
   const totLocalCash=rows.filter(r=>r.cd.payMethod==='cash').reduce((s,r)=>s+r.actualPay,0);
   const totLocalCard=rows.filter(r=>r.cd.payMethod==='card').reduce((s,r)=>s+r.actualPay,0);
   const totLocalQR=rows.filter(r=>['paypay','dpay'].includes(r.cd.payMethod)).reduce((s,r)=>s+r.actualPay,0);
-  const totLocalOther=rows.filter(r=>!r.cd.payMethod&&r.actualPay>0).reduce((s,r)=>s+r.actualPay,0);
-  const totLocal=totLocalCash+totLocalCard+totLocalQR+totLocalOther;
-  // OTA振込予定（prepaid）
-  const totJalanTransfer=rows.filter(r=>r.bk.src==='jalan').reduce((s,r)=>s+(parseInt(r.bk.prepaid||0)||r.discount),0);
-  const totRakutenTransfer=rows.filter(r=>r.bk.src==='rakuten').reduce((s,r)=>s+(parseInt(r.bk.prepaid||0)||0),0);
-  const totYahooTransfer=rows.filter(r=>r.bk.src==='yahoo').reduce((s,r)=>s+(parseInt(r.bk.prepaid||0)||0),0);
-  const totYukoyukoTransfer=rows.filter(r=>r.bk.src==='yukoyuko').reduce((s,r)=>s+(parseInt(r.bk.prepaid||0)||0),0);
-  // 補助金（直接予約のdiscount）
-  const totSubsidy=rows.filter(r=>!['rakuten','jalan','yahoo','yukoyuko'].includes(r.bk.src||'')).reduce((s,r)=>s+r.discount,0);
-  // 精算状況
-  const totPaid=rows.filter(r=>r.cd.paid).reduce((s,r)=>s+r.actualPay,0);
   const totUnpaid=rows.filter(r=>!r.cd.paid).reduce((s,r)=>s+r.actualPay,0);
-  // 総売上
-  const totGrand=totLocal+totJalanTransfer+totRakutenTransfer+totYahooTransfer+totYukoyukoTransfer+totSubsidy;
 
-  const card=`<div style="background:var(--paper);border-radius:8px;padding:10px;border:1.5px solid var(--border);box-shadow:0 2px 6px var(--shadow)">`;
+  // OTAごとの集計ヘルパー
+  const otaSummary=(src)=>{
+    const srcRows=rows.filter(r=>r.bk.src===src);
+    const sales=srcRows.reduce((s,r)=>s+r.basePrice+r.petFee+r.extraTotal,0);
+    const transfer=srcRows.reduce((s,r)=>s+(parseInt(r.bk.prepaid||0)||r.discount),0);
+    const local=sales-transfer;
+    return {sales,transfer,local,count:srcRows.length};
+  };
+  const jalan=otaSummary('jalan');
+  const rakuten=otaSummary('rakuten');
+  const yahoo=otaSummary('yahoo');
+  const yukoyuko=otaSummary('yukoyuko');
+
+  // 直接予約
+  const directRows=rows.filter(r=>!['rakuten','jalan','yahoo','yukoyuko'].includes(r.bk.src||''));
+  const directSales=directRows.reduce((s,r)=>s+r.basePrice+r.petFee+r.extraTotal,0);
+  const totSubsidy=directRows.reduce((s,r)=>s+r.discount,0);
+  const directLocal=directSales-totSubsidy;
+
+  // 月合計
+  const totGrand=totRevenue;
+
+  // OTAブロック生成
+  const otaBlock=(label,color,data)=>data.count===0?'':
+    `<div style="background:var(--paper);border-radius:8px;padding:10px;border:1.5px solid ${color}33;box-shadow:0 2px 6px var(--shadow)">
+      <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:6px">${label}（${data.count}件）</div>
+      <div style="display:flex;flex-direction:column;gap:3px;font-size:12px">
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--ink2)">売上計</span><span style="font-family:'DM Mono',monospace;font-weight:700">${data.sales.toLocaleString()}円</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--ink2)">現地受取</span><span style="font-family:'DM Mono',monospace">${data.local.toLocaleString()}円</span></div>
+        <div style="display:flex;justify-content:space-between;background:${color}11;border-radius:4px;padding:2px 4px"><span style="color:${color}">🏦 振込予定</span><span style="font-family:'DM Mono',monospace;font-weight:700;color:${color}">${data.transfer.toLocaleString()}円</span></div>
+      </div>
+    </div>`;
+
   const summaryEl=document.getElementById('coMonthlySummary');
-  summaryEl.innerHTML=[
-    ['宿泊件数', rows.length+'件', ''],
-    ['定価合計', totRevenue.toLocaleString()+'円', ''],
-    ['現金受取', totLocalCash.toLocaleString()+'円', ''],
-    ['カード・QR受取', (totLocalCard+totLocalQR).toLocaleString()+'円', ''],
-    ...(totJalanTransfer>0?[['🏦 じゃらん振込予定', totJalanTransfer.toLocaleString()+'円', 'color:#007a35;font-weight:700']]:[] ),
-    ...(totRakutenTransfer>0?[['🏦 楽天振込予定', totRakutenTransfer.toLocaleString()+'円', 'color:#cc0000;font-weight:700']]:[] ),
-    ...(totYahooTransfer>0?[['🏦 ヤフー振込予定', totYahooTransfer.toLocaleString()+'円', 'color:#cc0033;font-weight:700']]:[] ),
-    ...(totYukoyukoTransfer>0?[['🏦 ゆこゆこ振込予定', totYukoyukoTransfer.toLocaleString()+'円', 'color:#d97000;font-weight:700']]:[] ),
-    ...(totSubsidy>0?[['💳 補助金振込予定', totSubsidy.toLocaleString()+'円', 'color:#2a7a4b;font-weight:700']]:[] ),
-    ['精算済み', '<span style="color:var(--green)">'+totPaid.toLocaleString()+'円</span>', ''],
-    ['未精算', '<span style="color:var(--red)">'+totUnpaid.toLocaleString()+'円</span>', ''],
-    ['📊 総売上', '<span style="color:var(--red);font-weight:700">'+totGrand.toLocaleString()+'円</span>', ''],
-  ].map(([l,v,style])=>`${card}<div style="font-size:10px;color:var(--ink2);margin-bottom:3px">${l}</div><div style="font-family:'DM Mono',monospace;font-size:15px;${style}">${v}</div></div>`).join('');
+  summaryEl.innerHTML=`
+    <div style="background:var(--paper);border-radius:8px;padding:10px;border:1.5px solid var(--border);box-shadow:0 2px 6px var(--shadow)">
+      <div style="font-size:10px;color:var(--ink2);margin-bottom:3px">宿泊件数</div>
+      <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700">${rows.length}件</div>
+    </div>
+    <div style="background:var(--paper);border-radius:8px;padding:10px;border:1.5px solid var(--border);box-shadow:0 2px 6px var(--shadow)">
+      <div style="font-size:10px;color:var(--ink2);margin-bottom:3px">定価合計</div>
+      <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700">${totRevenue.toLocaleString()}円</div>
+    </div>
+    <div style="background:var(--paper);border-radius:8px;padding:10px;border:1.5px solid var(--border);box-shadow:0 2px 6px var(--shadow)">
+      <div style="font-size:11px;font-weight:700;color:var(--ink);margin-bottom:6px">現地受取内訳</div>
+      <div style="display:flex;flex-direction:column;gap:3px;font-size:12px">
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--ink2)">現金</span><span style="font-family:'DM Mono',monospace;font-weight:700">${totLocalCash.toLocaleString()}円</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--ink2)">カード・QR</span><span style="font-family:'DM Mono',monospace">${(totLocalCard+totLocalQR).toLocaleString()}円</span></div>
+        ${totUnpaid>0?`<div style="display:flex;justify-content:space-between;background:#fce4ec;border-radius:4px;padding:2px 4px"><span style="color:var(--red)">⏳ 受取待ち</span><span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--red)">${totUnpaid.toLocaleString()}円</span></div>`:''}
+      </div>
+    </div>
+    ${otaBlock('🟢 じゃらん','#007a35',jalan)}
+    ${otaBlock('🔴 楽天','#cc0000',rakuten)}
+    ${otaBlock('🔴 ヤフー','#cc0033',yahoo)}
+    ${otaBlock('🟠 ゆこゆこ','#d97000',yukoyuko)}
+    ${directSales>0?`<div style="background:var(--paper);border-radius:8px;padding:10px;border:1.5px solid #6b4c9a33;box-shadow:0 2px 6px var(--shadow)">
+      <div style="font-size:11px;font-weight:700;color:#6b4c9a;margin-bottom:6px">直接予約（${directRows.length}件）</div>
+      <div style="display:flex;flex-direction:column;gap:3px;font-size:12px">
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--ink2)">売上計</span><span style="font-family:'DM Mono',monospace;font-weight:700">${directSales.toLocaleString()}円</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--ink2)">現地受取</span><span style="font-family:'DM Mono',monospace">${directLocal.toLocaleString()}円</span></div>
+        ${totSubsidy>0?`<div style="display:flex;justify-content:space-between;background:#2a7a4b11;border-radius:4px;padding:2px 4px"><span style="color:#2a7a4b">💳 補助金振込予定</span><span style="font-family:'DM Mono',monospace;font-weight:700;color:#2a7a4b">${totSubsidy.toLocaleString()}円</span></div>`:''}
+      </div>
+    </div>`:''}`;
 
   if(!rows.length){document.getElementById('coMonthlyContent').innerHTML='<div class="empty-msg">この月の予約はありません</div>';return;}
 

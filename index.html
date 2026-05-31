@@ -269,7 +269,14 @@ td.c.bk:hover{filter:brightness(1.08)}
   <div class="tab" onclick="showTab('settings')">⚙️ 設定</div>
 </div>
 
-<!-- 同期バナー -->
+<!-- 部屋別月次売上ポップアップ -->
+<div class="day-popup" id="roomSalesPop" onclick="if(event.target===this)closeRoomSales()">
+  <div class="day-popup-inner">
+    <div class="day-popup-ttl" id="roomSalesTtl"></div>
+    <div id="roomSalesBody"></div>
+    <button class="btn btn-out" style="margin-top:14px;width:100%" onclick="closeRoomSales()">閉じる</button>
+  </div>
+</div>
 <div id="syncBanner">
   <span id="syncBannerMsg">⚠️ 別の端末で保存されたデータがあります。</span>
   <button class="btn btn-sm" style="background:#ffc107;color:#1e1810;padding:4px 10px;font-size:11px" onclick="syncBannerAccept()">クラウドのデータを反映する</button>
@@ -1056,7 +1063,7 @@ function render(){
   h+='</tr></thead><tbody>';
   ROOMS.forEach((room,ri)=>{
     const alt=ri%2?' alt':'';
-    h+=`<tr><th class="th-r${alt}">${room.no}</th>`;
+    h+=`<tr><th class="th-r${alt}" onclick="openRoomSales('${room.no}')" style="cursor:pointer;user-select:none" title="${room.no} の月次売上">${room.no}</th>`;
     let d=1;
     while(d<=days){
       const ds=fmt(y,mo+1,d);
@@ -1466,7 +1473,66 @@ function openAssign(i){
   document.getElementById('assignSub').textContent=`${esc(u.name)}　${u.ciDate||'日程未定'}　${u.nights||1}泊`;
   document.getElementById('assignMod').classList.add('on');
 }
-function closeAssign(){document.getElementById('assignMod').classList.remove('on');}
+function closeRoomSales(){document.getElementById('roomSalesPop').classList.remove('on');}
+function openRoomSales(roomNo){
+  const y=cy,mo=cm; // 現在アサイン帳で表示中の年月
+  const prefix=`${y}-${String(mo+1).padStart(2,'0')}`;
+  const OTA_SRCS=['rakuten','jalan','yahoo','yukoyuko'];
+  let count=0,totPrice=0,totActual=0,totPrepaid=0,totSubsidy=0;
+  const rows=[];
+  Object.entries(bks).forEach(([key,bk])=>{
+    if(!bk||bk.isStart===false)return;
+    const idx=key.indexOf('_');
+    const room=key.substring(0,idx);
+    const ds=key.substring(idx+1);
+    if(room!==roomNo||!ds.startsWith(prefix))return;
+    const cd=checkoutData[key]||{};
+    const isOta=OTA_SRCS.includes(bk.src||'');
+    const basePrice=parseInt(bk.price||0);
+    const discount=parseInt(bk.discount||0);
+    const prepaid=parseInt(bk.prepaid||0);
+    const extraTotal=(cd.extraItems||[]).reduce((s,e)=>s+parseInt(e.price||0),0);
+    const actualPay=isOta?(bk.actualPrice!==undefined?parseInt(bk.actualPrice):basePrice-discount):basePrice-discount;
+    const subsidy=!isOta?discount:0;
+    count++;
+    totPrice+=basePrice+extraTotal;
+    totActual+=actualPay+extraTotal;
+    totPrepaid+=prepaid;
+    totSubsidy+=subsidy;
+    rows.push({bk,ds,cd,actualPay,prepaid,subsidy,basePrice,discount,isOta});
+  });
+  const totGrand=totActual+totPrepaid+totSubsidy;
+  const SRC_LABEL_MAP={rakuten:'楽天',jalan:'じゃらん',yahoo:'Yahoo',yukoyuko:'ゆこゆこ',tel:'電話',sms:'SMS',insta:'インスタ',intro:'口頭',hp:'HP'};
+  const rowHtml=rows.sort((a,b)=>a.ds.localeCompare(b.ds)).map(r=>{
+    const payIcon=r.isOta?`<span style="color:#c0392b;font-size:10px">🏦${r.prepaid.toLocaleString()}円振込</span>`:
+      r.subsidy>0?`<span style="color:#2a7a4b;font-size:10px">💳${r.subsidy.toLocaleString()}円補助金</span>`:'';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <div>
+        <span style="color:var(--ink2);font-size:10px">${r.ds.substring(5)}</span>
+        <span style="margin-left:6px">${esc(r.bk.name||'')}</span>
+        <span style="margin-left:4px;font-size:10px;color:var(--ink3)">${SRC_LABEL_MAP[r.bk.src]||r.bk.src||''}</span>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:'DM Mono',monospace;font-weight:700">${r.actualPay.toLocaleString()}円</div>
+        ${payIcon}
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('roomSalesTtl').textContent=`${roomNo} - ${y}年${mo+1}月`;
+  document.getElementById('roomSalesBody').innerHTML=`
+    ${rowHtml}
+    ${!rows.length?'<div style="color:var(--ink3);text-align:center;padding:16px">この月の予約はありません</div>':''}
+    <div style="margin-top:12px;background:var(--bg);border-radius:8px;padding:10px;font-size:12px">
+      <div style="display:flex;justify-content:space-between;padding:3px 0"><span>宿泊件数</span><span>${count}件</span></div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0"><span>定価合計</span><span style="font-family:'DM Mono',monospace">${totPrice.toLocaleString()}円</span></div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0"><span>現地受取</span><span style="font-family:'DM Mono',monospace">${totActual.toLocaleString()}円</span></div>
+      ${totPrepaid>0?`<div style="display:flex;justify-content:space-between;padding:3px 0"><span>🏦 OTA振込予定</span><span style="font-family:'DM Mono',monospace;color:#c0392b">${totPrepaid.toLocaleString()}円</span></div>`:''}
+      ${totSubsidy>0?`<div style="display:flex;justify-content:space-between;padding:3px 0"><span>💳 補助金振込予定</span><span style="font-family:'DM Mono',monospace;color:#2a7a4b">${totSubsidy.toLocaleString()}円</span></div>`:''}
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1.5px solid var(--border);margin-top:4px;font-weight:700"><span>📊 総売上</span><span style="font-family:'DM Mono',monospace;color:var(--red)">${totGrand.toLocaleString()}円</span></div>
+    </div>`;
+  document.getElementById('roomSalesPop').classList.add('on');
+}
+
 function doAssign(){
   try{
     const room=document.getElementById('assignRoom').value;
@@ -1557,29 +1623,97 @@ function parseOta(){
     if(m){d.ciDate=normDate(m[1])||m[1];if(m[2])d.ci=m[2];}
     m=text.match(/泊数\s*[：:]\s*(\d+)/)||text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
     m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/)||text.match(/大人(\d+)人/);if(m)d.paxAdult=m[1];
-    m=text.match(/現地徴収額[^：:]*[：:]\s*([\d,]+)円/)||text.match(/合計\(A\)\s*[：:]\s*([\d,]+)円/)||text.match(/合計[：:]\s*([\d,]+)円/);if(m)d.price=m[1].replace(/,/g,'');
+    // 事前決済（パッケージ・PAID）か現地決済かを判定
+    const isPrepaid=text.match(/【PAID】|パッケージ|決済方法\s*[：:]\s*パッケージ|楽天トラベルからお支払/);
+    const basePriceM=text.match(/合計\s*[（(]?A[）)]?\s*[：:]\s*([\d,]+)円/)||text.match(/合計\s*[：:]\s*([\d,]+)円/);
+    if(basePriceM)d.price=basePriceM[1].replace(/,/g,'');
+    // 楽天ポイント（「楽天ポイント(B) : 利用なし」は0、数字があれば取得）
+    const rPointLine=text.match(/楽天ポイント[^：:\n]*[：:]\s*([^\n]+)/);
+    const rPointVal=rPointLine?rPointLine[1].replace(/円.*$/,'').replace(/,/g,'').trim():'';
+    const rPoint=(rPointVal&&/^\d+$/.test(rPointVal))?parseInt(rPointVal):0;
+    // サービスクーポン
+    const rCouponM=text.match(/サービスクーポン\s*[（(]?C[）)]?\s*[：:]\s*([\d,]+)円/)||text.match(/宿クーポン\s*[（(]?[CD][）)]?\s*[：:]\s*([\d,]+)円/);
+    const rCoupon=rCouponM?parseInt(rCouponM[1].replace(/,/g,'')):0;
+    d.discount=rPoint+rCoupon;
+    if(isPrepaid){
+      // 事前決済：合計(A)まるごと楽天から振込（クーポン分も楽天負担）
+      d.prepaid=parseInt(d.price||0);
+      d.actualPrice=0; // 現地受取なし
+    }else{
+      // 現地決済：現地徴収額を取得、クーポン分も楽天から後日振込
+      const localM=text.match(/現地徴収額[^：:]*[：:]\s*([\d,]+)円/);
+      if(localM)d.actualPrice=parseInt(localM[1].replace(/,/g,''));
+      else d.actualPrice=parseInt(d.price||0)-d.discount;
+      d.prepaid=d.discount; // クーポン・ポイント分は楽天から後日振込
+    }
     m=text.match(/宿泊者連絡先\s*[：:]\s*(\S+)/)||text.match(/(0\d{1,4}[-\s]?\d{2,4}[-\s]?\d{3,4})/);if(m)d.tel=m[1];
     m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
   }else if(currentOta==='jalan'){
     m=text.match(/宿泊代表者氏名\s*[：:]\s*(.+?)(?:　様|　$|\n)/)||text.match(/宿泊代表者氏名\s*[：:]\s*(.+)/);if(m)d.name=cleanName(m[1]);
     m=text.match(/宿泊日時\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);
     if(m){d.ciDate=normDate(m[1]);const tm=text.match(/宿泊日時[：:][^\n]*?(\d{1,2}:\d{2})/);if(tm)d.ci=tm[1];}
+    // CI日が取れなかった場合は「宿泊日時　：YYYY年MM月DD日」形式も試みる
+    if(!d.ciDate){m=text.match(/宿泊日時\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);if(m)d.ciDate=normDate(m[1]);}
+    // CI時刻
+    if(!d.ci||d.ci==='15:00'){m=text.match(/(\d{1,2}:\d{2})\s*[〜～]/)||text.match(/(\d{1,2}:\d{2})\s*〜/);if(m)d.ci=m[1];}
     m=text.match(/泊数\s*[：:]\s*(\d+)/)||text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
-    m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/);if(m)d.paxAdult=m[1];
-    m=text.match(/宿泊者への請求額\s*[：:]\s*([\d,]+)円/)||text.match(/合計[：:]\s*([\d,]+)円/);if(m)d.price=m[1].replace(/,/g,'');
+    m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/)||text.match(/大人：(\d+)名/);if(m)d.paxAdult=m[1];
+    // 定価（合計）を取得
+    const basePriceM=text.match(/合計[：:]\s*([\d,]+)円\s*[\(（]税込/)||text.match(/^合計[：:]\s*([\d,]+)円/m)||text.match(/合計\s*：\s*([\d,]+)円/);
+    if(basePriceM)d.price=basePriceM[1].replace(/,/g,'');
+    // ポイント利用額
+    const pointM=text.match(/■ポイント利用\s*[：:]\s*([\d,]+)/);
+    if(pointM)d.jalanPoint=parseInt(pointM[1].replace(/,/g,''));
+    // クーポン利用額
+    const couponM=text.match(/■クーポン利用\s*[：:]\s*([\d,]+)/);
+    if(couponM)d.jalanCoupon=parseInt(couponM[1].replace(/,/g,''));
+    // 割引合計をdiscountに保存
+    d.discount=(d.jalanPoint||0)+(d.jalanCoupon||0);
+    // 事前決済判定（【PAID】があれば定価まるごと振込）
+    const jIsPrepaid=text.match(/【PAID】|事前決済済|決済情報\s*[：:][^\n]*事前/);
+    if(jIsPrepaid){
+      d.prepaid=parseInt(d.price||0);
+      d.actualPrice=0;
+    }else{
+      // 請求額（現地受取額）
+      const actualM=text.match(/■宿泊者への請求額\s*[：:]\s*([\d,]+)円/)||text.match(/宿泊者への請求額\s*[：:]\s*([\d,]+)円/)||text.match(/■ポイント・クーポン利用後[：:]\s*([\d,]+)円/);
+      if(actualM)d.actualPrice=parseInt(actualM[1].replace(/,/g,''));
+      if(!d.price&&d.actualPrice)d.price=String(d.actualPrice+(d.discount||0));
+      if(!d.actualPrice&&d.price)d.actualPrice=parseInt(d.price)-(d.discount||0);
+      d.prepaid=d.discount; // ポイント・クーポン分が後日振込
+    }
     m=text.match(/宿泊代表者連絡先\s*[：:]\s*(\S+)/)||text.match(/(0\d{1,4}[-\s]?\d{2,4}[-\s]?\d{3,4})/);if(m)d.tel=m[1];
     m=text.match(/住所\s*[：:]\s*(.+)/);if(m)d.addr=m[1].trim();
     m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
     m=text.match(/予約者から宿への要望[^：:]*[：:]\s*([\s\S]+?)(?:\n■|\n━|$)/);if(m)d.memo=m[1].replace(/\n/g,' ').trim();
   }else if(currentOta==='yahoo'){
-    m=text.match(/宿泊者氏名\s*[：:]\s*(.+)/)||text.match(/氏名\s*[：:]\s*(.+)/)||text.match(/お名前\s*[：:]\s*(.+)/);if(m)d.name=cleanName(m[1]);
+    m=text.match(/宿泊(?:代表者)?氏名\s*[：:]\s*(.+)/)||text.match(/氏名\s*[：:]\s*(.+)/)||text.match(/お名前\s*[：:]\s*(.+)/);if(m)d.name=cleanName(m[1]);
     m=text.match(/到着日\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/)||text.match(/チェックイン[日時]*\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);if(m)d.ciDate=normDate(m[1]);
-    m=text.match(/C\/IN可能時間\s*[：:]\s*(\d{1,2}:\d{2})/)||text.match(/チェックイン.*?(\d{1,2}:\d{2})/);if(m)d.ci=m[1];
+    m=text.match(/C\/IN可能時間\s*[：:]\s*(\d{1,2}:\d{2})/)||text.match(/到着予定時間\s*[：:]\s*(\d{1,2}:\d{2})/)||text.match(/チェックイン.*?(\d{1,2}:\d{2})/);if(m)d.ci=m[1];
     m=text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
-    m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/);if(m)d.paxAdult=m[1];
-    const allPrices=text.match(/[\d,]+円/g);if(allPrices){const prices=allPrices.map(p=>parseInt(p.replace(/[^\d]/g,'')));d.price=String(Math.max(...prices));}
-    m=text.match(/電話番号\s*[：:]\s*(\S+)/)||text.match(/(0\d{1,4}[-\s]?\d{2,4}[-\s]?\d{3,4})/);if(m)d.tel=m[1];
+    m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/)||text.match(/大人\s+(\d+)名/);if(m)d.paxAdult=m[1];
+    // 事前決済判定
+    const yIsPrepaid=text.match(/支払方法\s*[：:]\s*事前決済|【PAID】|事前決済済/);
+    // 定価
+    const yBaseM=text.match(/予約金額合計\s*[：:]\s*[\\¥]?([\d,]+)/)||text.match(/合計\s*[：:]\s*[\\¥]?([\d,]+)/);
+    if(yBaseM)d.price=yBaseM[1].replace(/,/g,'');
+    // 割引
+    const yDiscM=text.match(/ポイント・割引クーポン利用額\s*[：:]\s*[▲▼\-]?\s*[\\¥]?([\d,]+)/)||text.match(/割引[：:]\s*[▲▼\-]?[\\¥]?([\d,]+)/);
+    const yDisc=yDiscM?parseInt(yDiscM[1].replace(/,/g,'')):0;
+    d.discount=yDisc;
+    // 支払金額（事前決済額＝振込額）
+    const yPayM=text.match(/支払金額\s*[：:]\s*[\\¥]?([\d,]+)/);
+    const yPaid=yPayM?parseInt(yPayM[1].replace(/,/g,'')):0;
+    if(yIsPrepaid){
+      d.prepaid=parseInt(d.price||0); // 定価まるごとヤフー振込
+      d.actualPrice=0;
+    }else{
+      d.actualPrice=parseInt(d.price||0)-yDisc;
+      d.prepaid=yDisc;
+    }
+    m=text.match(/宿泊(?:代表者)?連絡先\s*[：:]\s*(\S+)/)||text.match(/電話番号\s*[：:]\s*(\S+)/)||text.match(/(0\d{1,4}[-\s]?\d{2,4}[-\s]?\d{3,4})/);if(m)d.tel=m[1];
     m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
+    m=text.match(/コメント[：:]\s*([\s\S]+?)(?:\n■|\n-{5}|$)/);if(m)d.memo=m[1].replace(/\n/g,' ').trim();
   }else if(currentOta==='yukoyuko'){
     m=text.match(/宿泊者氏名\s*[：:]\s*(.+?)(?:[（(]|$)/m);if(m)d.name=cleanName(m[1]);
     m=text.match(/チェックイン\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);if(m){d.ciDate=normDate(m[1]);const tm=text.match(/チェックイン.*?(\d{1,2}時\d{0,2}分?)/);if(tm)d.ci=normTime(tm[1]);}
@@ -1611,6 +1745,8 @@ function parseOta(){
     <div class="pr-row"><span class="pr-label">宿泊日数</span><span class="pr-val">${d.nights}泊</span></div>
     <div class="pr-row"><span class="pr-label">大人人数</span><span class="pr-val">${d.paxAdult?d.paxAdult+'名':'<span class="pr-err">読み取れず</span>'}</span></div>
     <div class="pr-row"><span class="pr-label">料金</span><span class="pr-val">${d.price?fmtPrice(d.price):'<span class="pr-err">読み取れず</span>'}</span></div>
+    ${d.discount>0?`<div class="pr-row"><span class="pr-label">割引（ポイント等）</span><span class="pr-val" style="color:var(--red)">-${d.discount.toLocaleString()}円${d.jalanPoint?` (ポイント${d.jalanPoint.toLocaleString()}円`+(d.jalanCoupon?`・クーポン${d.jalanCoupon.toLocaleString()}円`:'')+')'  :''}</span></div>`:''}
+    ${d.discount>0?`<div class="pr-row"><span class="pr-label">現地受取額</span><span class="pr-val" style="font-weight:700">${(d.actualPrice||(parseInt(d.price||0)-d.discount)).toLocaleString()}円</span></div>`:''}
     ${d.tel?`<div class="pr-row"><span class="pr-label">連絡先</span><span class="pr-val">${esc(d.tel)}</span></div>`:''}
     ${d.pet?`<div class="pr-row"><span class="pr-label">ペット</span><span class="pr-val">${esc(d.pet)}</span></div>`:''}
     ${d.otaNo?`<div class="pr-row"><span class="pr-label">OTA予約番号</span><span class="pr-val">${esc(d.otaNo)}</span></div>`:''}
@@ -2154,29 +2290,41 @@ function renderMonthlyCheckout(){
 
   // サマリー集計
   const totRevenue=rows.reduce((s,r)=>s+r.basePrice,0);
-  const totDiscount=rows.reduce((s,r)=>s+r.discount,0);
-  const totPet=rows.reduce((s,r)=>s+r.petFee,0);
-  const totExtra=rows.reduce((s,r)=>s+r.extraTotal,0);
-  const totActual=rows.reduce((s,r)=>s+r.actualPay,0);
+  // 現地受取（現金・カード・QR全て合算）
+  const totLocalCash=rows.filter(r=>r.cd.payMethod==='cash').reduce((s,r)=>s+r.actualPay,0);
+  const totLocalCard=rows.filter(r=>r.cd.payMethod==='card').reduce((s,r)=>s+r.actualPay,0);
+  const totLocalQR=rows.filter(r=>['paypay','dpay'].includes(r.cd.payMethod)).reduce((s,r)=>s+r.actualPay,0);
+  const totLocalOther=rows.filter(r=>!r.cd.payMethod&&r.actualPay>0).reduce((s,r)=>s+r.actualPay,0);
+  const totLocal=totLocalCash+totLocalCard+totLocalQR+totLocalOther;
+  // OTA振込予定（prepaid）
+  const totJalanTransfer=rows.filter(r=>r.bk.src==='jalan').reduce((s,r)=>s+(parseInt(r.bk.prepaid||0)||r.discount),0);
+  const totRakutenTransfer=rows.filter(r=>r.bk.src==='rakuten').reduce((s,r)=>s+(parseInt(r.bk.prepaid||0)||0),0);
+  const totYahooTransfer=rows.filter(r=>r.bk.src==='yahoo').reduce((s,r)=>s+(parseInt(r.bk.prepaid||0)||0),0);
+  const totYukoyukoTransfer=rows.filter(r=>r.bk.src==='yukoyuko').reduce((s,r)=>s+(parseInt(r.bk.prepaid||0)||0),0);
+  // 補助金（直接予約のdiscount）
+  const totSubsidy=rows.filter(r=>!['rakuten','jalan','yahoo','yukoyuko'].includes(r.bk.src||'')).reduce((s,r)=>s+r.discount,0);
+  // 精算状況
   const totPaid=rows.filter(r=>r.cd.paid).reduce((s,r)=>s+r.actualPay,0);
   const totUnpaid=rows.filter(r=>!r.cd.paid).reduce((s,r)=>s+r.actualPay,0);
-  const totOta=rows.filter(r=>r.isOta).reduce((s,r)=>s+r.actualPay,0);
-  const totDirect=rows.filter(r=>!r.isOta).reduce((s,r)=>s+r.actualPay,0);
-  // 補助金（直接予約のdiscountは後日口座振込）
-  const totSubsidy=rows.filter(r=>!r.isOta).reduce((s,r)=>s+r.discount,0);
+  // 総売上
+  const totGrand=totLocal+totJalanTransfer+totRakutenTransfer+totYahooTransfer+totYukoyukoTransfer+totSubsidy;
+
+  const card=`<div style="background:var(--paper);border-radius:8px;padding:10px;border:1.5px solid var(--border);box-shadow:0 2px 6px var(--shadow)">`;
   const summaryEl=document.getElementById('coMonthlySummary');
   summaryEl.innerHTML=[
-    ['宿泊件数',rows.length+'件'],
-    ['定価合計',totRevenue.toLocaleString()+'円'],
-    ['割引・ポイント計','-'+totDiscount.toLocaleString()+'円'],
-    ['現地受取合計',totActual.toLocaleString()+'円'],
-    ['OTA経由',totOta.toLocaleString()+'円'],
-    ['直接予約',totDirect.toLocaleString()+'円'],
-    ['精算済み','<span style="color:var(--green)">'+totPaid.toLocaleString()+'円</span>'],
-    ['未精算','<span style="color:var(--red)">'+totUnpaid.toLocaleString()+'円</span>'],
-    ...(totSubsidy>0?[['💳 補助金振込予定','<span style="color:#2a7a4b;font-weight:700">'+totSubsidy.toLocaleString()+'円</span>']]:[]),
-    ...(totSubsidy>0?[['総売上（現地+補助金）','<span style="color:var(--red);font-weight:700">'+(totActual+totSubsidy).toLocaleString()+'円</span>']]:[]),
-  ].map(([l,v])=>`<div style="background:var(--paper);border-radius:8px;padding:10px;border:1.5px solid var(--border);box-shadow:0 2px 6px var(--shadow)"><div style="font-size:10px;color:var(--ink2);margin-bottom:3px">${l}</div><div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700">${v}</div></div>`).join('');
+    ['宿泊件数', rows.length+'件', ''],
+    ['定価合計', totRevenue.toLocaleString()+'円', ''],
+    ['現金受取', totLocalCash.toLocaleString()+'円', ''],
+    ['カード・QR受取', (totLocalCard+totLocalQR).toLocaleString()+'円', ''],
+    ...(totJalanTransfer>0?[['🏦 じゃらん振込予定', totJalanTransfer.toLocaleString()+'円', 'color:#007a35;font-weight:700']]:[] ),
+    ...(totRakutenTransfer>0?[['🏦 楽天振込予定', totRakutenTransfer.toLocaleString()+'円', 'color:#cc0000;font-weight:700']]:[] ),
+    ...(totYahooTransfer>0?[['🏦 ヤフー振込予定', totYahooTransfer.toLocaleString()+'円', 'color:#cc0033;font-weight:700']]:[] ),
+    ...(totYukoyukoTransfer>0?[['🏦 ゆこゆこ振込予定', totYukoyukoTransfer.toLocaleString()+'円', 'color:#d97000;font-weight:700']]:[] ),
+    ...(totSubsidy>0?[['💳 補助金振込予定', totSubsidy.toLocaleString()+'円', 'color:#2a7a4b;font-weight:700']]:[] ),
+    ['精算済み', '<span style="color:var(--green)">'+totPaid.toLocaleString()+'円</span>', ''],
+    ['未精算', '<span style="color:var(--red)">'+totUnpaid.toLocaleString()+'円</span>', ''],
+    ['📊 総売上', '<span style="color:var(--red);font-weight:700">'+totGrand.toLocaleString()+'円</span>', ''],
+  ].map(([l,v,style])=>`${card}<div style="font-size:10px;color:var(--ink2);margin-bottom:3px">${l}</div><div style="font-family:'DM Mono',monospace;font-size:15px;${style}">${v}</div></div>`).join('');
 
   if(!rows.length){document.getElementById('coMonthlyContent').innerHTML='<div class="empty-msg">この月の予約はありません</div>';return;}
 
@@ -2185,8 +2333,16 @@ function renderMonthlyCheckout(){
   const tableRows=rows.map(r=>{
     const payLbl=PAY_LABELS[r.cd.payMethod]||'未設定';
     const statusLbl=r.cd.paid?'<span style="color:var(--green)">✅精算済</span>':'<span style="color:var(--red)">⏳未精算</span>';
-    const subsidyLbl=(!r.isOta&&r.discount>0)?`<span style="color:#2a7a4b;font-size:10px">💳${r.discount.toLocaleString()}円</span>`:'';
-    return `<tr>
+    const subsidyLbl=(()=>{
+      const src=r.bk.src||'';
+      const prepaid=parseInt(r.bk.prepaid||0);
+      const disc=r.discount;
+      if(['rakuten','jalan','yahoo','yukoyuko'].includes(src)&&prepaid>0)
+        return `<span style="color:#c0392b;font-size:10px">🏦${prepaid.toLocaleString()}円</span>`;
+      if(!['rakuten','jalan','yahoo','yukoyuko'].includes(src)&&disc>0)
+        return `<span style="color:#2a7a4b;font-size:10px">💳${disc.toLocaleString()}円</span>`;
+      return '';
+    })();    return `<tr>
       <td>${r.ds.substring(5)}</td>
       <td>${r.room}</td>
       <td>${esc(r.bk.name||'')}</td>

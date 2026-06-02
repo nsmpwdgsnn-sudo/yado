@@ -1557,8 +1557,18 @@ function parseOta(){
     if(m){d.ciDate=normDate(m[1])||m[1];if(m[2])d.ci=m[2];}
     m=text.match(/泊数\s*[：:]\s*(\d+)/)||text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
     m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/)||text.match(/大人(\d+)人/);if(m)d.paxAdult=m[1];
-    m=text.match(/現地徴収額[^：:]*[：:]\s*([\d,]+)円/)||text.match(/合計\(A\)\s*[：:]\s*([\d,]+)円/)||text.match(/合計[：:]\s*([\d,]+)円/);if(m)d.price=m[1].replace(/,/g,'');
-    m=text.match(/宿泊者連絡先\s*[：:]\s*(\S+)/)||text.match(/(0\d{1,4}[-\s]?\d{2,4}[-\s]?\d{3,4})/);if(m)d.tel=m[1];
+    // 料金：合計(A)を定価として優先（現地徴収額は0円になる場合があるので使わない）
+    m=text.match(/合計\(A\)\s*[：:]\s*([\d,]+)円/)||text.match(/合計[：:]\s*([\d,]+)円/);
+    if(m)d.price=m[1].replace(/,/g,'');
+    // クーポン・ポイント割引：サービスクーポン(C)や楽天ポイント(B)を合算
+    let totalDisc=0;
+    const ptM=text.match(/楽天ポイント\(B\)\s*[：:]\s*([\d,]+)円/);if(ptM)totalDisc+=parseInt(ptM[1].replace(/,/g,''));
+    const cpM=text.match(/サービスクーポン\(C\)\s*[：:]\s*([\d,]+)円/);if(cpM)totalDisc+=parseInt(cpM[1].replace(/,/g,''));
+    const ycM=text.match(/宿クーポン\(D\)\s*[：:]\s*([\d,]+)円/);if(ycM)totalDisc+=parseInt(ycM[1].replace(/,/g,''));
+    if(totalDisc>0)d.discount=String(totalDisc);
+    // 事前カード決済の検出
+    if(text.match(/事前カード決済|決済方法\s*[：:]\s*事前/)){d.prepaid=true;d.payMethod='ota_rakuten_pre';}
+    m=text.match(/宿泊者連絡先\s*[：:]\s*([\d\-]{10,})/)||text.match(/(0\d[\d\-]{8,12})(?!\d)/);if(m)d.tel=m[1];
     m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
   }else if(currentOta==='jalan'){
     m=text.match(/宿泊代表者氏名\s*[：:]\s*(.+?)(?:　様|　$|\n)/)||text.match(/宿泊代表者氏名\s*[：:]\s*(.+)/);if(m)d.name=cleanName(m[1]);

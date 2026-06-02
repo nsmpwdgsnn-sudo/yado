@@ -236,7 +236,7 @@ td.c.bk:hover{filter:brightness(1.08)}
 /* 同期バナー */
 #syncBanner{display:none;background:#fff3cd;border-bottom:2px solid #ffc107;padding:8px 14px;font-size:12px;color:#7a5800;align-items:center;gap:8px;flex-wrap:wrap}
 #syncBanner.on{display:flex}
-#syncTs{font-size:10px;color:var(--ink3);padding:2px 10px;font-family:'DM Mono',monospace;margin-left:auto}
+#syncTs{font-size:10px;color:#a07800;margin-left:auto;font-family:'DM Mono',monospace}
 </style>
 </head>
 <body>
@@ -273,7 +273,7 @@ td.c.bk:hover{filter:brightness(1.08)}
 <div id="syncBanner">
   <span id="syncBannerMsg">⚠️ 別の端末で保存されたデータがあります。</span>
   <button class="btn btn-sm" style="background:#ffc107;color:#1e1810;padding:4px 10px;font-size:11px" onclick="syncBannerAccept()">クラウドのデータを反映する</button>
-  <button class="btn btn-sm" style="background:transparent;border:1px solid #aaa;color:#555;padding:4px 10px;font-size:11px" onclick="syncBannerDismiss()">今は無視</button>
+  <button class="btn btn-sm" style="background:transparent;border:1px solid #aaa;color:#555;padding:4px 10px;font-size:11px" onclick="syncBannerDismiss()">このデバイスで上書き保存</button>
   <span id="syncTs"></span>
 </div>
 
@@ -877,11 +877,7 @@ function loadFromSupabase(){
   }).then(r=>r.json()).then(rows=>{
     if(!rows||!rows.length||!rows[0].payload){showToast('クラウドにデータがありません');return;}
     const d=JSON.parse(rows[0].payload);
-    const localTs=parseInt(localStorage.getItem('yado_ts')||'0');
-    const cloudTs=parseInt(d.ts||'0');
-    if(localTs>cloudTs&&cloudTs>0){
-      if(!confirm('⚠️ ローカルの方が新しいデータがあります。\nSupabaseのデータで上書きしますか？'))return;
-    }
+    // タイムスタンプ確認は行わず、手動読み込みは常にクラウドを優先して反映
     if(d.bks)bks=d.bks;
     if(d.unassigned)unassigned=d.unassigned;
     if(d.roomStatus)roomStatus=d.roomStatus;
@@ -904,7 +900,9 @@ function loadFromSupabase(){
     rebuildAllSpans();
     render();renderUnassigned();renderLedger();renderSettings();
     updateSyncStatus('ok');
-    showToast('✅ Supabaseから読み込みました！');
+    document.getElementById('syncBanner').classList.remove('on');
+    const cloudTime=d.ts?new Date(parseInt(d.ts)).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+    showToast('✅ Supabaseから読み込みました！'+(cloudTime?' ('+cloudTime+')':''));
   }).catch(e=>{console.error(e);showToast('❌ 読み込み失敗');});
 }
 function loadFromGAS(){
@@ -2613,11 +2611,10 @@ function syncBannerAccept(){
   showToast('✅ クラウドのデータを反映しました');
 }
 function syncBannerDismiss(){
-  // 今は無視 → ローカルのデータをそのままSupabaseに上書き保存（ローカルが正しいとして確定）
   window._pendingCloudData=null;
   document.getElementById('syncBanner').classList.remove('on');
-  save(); // ローカルをSupabaseに保存して確定
-  showToast('📌 このデバイスのデータで保存しました');
+  save();
+  showToast('📌 このデバイスのデータで上書き保存しました');
 }
 // ===== 初期化 =====
 function init(){
@@ -2626,7 +2623,7 @@ function init(){
   kinmuLoad();
   render();renderUnassigned();renderLedger();
   const _kn=new Date();kinmuCy=_kn.getFullYear();kinmuCm=_kn.getMonth()+1;
-  // 起動時にSupabaseから確認（クラウドが新しければバナーで通知）
+  // 起動時にSupabaseを確認（クラウドが新しければバナーで通知・サイレント上書きしない）
   fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.1&select=payload',{
     headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
   }).then(r=>r.json()).then(rows=>{
@@ -2635,12 +2632,12 @@ function init(){
     const localTs=parseInt(localStorage.getItem('yado_ts')||'0');
     const cloudTs=parseInt(d.ts||'0');
     if(cloudTs<=localTs)return; // ローカルが同じか新しければ何もしない
-    // クラウドが新しい → バナーで通知（サイレント上書きしない）
+    // クラウドが新しい → バナーで通知（ユーザーに判断させる）
     window._pendingCloudData=d;
-    const diff=cloudTs-localTs;
     const cloudTime=new Date(cloudTs).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-    document.getElementById('syncBannerMsg').textContent='⚠️ 別の端末で保存されたデータがあります（クラウド: '+cloudTime+'）';
-    document.getElementById('syncTs').textContent='ローカル保存: '+new Date(localTs).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const localTime=localTs>0?new Date(localTs).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'なし';
+    document.getElementById('syncBannerMsg').textContent='⚠️ 別の端末で保存されたデータがあります（クラウド更新: '+cloudTime+'）';
+    document.getElementById('syncTs').textContent='このデバイスの保存: '+localTime;
     document.getElementById('syncBanner').classList.add('on');
   }).catch(e=>console.error('auto-load error',e));
   // オンライン復帰時にペンディング保存を再試行

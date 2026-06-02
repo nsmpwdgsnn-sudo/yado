@@ -2353,12 +2353,18 @@ function renderCheckout(){
 
   // 支払方法ボタン定義（OTAごとに適切なものを表示）
   const ALL_PAY_METHODS=['cash','rakuten_pay','paypay','dpay','subsidy','ota_rakuten_pre','ota_rakuten_local','ota_jalan_pre','ota_jalan_local','ota_yahoo_pre','ota_yahoo_local','ota_yukoyuko'];
-  function getPayMethodsForSrc(src){
+  function getPayMethodsForSrc(src, currentPayMethod){
     if(src==='rakuten') return ['ota_rakuten_pre','ota_rakuten_local','cash'];
-    if(src==='jalan')   return ['ota_jalan_pre','ota_jalan_local','cash','rakuten_pay'];
+    if(src==='jalan'){
+      // じゃらん事前精算が選ばれていたら、それのみ表示
+      if(currentPayMethod==='ota_jalan_pre') return ['ota_jalan_pre'];
+      // 現地の場合：じゃらん事前精算ボタンは不要（ポイントは取込時に割引済み）
+      return ['ota_jalan_local','cash','rakuten_pay','paypay','dpay'];
+    }
     if(src==='yahoo')   return ['ota_yahoo_pre','ota_yahoo_local','cash','rakuten_pay'];
     if(src==='yukoyuko')return ['cash','rakuten_pay','paypay','dpay'];
-    return ['cash','rakuten_pay','paypay','dpay','subsidy']; // 直接予約
+    // 直接予約：補助金は既に割引済みのためボタン不要
+    return ['cash','rakuten_pay','paypay','dpay'];
   }
 
   // 集計バケット
@@ -2367,7 +2373,11 @@ function renderCheckout(){
 
   content.innerHTML=ciRooms.map(({room,bk,key})=>{
     const cd=checkoutData[key]||{payMethod:'',extraItems:[],paid:false};
-    if(!cd.payMethod&&SRC_TO_PAY[bk.src])cd.payMethod=SRC_TO_PAY[bk.src];
+    // 支払方法の優先順：① 既に保存済み ② 予約データのpayMethod（メール取込時にセット）③ SRC_TO_PAYのデフォルト
+    if(!cd.payMethod){
+      if(bk.payMethod)cd.payMethod=bk.payMethod;
+      else if(SRC_TO_PAY[bk.src])cd.payMethod=SRC_TO_PAY[bk.src];
+    }
     const basePrice=parseInt(bk.price||0);
     const discount=parseInt(bk.discount||0);
     const isOta=['rakuten','jalan','yahoo','yukoyuko'].includes(bk.src||'');
@@ -2381,7 +2391,7 @@ function renderCheckout(){
       buckets.forEach(b=>{if(totals[b.bucket]!==undefined)totals[b.bucket]+=b.amt;});
     }else{totals.unpaid+=actualPay;}
     const safeKey=key.replace(/[^a-zA-Z0-9]/g,'_');
-    const payMethods=getPayMethodsForSrc(bk.src||'');
+    const payMethods=getPayMethodsForSrc(bk.src||'', cd.payMethod);
     return `<div class="checkout-card" id="cc_${safeKey}">
       <div class="checkout-hd">
         <span class="checkout-room">${room}</span>

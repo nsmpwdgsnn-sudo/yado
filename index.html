@@ -2201,16 +2201,16 @@ function renderMonthlyCheckout(){
   rows.forEach(r=>{
     totBasePrice+=r.basePrice;
     if(r.cd.paid){
-      const buckets=payToBucket(r.cd.payMethod,{price:r.actualPay},0);
+      const buckets=payToBucket(r.cd.payMethod,{price:r.basePrice},r.discount);
       buckets.forEach(b=>{if(totals[b.bucket]!==undefined)totals[b.bucket]+=b.amt;});
-      totPaid+=r.actualPay;
+      totPaid+=r.basePrice; // 精算済み合計も定価ベース
     }else{
       totals.unpaid+=r.actualPay;
       totUnpaid+=r.actualPay;
     }
   });
   // 楽天ペイ振込に現地OTA分を集約
-  const totRakutenPay=totals.rakuten_pay+totals.ota_rakuten_local+totals.jalan_local+totals.yahoo_local+totals.yukoyuko_local;
+  const totRakutenPay=(totals.rakuten_pay||0)+(totals.jalan_local||0)+(totals.yahoo_local||0)+(totals.yukoyuko_local||0);
 
   function scard(label,val,color,sub){
     if(!val&&val!==0)return '';
@@ -2316,7 +2316,7 @@ function renderCheckout(){
     const actualPay=basePrice-discount+petFee+extraTotal;
     totBasePrice+=basePrice;
     if(cd.paid){
-      const buckets=payToBucket(cd.payMethod,{price:actualPay},0);
+      const buckets=payToBucket(cd.payMethod,{price:basePrice},discount);
       buckets.forEach(b=>{if(totals[b.bucket]!==undefined)totals[b.bucket]+=b.amt;});
     }else{totals.unpaid+=actualPay;}
     const safeKey=key.replace(/[^a-zA-Z0-9]/g,'_');
@@ -2350,15 +2350,16 @@ function renderCheckout(){
   }).join('');
 
   // 日次サマリー表示
-  const totCash=totals.cash;
-  const totRakutenPay=totals.rakuten_pay+totals.ota_rakuten_local+totals.jalan_local+totals.yahoo_local+totals.yukoyuko_local;
-  const totPayPay=totals.paypay;
-  const totDpay=totals.dpay;
-  const totSubsidy=totals.subsidy;
-  const totTrRakuten=totals.tr_rakuten;
-  const totTrJalan=totals.tr_jalan;
-  const totJalanPoint=totals.jalan_point;
-  const totTrYahoo=totals.tr_yahoo;
+  const totCash=totals.cash||0;
+  // 楽天ペイ振込：直接rakuten_pay + OTA現地払い各種を統合
+  const totRakutenPay=(totals.rakuten_pay||0)+(totals.jalan_local||0)+(totals.yahoo_local||0)+(totals.yukoyuko_local||0);
+  const totPayPay=totals.paypay||0;
+  const totDpay=totals.dpay||0;
+  const totSubsidy=totals.subsidy||0;
+  const totTrRakuten=totals.tr_rakuten||0;
+  const totTrJalan=totals.tr_jalan||0;
+  const totJalanPoint=totals.jalan_point||0;
+  const totTrYahoo=totals.tr_yahoo||0;
   const grandTotal=totCash+totRakutenPay+totPayPay+totDpay+totSubsidy+totTrRakuten+totTrJalan+totJalanPoint+totTrYahoo;
 
   function scard(label,val,color=''){

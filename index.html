@@ -787,14 +787,15 @@ function payToBucket(method, bk, discount){
     case 'paypay':        return [{bucket:'paypay',      amt:actual}];
     case 'dpay':          return [{bucket:'dpay',        amt:actual}];
     case 'subsidy':       return [{bucket:'subsidy',     amt:actual}];
-    case 'ota_rakuten_pre':  return [{bucket:'tr_rakuten',  amt:actual}]; // 楽天T振込
+    case 'ota_rakuten_pre':  return [{bucket:'tr_rakuten',  amt:base}]; // 楽天T振込（定価全額）
     case 'ota_rakuten_local':return [{bucket:'rakuten_pay', amt:actual}]; // 楽天ペイ振込
     case 'ota_jalan_pre': // じゃらん事前: ポイント分→jalan_point、残金→jalan
       return disc>0
         ? [{bucket:'jalan_point', amt:disc},{bucket:'tr_jalan', amt:actual}]
         : [{bucket:'tr_jalan', amt:actual}];
     case 'ota_jalan_local':return [{bucket:'jalan_local', amt:actual}]; // じゃらん現地（現金 or 楽ペイ）
-    case 'ota_yahoo_pre': return [{bucket:'tr_yahoo',    amt:actual}]; // ヤフー振込
+    case 'ota_yahoo_pre': // ヤフー事前決済：ポイント分含め全額ヤフー振込
+      return [{bucket:'tr_yahoo', amt:base}]; // discountは考慮せず定価全額
     case 'ota_yahoo_local':return [{bucket:'yahoo_local', amt:actual}];
     case 'ota_yukoyuko':  return [{bucket:'yukoyuko_local',amt:actual}];
     default: return [{bucket:'unpaid', amt:actual}];
@@ -1571,14 +1572,58 @@ function parseOta(){
     m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
     m=text.match(/予約者から宿への要望[^：:]*[：:]\s*([\s\S]+?)(?:\n■|\n━|$)/);if(m)d.memo=m[1].replace(/\n/g,' ').trim();
   }else if(currentOta==='yahoo'){
-    m=text.match(/宿泊者氏名\s*[：:]\s*(.+)/)||text.match(/氏名\s*[：:]\s*(.+)/)||text.match(/お名前\s*[：:]\s*(.+)/);if(m)d.name=cleanName(m[1]);
-    m=text.match(/到着日\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/)||text.match(/チェックイン[日時]*\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);if(m)d.ciDate=normDate(m[1]);
-    m=text.match(/C\/IN可能時間\s*[：:]\s*(\d{1,2}:\d{2})/)||text.match(/チェックイン.*?(\d{1,2}:\d{2})/);if(m)d.ci=m[1];
-    m=text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
+    // 氏名：「宿泊代表者氏名：斉木 俊彦(さいき としひこ)」形式に対応
+    m=text.match(/宿泊代表者氏名\s*[：:]\s*(.+?)(?:[（(]|$)/m)
+      ||text.match(/宿泊者氏名\s*[：:]\s*(.+?)(?:[（(]|$)/m)
+      ||text.match(/氏名\s*[：:]\s*(.+?)(?:[（(]|$)/m)
+      ||text.match(/お名前\s*[：:]\s*(.+)/);
+    if(m)d.name=cleanName(m[1]);
+    // CI日：「到着日：2026年06月02日」
+    m=text.match(/到着日\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/)
+      ||text.match(/チェックイン[日時]*\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);
+    if(m)d.ciDate=normDate(m[1]);
+    // CI時刻：「C/IN可能時間：14:00」または「到着予定時間：15:00」
+    m=text.match(/C\/IN可能時間\s*[：:]\s*(\d{1,2}:\d{2})/)
+      ||text.match(/到着予定時間\s*[：:]\s*(\d{1,2}:\d{2})/)
+      ||text.match(/チェックイン.*?(\d{1,2}:\d{2})/);
+    if(m)d.ci=m[1];
+    // 泊数：「(\d+)泊」がなければ到着日〜出発日から計算
+    m=text.match(/(\d+)\s*泊/);
+    if(m){d.nights=parseInt(m[1]);}else{
+      const ciM=text.match(/到着日\s*[：:]\s*(\d{4})年(\d{1,2})月(\d{1,2})日/);
+      const coM=text.match(/出発日\s*[：:]\s*(\d{4})年(\d{1,2})月(\d{1,2})日/);
+      if(ciM&&coM){
+        const ci=new Date(parseInt(ciM[1]),parseInt(ciM[2])-1,parseInt(ciM[3]));
+        const co=new Date(parseInt(coM[1]),parseInt(coM[2])-1,parseInt(coM[3]));
+        const n=Math.round((co-ci)/86400000);
+        if(n>0)d.nights=n;
+      }
+    }
+    // 人数
     m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/);if(m)d.paxAdult=m[1];
-    const allPrices=text.match(/[\d,]+円/g);if(allPrices){const prices=allPrices.map(p=>parseInt(p.replace(/[^\d]/g,'')));d.price=String(Math.max(...prices));}
-    m=text.match(/電話番号\s*[：:]\s*(\S+)/)||text.match(/(0\d{1,4}[-\s]?\d{2,4}[-\s]?\d{3,4})/);if(m)d.tel=m[1];
-    m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
+    // 料金：「予約金額合計：\12,760」が定価（宿側受取基準）
+    // 「支払金額：\11,490」はお客様の支払額なので使わない
+    m=text.match(/予約金額合計\s*[：:]\s*[\\￥]?([\d,]+)/)
+      ||text.match(/予約金額\s*[：:]\s*[\\￥]?([\d,]+)/)
+      ||text.match(/プラン料金\s*[：:]\s*[\\￥]?([\d,]+)/);
+    if(m){d.price=m[1].replace(/,/g,'');}
+    // ポイント・割引クーポン：「▲\1,270」→ discountとして保存（ヤフーが後日振込）
+    m=text.match(/ポイント[・.]?[割引クーポン利用額]*\s*[：:]?\s*[▲△\-][\\￥]?([\d,]+)/)
+      ||text.match(/[▲△][\\￥]([\d,]+)/);
+    if(m)d.discount=m[1].replace(/,/g,'');
+    // 事前決済判定：【PAID】または「事前決済」の文字があればヤフー事前決済フラグ
+    if(text.match(/【PAID】|事前決済|支払方法\s*[：:]\s*事前決済/)){
+      d.prepaid=true;
+      d.payMethod='ota_yahoo_pre';
+    }
+    // 電話番号：ハイフンあり・なし両対応、通知連番との混同を防ぐため8桁以上に限定
+    m=text.match(/宿泊代表者連絡先\s*[：:]\s*([\d\-]{10,})/m)
+      ||text.match(/電話番号\s*[：:]\s*([\d\-]{10,})/m)
+      ||text.match(/(0\d[\d\-]{8,12})(?!\d)/);
+    if(m)d.tel=m[1];
+    // 予約番号：IY〜など
+    m=text.match(/予約番号\s*[：:]\s*([A-Z0-9\-]{6,})/);if(m)d.otaNo=m[1];
+    // OTA番号がなければ通知連番を使わない（誤認識防止）
   }else if(currentOta==='yukoyuko'){
     m=text.match(/宿泊者氏名\s*[：:]\s*(.+?)(?:[（(]|$)/m);if(m)d.name=cleanName(m[1]);
     m=text.match(/チェックイン\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);if(m){d.ciDate=normDate(m[1]);const tm=text.match(/チェックイン.*?(\d{1,2}時\d{0,2}分?)/);if(tm)d.ci=normTime(tm[1]);}
@@ -1610,6 +1655,8 @@ function parseOta(){
     <div class="pr-row"><span class="pr-label">宿泊日数</span><span class="pr-val">${d.nights}泊</span></div>
     <div class="pr-row"><span class="pr-label">大人人数</span><span class="pr-val">${d.paxAdult?d.paxAdult+'名':'<span class="pr-err">読み取れず</span>'}</span></div>
     <div class="pr-row"><span class="pr-label">料金</span><span class="pr-val">${d.price?fmtPrice(d.price):'<span class="pr-err">読み取れず</span>'}</span></div>
+    ${d.discount&&parseInt(d.discount)>0?`<div class="pr-row"><span class="pr-label">ポイント・割引</span><span class="pr-val" style="color:var(--red)">-${parseInt(d.discount).toLocaleString()}円</span></div>`:''}
+    ${d.prepaid?`<div class="pr-row"><span class="pr-label">決済</span><span class="pr-val" style="color:#2a5fa8;font-weight:700">✅ 事前決済済</span></div>`:''}
     ${d.tel?`<div class="pr-row"><span class="pr-label">連絡先</span><span class="pr-val">${esc(d.tel)}</span></div>`:''}
     ${d.pet?`<div class="pr-row"><span class="pr-label">ペット</span><span class="pr-val">${esc(d.pet)}</span></div>`:''}
     ${d.otaNo?`<div class="pr-row"><span class="pr-label">OTA予約番号</span><span class="pr-val">${esc(d.otaNo)}</span></div>`:''}

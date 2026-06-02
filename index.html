@@ -1575,12 +1575,43 @@ function parseOta(){
     m=text.match(/宿泊日時\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);
     if(m){d.ciDate=normDate(m[1]);const tm=text.match(/宿泊日時[：:][^\n]*?(\d{1,2}:\d{2})/);if(tm)d.ci=tm[1];}
     m=text.match(/泊数\s*[：:]\s*(\d+)/)||text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
+    // 部屋数を検出（複数部屋対応）
+    const roomCountM=text.match(/部屋数\s*[：:]\s*(\d+)室/)||text.match(/(\d+)室/);
+    const roomCount=roomCountM?parseInt(roomCountM[1]):1;
+    // 各部屋の人数を取得（「1部屋目：大人：1名」形式）
+    const roomPaxMatches=[...text.matchAll(/(\d+)部屋目[^\n]*大人[：:]?\s*(\d+)名?/g)];
+    // 全体の大人人数
     m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/);if(m)d.paxAdult=m[1];
-    m=text.match(/宿泊者への請求額\s*[：:]\s*([\d,]+)円/)||text.match(/合計[：:]\s*([\d,]+)円/);if(m)d.price=m[1].replace(/,/g,'');
-    m=text.match(/宿泊代表者連絡先\s*[：:]\s*(\S+)/)||text.match(/(0\d{1,4}[-\s]?\d{2,4}[-\s]?\d{3,4})/);if(m)d.tel=m[1];
+    // 料金：宿泊者への請求額（合計）を優先
+    m=text.match(/宿泊者への請求額\s*[：:]\s*([\d,]+)円/)||text.match(/合計\s*[：:]\s*([\d,]+)円[^）]/)||text.match(/合計[：:]\s*([\d,]+)円/);
+    if(m)d.price=m[1].replace(/,/g,'');
+    // ポイント割引
+    const ptM2=text.match(/ポイント[利用]*\s*[：:]\s*([\d,]+)/);
+    if(ptM2&&parseInt(ptM2[1].replace(/,/g,''))>0)d.discount=ptM2[1].replace(/,/g,'');
+    // 現地精算か事前決済かを検出
+    if(text.match(/事前[カカード]*決済/)){d.prepaid=true;d.payMethod='ota_jalan_pre';}
+    m=text.match(/宿泊代表者連絡先\s*[：:]\s*([\d\-]{10,})/)||text.match(/(0\d[\d\-]{8,12})(?!\d)/);if(m)d.tel=m[1];
     m=text.match(/住所\s*[：:]\s*(.+)/);if(m)d.addr=m[1].trim();
     m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
     m=text.match(/予約者から宿への要望[^：:]*[：:]\s*([\s\S]+?)(?:\n■|\n━|$)/);if(m)d.memo=m[1].replace(/\n/g,' ').trim();
+    // 複数部屋の場合：各部屋の料金を計算して複数データに分割
+    if(roomCount>1){
+      // 部屋ごとの料金を取得（「1部屋目　8,200円」形式）
+      const roomPriceMatches=[...text.matchAll(/(\d+)部屋目[^\n]*?([\d,]+)円[^\n]*×\s*(\d+)名/g)];
+      const totalPrice=parseInt((d.price||'0').replace(/,/g,''));
+      const pricePerRoom=roomPriceMatches.length>=roomCount
+        ? null // 部屋ごとに取れた
+        : Math.round(totalPrice/roomCount); // 均等割り
+      d._multiRoom={
+        count:roomCount,
+        rooms:Array.from({length:roomCount},(_,i)=>{
+          const rp=roomPriceMatches[i];
+          const price=rp?parseInt(rp[2].replace(/,/g,'')):pricePerRoom;
+          const pax=roomPaxMatches[i]?roomPaxMatches[i][2]:'1';
+          return {price:String(price),paxAdult:pax};
+        })
+      };
+    }
   }else if(currentOta==='yahoo'){
     // 氏名：「宿泊代表者氏名：斉木 俊彦(さいき としひこ)」形式に対応
     m=text.match(/宿泊代表者氏名\s*[：:]\s*(.+?)(?:[（(]|$)/m)
@@ -1659,12 +1690,15 @@ function parseOta(){
   }
   parsedData=d;
   const body=document.getElementById('parseBody');
+  const isMulti=d._multiRoom&&d._multiRoom.count>1;
   body.innerHTML=`
     <div class="pr-row"><span class="pr-label">お客様名</span><span class="pr-val ${d.name?'':'pr-err'}">${d.name?esc(d.name):'読み取れませんでした'}</span></div>
     <div class="pr-row"><span class="pr-label">チェックイン</span><span class="pr-val">${d.ciDate||'<span class="pr-err">読み取れず</span>'} ${d.ci}</span></div>
     <div class="pr-row"><span class="pr-label">宿泊日数</span><span class="pr-val">${d.nights}泊</span></div>
-    <div class="pr-row"><span class="pr-label">大人人数</span><span class="pr-val">${d.paxAdult?d.paxAdult+'名':'<span class="pr-err">読み取れず</span>'}</span></div>
-    <div class="pr-row"><span class="pr-label">料金</span><span class="pr-val">${d.price?fmtPrice(d.price):'<span class="pr-err">読み取れず</span>'}</span></div>
+    ${isMulti?`<div class="pr-row"><span class="pr-label">部屋数</span><span class="pr-val" style="color:#2a5fa8;font-weight:700">⚠️ ${d._multiRoom.count}部屋 → ${d._multiRoom.count}件に分けて追加</span></div>`
+    :`<div class="pr-row"><span class="pr-label">大人人数</span><span class="pr-val">${d.paxAdult?d.paxAdult+'名':'<span class="pr-err">読み取れず</span>'}</span></div>`}
+    ${isMulti?d._multiRoom.rooms.map((r,i)=>`<div class="pr-row"><span class="pr-label">${i+1}部屋目</span><span class="pr-val">大人${r.paxAdult}名　${parseInt(r.price).toLocaleString()}円</span></div>`).join('')
+    :`<div class="pr-row"><span class="pr-label">料金</span><span class="pr-val">${d.price?fmtPrice(d.price):'<span class="pr-err">読み取れず</span>'}</span></div>`}
     ${d.discount&&parseInt(d.discount)>0?`<div class="pr-row"><span class="pr-label">ポイント・割引</span><span class="pr-val" style="color:var(--red)">-${parseInt(d.discount).toLocaleString()}円</span></div>`:''}
     ${d.prepaid?`<div class="pr-row"><span class="pr-label">決済</span><span class="pr-val" style="color:#2a5fa8;font-weight:700">✅ 事前決済済</span></div>`:''}
     ${d.tel?`<div class="pr-row"><span class="pr-label">連絡先</span><span class="pr-val">${esc(d.tel)}</span></div>`:''}
@@ -1678,9 +1712,26 @@ function parseOta(){
 
 function addToUnassigned(){
   if(!parsedData)return;
-  parsedData.id=Date.now();
-  parsedData.no=genReceiptNo();
-  unassigned.push({...parsedData});
+  const d=parsedData;
+  if(d._multiRoom&&d._multiRoom.count>1){
+    // 複数部屋：部屋数分だけ別々のエントリとして追加
+    d._multiRoom.rooms.forEach((r,i)=>{
+      const entry={...d,
+        id:Date.now()+i,
+        no:genReceiptNo(),
+        price:r.price,
+        paxAdult:r.paxAdult,
+        _multiRoom:undefined, // 子エントリには不要
+        memo:(d.memo?d.memo+' ':'')+(d._multiRoom.count+'部屋のうち'+(i+1)+'部屋目'),
+      };
+      delete entry._multiRoom;
+      unassigned.push(entry);
+    });
+  }else{
+    parsedData.id=Date.now();
+    parsedData.no=genReceiptNo();
+    unassigned.push({...parsedData});
+  }
   save();renderUnassigned();renderLedger();clearPaste();showTab('unassigned');
 }
 

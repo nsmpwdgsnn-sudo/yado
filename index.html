@@ -770,7 +770,10 @@ const PAY_LABELS_GLOBAL={
   ota_rakuten_pre:'楽天T事前決済',
   ota_rakuten_local:'楽天T現地→楽ペイ',
   ota_jalan_pre:'じゃらん事前精算',
-  ota_jalan_local:'じゃらん現地',
+  ota_jalan_local:'じゃらん現地→現金',
+  ota_jalan_local_rakuten:'じゃらん現地→楽天ペイ',
+  ota_jalan_local_paypay:'じゃらん現地→PayPay',
+  ota_jalan_local_dpay:'じゃらん現地→d払い',
   ota_yahoo_pre:'ヤフー事前決済',
   ota_yahoo_local:'ヤフー現地',
   ota_yukoyuko:'ゆこゆこ現地',
@@ -782,10 +785,14 @@ function payToBucket(method, bk, discount){
   const disc = parseInt(discount||0);
   const actual = base - disc;
   switch(method){
-    case 'cash':          return [{bucket:'cash',       amt:actual}];
-    case 'rakuten_pay':   return [{bucket:'rakuten_pay', amt:actual}];
-    case 'paypay':        return [{bucket:'paypay',      amt:actual}];
-    case 'dpay':          return [{bucket:'dpay',        amt:actual}];
+    case 'cash':
+      return disc>0?[{bucket:'cash',amt:actual},{bucket:'subsidy',amt:disc}]:[{bucket:'cash',amt:actual}];
+    case 'rakuten_pay':
+      return disc>0?[{bucket:'rakuten_pay',amt:actual},{bucket:'subsidy',amt:disc}]:[{bucket:'rakuten_pay',amt:actual}];
+    case 'paypay':
+      return disc>0?[{bucket:'paypay',amt:actual},{bucket:'subsidy',amt:disc}]:[{bucket:'paypay',amt:actual}];
+    case 'dpay':
+      return disc>0?[{bucket:'dpay',amt:actual},{bucket:'subsidy',amt:disc}]:[{bucket:'dpay',amt:actual}];
     case 'subsidy':       return [{bucket:'subsidy',     amt:actual}];
     case 'ota_rakuten_pre':  return [{bucket:'tr_rakuten',  amt:base}]; // 楽天T振込（定価全額）
     case 'ota_rakuten_local':return [{bucket:'rakuten_pay', amt:actual}]; // 楽天ペイ振込
@@ -793,7 +800,13 @@ function payToBucket(method, bk, discount){
       return disc>0
         ? [{bucket:'jalan_point', amt:disc},{bucket:'tr_jalan', amt:actual}]
         : [{bucket:'tr_jalan', amt:actual}];
-    case 'ota_jalan_local':return [{bucket:'jalan_local', amt:actual}]; // じゃらん現地（現金 or 楽ペイ）
+    case 'ota_jalan_local': // じゃらん現地：クーポン分→jalan_point、残額→選択した支払方法
+      return disc>0
+        ? [{bucket:'jalan_point', amt:disc},{bucket:'cash', amt:actual}] // 残額デフォルトcash（後でボタン上書き）
+        : [{bucket:'cash', amt:actual}];
+    case 'ota_jalan_local_rakuten': return disc>0?[{bucket:'jalan_point',amt:disc},{bucket:'rakuten_pay',amt:actual}]:[{bucket:'rakuten_pay',amt:actual}];
+    case 'ota_jalan_local_paypay':  return disc>0?[{bucket:'jalan_point',amt:disc},{bucket:'paypay',amt:actual}]:[{bucket:'paypay',amt:actual}];
+    case 'ota_jalan_local_dpay':    return disc>0?[{bucket:'jalan_point',amt:disc},{bucket:'dpay',amt:actual}]:[{bucket:'dpay',amt:actual}];
     case 'ota_yahoo_pre': // ヤフー事前決済：ポイント分含め全額ヤフー振込
       return [{bucket:'tr_yahoo', amt:base}]; // discountは考慮せず定価全額
     case 'ota_yahoo_local':return [{bucket:'yahoo_local', amt:actual}];
@@ -1585,11 +1598,17 @@ function parseOta(){
     // 料金：宿泊者への請求額（合計）を優先
     m=text.match(/宿泊者への請求額\s*[：:]\s*([\d,]+)円/)||text.match(/合計\s*[：:]\s*([\d,]+)円[^）]/)||text.match(/合計[：:]\s*([\d,]+)円/);
     if(m)d.price=m[1].replace(/,/g,'');
-    // ポイント割引
-    const ptM2=text.match(/ポイント[利用]*\s*[：:]\s*([\d,]+)/);
-    if(ptM2&&parseInt(ptM2[1].replace(/,/g,''))>0)d.discount=ptM2[1].replace(/,/g,'');
-    // 現地精算か事前決済かを検出
-    if(text.match(/事前[カカード]*決済/)){d.prepaid=true;d.payMethod='ota_jalan_pre';}
+    // ポイント・クーポン割引を合算
+    let jalanDisc=0;
+    const ptM2=text.match(/ポイント利用\s*[：:]\s*([\d,]+)/);
+    if(ptM2)jalanDisc+=parseInt(ptM2[1].replace(/,/g,'')||'0');
+    const cpM2=text.match(/クーポン利用\s*[：:]\s*([\d,]+)/);
+    if(cpM2)jalanDisc+=parseInt(cpM2[1].replace(/,/g,'')||'0');
+    if(jalanDisc>0)d.discount=String(jalanDisc);
+    // 事前精算の検出：「精算不要(オンラインカード決済済)」「カード決済済み」「事前カード決済」
+    if(text.match(/精算不要|オンラインカード決済済|カード決済済|事前カード決済/)){
+      d.prepaid=true;d.payMethod='ota_jalan_pre';
+    }
     m=text.match(/宿泊代表者連絡先\s*[：:]\s*([\d\-]{10,})/)||text.match(/(0\d[\d\-]{8,12})(?!\d)/);if(m)d.tel=m[1];
     m=text.match(/住所\s*[：:]\s*(.+)/);if(m)d.addr=m[1].trim();
     m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
@@ -2257,7 +2276,7 @@ function renderMonthlyCheckout(){
   rows.sort((a,b)=>a.ds.localeCompare(b.ds)||a.room.localeCompare(b.room));
 
   // 集計
-  let totals={cash:0,rakuten_pay:0,paypay:0,dpay:0,subsidy:0,tr_rakuten:0,tr_jalan:0,jalan_point:0,jalan_local:0,tr_yahoo:0,yahoo_local:0,yukoyuko_local:0,unpaid:0};
+  let totals={cash:0,rakuten_pay:0,paypay:0,dpay:0,subsidy:0,tr_rakuten:0,tr_jalan:0,jalan_point:0,tr_yahoo:0,yahoo_local:0,yukoyuko_local:0,unpaid:0};
   let totBasePrice=0,totPaid=0,totUnpaid=0;
   rows.forEach(r=>{
     totBasePrice+=r.basePrice;
@@ -2271,7 +2290,7 @@ function renderMonthlyCheckout(){
     }
   });
   // 楽天ペイ振込に現地OTA分を集約
-  const totRakutenPay=(totals.rakuten_pay||0)+(totals.jalan_local||0)+(totals.yahoo_local||0)+(totals.yukoyuko_local||0);
+  const totRakutenPay=(totals.rakuten_pay||0)+(totals.yahoo_local||0)+(totals.yukoyuko_local||0);
 
   function scard(label,val,color,sub){
     if(!val&&val!==0)return '';
@@ -2356,19 +2375,18 @@ function renderCheckout(){
   function getPayMethodsForSrc(src, currentPayMethod){
     if(src==='rakuten') return ['ota_rakuten_pre','ota_rakuten_local','cash'];
     if(src==='jalan'){
-      // じゃらん事前精算が選ばれていたら、それのみ表示
       if(currentPayMethod==='ota_jalan_pre') return ['ota_jalan_pre'];
-      // 現地の場合：じゃらん事前精算ボタンは不要（ポイントは取込時に割引済み）
-      return ['ota_jalan_local','cash','rakuten_pay','paypay','dpay'];
+      // 現地：クーポン分は自動計上、残額の受け取り方法を選択
+      return ['ota_jalan_local','ota_jalan_local_rakuten','ota_jalan_local_paypay','ota_jalan_local_dpay'];
     }
     if(src==='yahoo')   return ['ota_yahoo_pre','ota_yahoo_local','cash','rakuten_pay'];
     if(src==='yukoyuko')return ['cash','rakuten_pay','paypay','dpay'];
-    // 直接予約：補助金は既に割引済みのためボタン不要
+    // 直接予約：補助金は予約時に自動セットされるのでボタン不要
     return ['cash','rakuten_pay','paypay','dpay'];
   }
 
   // 集計バケット
-  let totals={cash:0,rakuten_pay:0,paypay:0,dpay:0,subsidy:0,tr_rakuten:0,tr_jalan:0,jalan_point:0,jalan_local:0,tr_yahoo:0,yahoo_local:0,yukoyuko_local:0,unpaid:0};
+  let totals={cash:0,rakuten_pay:0,paypay:0,dpay:0,subsidy:0,tr_rakuten:0,tr_jalan:0,jalan_point:0,tr_yahoo:0,yahoo_local:0,yukoyuko_local:0,unpaid:0};
   let totBasePrice=0;
 
   content.innerHTML=ciRooms.map(({room,bk,key})=>{
@@ -2377,6 +2395,11 @@ function renderCheckout(){
     if(!cd.payMethod){
       if(bk.payMethod)cd.payMethod=bk.payMethod;
       else if(SRC_TO_PAY[bk.src])cd.payMethod=SRC_TO_PAY[bk.src];
+    }
+    // 直接予約で補助金（discount）がある場合は自動的にsubsidyをセット
+    const isDirectBk=!['rakuten','jalan','yahoo','yukoyuko'].includes(bk.src||'');
+    if(isDirectBk && parseInt(bk.discount||0)>0 && !cd.payMethod){
+      cd.payMethod='subsidy';
     }
     const basePrice=parseInt(bk.price||0);
     const discount=parseInt(bk.discount||0);
@@ -2423,7 +2446,7 @@ function renderCheckout(){
   // 日次サマリー表示
   const totCash=totals.cash||0;
   // 楽天ペイ振込：直接rakuten_pay + OTA現地払い各種を統合
-  const totRakutenPay=(totals.rakuten_pay||0)+(totals.jalan_local||0)+(totals.yahoo_local||0)+(totals.yukoyuko_local||0);
+  const totRakutenPay=(totals.rakuten_pay||0)+(totals.yahoo_local||0)+(totals.yukoyuko_local||0);
   const totPayPay=totals.paypay||0;
   const totDpay=totals.dpay||0;
   const totSubsidy=totals.subsidy||0;

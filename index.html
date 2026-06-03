@@ -2391,6 +2391,10 @@ function renderCheckout(){
 
   content.innerHTML=ciRooms.map(({room,bk,key})=>{
     const cd=checkoutData[key]||{payMethod:'',extraItems:[],paid:false};
+    // 事前決済フラグがあれば、古い保存データより優先して上書き
+    if(bk.prepaid&&bk.payMethod&&!cd.paid){
+      cd.payMethod=bk.payMethod;
+    }
     // 支払方法の優先順：① 既に保存済み ② 予約データのpayMethod（メール取込時にセット）③ SRC_TO_PAYのデフォルト
     if(!cd.payMethod){
       if(bk.payMethod)cd.payMethod=bk.payMethod;

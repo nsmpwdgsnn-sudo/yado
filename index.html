@@ -247,6 +247,7 @@ td.c.bk:hover{filter:brightness(1.08)}
     <div class="logo-sub">妙見楽園荘　客室アサインシステム</div>
   </div>
   <div class="hdr-r">
+    <button class="btn btn-sm" style="background:#6b4c9a;color:#fff" onclick="exportDirectBks()">📋 台帳へ出力</button>
     <button class="btn btn-gold btn-sm" onclick="openManual(null,null)">＋ 予約入力</button>
   </div>
 </div>
@@ -883,6 +884,72 @@ function save(){
   try{localStorage.setItem('yado_cancelled',JSON.stringify(cancelledBks));}catch(e){}
   try{localStorage.setItem('yado_ts',String(ts));}catch(e){}
   saveToSupabase(ts);
+}
+
+// ===== 直接予約を台帳へエクスポート =====
+function exportDirectBks(){
+  const DIRECT_SRCS=['hp','tel','sms','insta','kuchi'];
+  const results=[];
+  // bks（部屋割当済み）から直接予約を抽出
+  Object.values(bks).forEach(roomBks=>{
+    Object.values(roomBks).forEach(spans=>{
+      (Array.isArray(spans)?spans:[spans]).forEach(bk=>{
+        if(!bk||!bk.src)return;
+        if(DIRECT_SRCS.includes(bk.src)){
+          results.push(bk);
+        }
+      });
+    });
+  });
+  // unassigned（未割当）からも直接予約を抽出
+  unassigned.forEach(bk=>{
+    if(bk&&bk.src&&DIRECT_SRCS.includes(bk.src))results.push(bk);
+  });
+  if(results.length===0){
+    alert('直接予約（HP・電話・SMS・インスタ・口頭）のデータが見つかりませんでした。');
+    return;
+  }
+  // 台帳アプリ用フォーマットに変換
+  const entries=results.map(bk=>{
+    const pax=totalPax(bk)||parseInt(bk.pax||0)||0;
+    const srcLabel=SRC_LABEL[bk.src]||bk.src||'';
+    return {
+      id: bk.receiptNo||bk.otaNo||'',
+      name: bk.name||'',
+      recv: bk.bookDate||'',
+      route: srcLabel,
+      ci: bk.ci||'',
+      co: bk.co||'',
+      pax: String(pax),
+      plan: bk.plan||bk.memo||'',
+      price: String(bk.price||''),
+      status: 'confirmed',
+      memo: [bk.room?'部屋:'+bk.room:'', bk.memo||''].filter(Boolean).join(' / ')
+    };
+  });
+  // JSONをクリップボードにコピー
+  const json=JSON.stringify(entries,null,2);
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(json).then(()=>{
+      showToast('✅ '+entries.length+'件をコピーしました！台帳の「取込」ボタンから貼り付けてください');
+    }).catch(()=>fallbackCopy(json,entries.length));
+  }else{
+    fallbackCopy(json,entries.length);
+  }
+}
+function fallbackCopy(text,count){
+  const ta=document.createElement('textarea');
+  ta.value=text;
+  ta.style.cssText='position:fixed;top:-9999px;left:-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try{
+    document.execCommand('copy');
+    showToast('✅ '+count+'件をコピーしました！台帳の「取込」ボタンから貼り付けてください');
+  }catch(e){
+    alert('コピーできませんでした。\n\n'+text);
+  }
+  document.body.removeChild(ta);
 }function queueGasSave(){}
 function updateSyncStatus(state){
   const el=document.getElementById('gasSyncStatus');if(!el)return;
@@ -1527,7 +1594,16 @@ function doAssign(){
     const dsParts=dsRaw.replace(/\//g,'-').split('-');
     const ds=dsParts.length===3?fmt(parseInt(dsParts[0]),parseInt(dsParts[1]),parseInt(dsParts[2])):dsRaw;
     const key=room+'_'+ds;
-    if(bks[key]&&bks[key].isStart!==false)clearSpan(key);
+    // 既存予約との重複チェック
+    if(bks[key]&&bks[key].isStart!==false){
+      const existing=bks[key];
+      const existName=existing.name||'（名前なし）';
+      const existNights=existing.nights||1;
+      if(!confirm(`⚠️ ${room}号室の${ds}には\n「${existName}」様（${existNights}泊）の予約が入っています。\n\n上書きしてよいですか？\n（キャンセルすると既存予約を維持します）`)){
+        return;
+      }
+      clearSpan(key);
+    }
     const data=JSON.parse(JSON.stringify(u));
     data.isStart=true;data.room=room;
     bks[key]=data;
@@ -2846,21 +2922,29 @@ function init(){
   render();renderUnassigned();renderLedger();
   const _kn=new Date();kinmuCy=_kn.getFullYear();kinmuCm=_kn.getMonth()+1;
   // 起動時はバナーで通知のみ（サイレント上書きしない）
-  fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.1&select=payload',{
-    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
-  }).then(r=>r.json()).then(rows=>{
-    if(!rows||!rows.length||!rows[0].payload)return;
-    const d=JSON.parse(rows[0].payload);
-    const localTs=parseInt(localStorage.getItem('yado_ts')||'0');
-    const cloudTs=parseInt(d.ts||'0');
-    if(cloudTs<=localTs)return;
-    window._pendingCloudData=d;
-    const cloudTime=new Date(cloudTs).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-    const localTime=localTs>0?new Date(localTs).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'なし';
-    document.getElementById('syncBannerMsg').textContent='⚠️ 別の端末で保存されたデータがあります（クラウド更新: '+cloudTime+'）';
-    document.getElementById('syncTs').textContent='このデバイスの保存: '+localTime;
-    document.getElementById('syncBanner').classList.add('on');
-  }).catch(e=>console.error('auto-load error',e));
+  function checkCloudSync(){
+    fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.1&select=payload',{
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    }).then(r=>r.json()).then(rows=>{
+      if(!rows||!rows.length||!rows[0].payload)return;
+      const d=JSON.parse(rows[0].payload);
+      const localTs=parseInt(localStorage.getItem('yado_ts')||'0');
+      const cloudTs=parseInt(d.ts||'0');
+      // クラウドが1秒以上新しければバナー表示（タイムスタンプのズレを考慮）
+      if(cloudTs<=localTs+1000)return;
+      // 既にバナー表示中なら更新しない
+      if(window._pendingCloudData)return;
+      window._pendingCloudData=d;
+      const cloudTime=new Date(cloudTs).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      const localTime=localTs>0?new Date(localTs).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'なし';
+      document.getElementById('syncBannerMsg').textContent='⚠️ 別の端末で保存されたデータがあります（クラウド更新: '+cloudTime+'）';
+      document.getElementById('syncTs').textContent='このデバイスの保存: '+localTime;
+      document.getElementById('syncBanner').classList.add('on');
+    }).catch(e=>console.error('sync check error',e));
+  }
+  checkCloudSync();
+  // 60秒ごとに定期チェック（タブを開きっぱなしでも検知できる）
+  setInterval(checkCloudSync, 60000);
   // オンライン復帰時にペンディング保存を再試行
   ['kRStaff','kRStart','kREnd','kRTransport','kRBath'].forEach(id=>{
     const el=document.getElementById(id);

@@ -890,20 +890,23 @@ function save(){
 function exportDirectBks(){
   const DIRECT_SRCS=['hp','tel','sms','insta','kuchi'];
   const results=[];
-  // bks（部屋割当済み）から直接予約を抽出
-  Object.values(bks).forEach(roomBks=>{
-    Object.values(roomBks).forEach(spans=>{
-      (Array.isArray(spans)?spans:[spans]).forEach(bk=>{
-        if(!bk||!bk.src)return;
-        if(DIRECT_SRCS.includes(bk.src)){
-          results.push(bk);
-        }
-      });
-    });
+  // bks: キーは「部屋番号_YYYY-MM-DD」、値が予約オブジェクト
+  // isStart:false のゴーストセルは除外、直接予約のみ抽出
+  Object.entries(bks).forEach(([key,bk])=>{
+    if(!bk||!bk.src)return;
+    if(bk.isStart===false||bk.isStart===0||bk.isStart==='false')return;
+    if(DIRECT_SRCS.includes(bk.src)){
+      const idx=key.indexOf('_');
+      const room=key.substring(0,idx);
+      const ciDate=key.substring(idx+1); // YYYY-MM-DD
+      results.push({...bk, _room:room, _ciDate:ciDate});
+    }
   });
   // unassigned（未割当）からも直接予約を抽出
   unassigned.forEach(bk=>{
-    if(bk&&bk.src&&DIRECT_SRCS.includes(bk.src))results.push(bk);
+    if(bk&&bk.src&&DIRECT_SRCS.includes(bk.src)){
+      results.push({...bk, _room:'未割当', _ciDate:bk.ciDate||''});
+    }
   });
   if(results.length===0){
     alert('直接予約（HP・電話・SMS・インスタ・口頭）のデータが見つかりませんでした。');
@@ -911,27 +914,34 @@ function exportDirectBks(){
   }
   // 台帳アプリ用フォーマットに変換
   const entries=results.map(bk=>{
-    const pax=totalPax(bk)||parseInt(bk.pax||0)||0;
+    const pax=totalPax(bk)||0;
     const srcLabel=SRC_LABEL[bk.src]||bk.src||'';
+    const ciDate=bk._ciDate||bk.ciDate||'';
+    // CO日 = CI日 + nights泊
+    let coDate='';
+    if(ciDate&&bk.nights){
+      const ci=new Date(ciDate);
+      ci.setDate(ci.getDate()+parseInt(bk.nights||1));
+      coDate=ci.getFullYear()+'-'+String(ci.getMonth()+1).padStart(2,'0')+'-'+String(ci.getDate()).padStart(2,'0');
+    }
     return {
-      id: bk.receiptNo||bk.otaNo||'',
       name: bk.name||'',
       recv: bk.bookDate||'',
       route: srcLabel,
-      ci: bk.ci||'',
-      co: bk.co||'',
-      pax: String(pax),
-      plan: bk.plan||bk.memo||'',
+      ci: ciDate,
+      co: coDate,
+      pax: String(pax||''),
+      plan: bk.plan||'',
       price: String(bk.price||''),
       status: 'confirmed',
-      memo: [bk.room?'部屋:'+bk.room:'', bk.memo||''].filter(Boolean).join(' / ')
+      memo: [bk._room&&bk._room!=='未割当'?'部屋:'+bk._room:'', bk.memo||''].filter(Boolean).join(' / ')
     };
   });
   // JSONをクリップボードにコピー
   const json=JSON.stringify(entries,null,2);
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(json).then(()=>{
-      showToast('✅ '+entries.length+'件をコピーしました！台帳の「取込」ボタンから貼り付けてください');
+      showToast('✅ '+entries.length+'件をコピーしました！台帳の「予約管理から取込」ボタンから貼り付けてください');
     }).catch(()=>fallbackCopy(json,entries.length));
   }else{
     fallbackCopy(json,entries.length);
@@ -945,7 +955,7 @@ function fallbackCopy(text,count){
   ta.select();
   try{
     document.execCommand('copy');
-    showToast('✅ '+count+'件をコピーしました！台帳の「取込」ボタンから貼り付けてください');
+    showToast('✅ '+count+'件をコピーしました！台帳の「予約管理から取込」ボタンから貼り付けてください');
   }catch(e){
     alert('コピーできませんでした。\n\n'+text);
   }

@@ -976,12 +976,7 @@ function loadFromGAS(){
   showToast('☁️ 読み込み中...');
   fetch(getGasUrl()).then(r=>r.json()).then(d=>{
     if(d.status==='ok'){
-      // タイムスタンプ比較：クラウドの方が古い場合は警告
-      const localTs=parseInt(localStorage.getItem('yado_ts')||'0');
-      const cloudTs=parseInt(d.ts||'0');
-      if(localTs>cloudTs&&cloudTs>0){
-        if(!confirm('⚠️ ローカルの方が新しいデータがあります。\n\nクラウドのデータで上書きしますか？\n（キャンセルするとローカルを維持します）'))return;
-      }
+      // タイムスタンプ確認（手動読み込みなので常にクラウドを反映）
       if(d.bks)bks=d.bks;
       if(d.unassigned)unassigned=d.unassigned;
       if(d.roomStatus)roomStatus=d.roomStatus;
@@ -1385,14 +1380,17 @@ function saveBk(){
     // 編集
     const oldBk=bks[editKey];
     data.no=oldBk.no;
-    clearSpan(editKey);           // まず旧スパンを全消し
-    delete bks[editKey];          // 旧キーを削除（部屋・日付が変わった場合も漏れなく）
     const idx=editKey.indexOf('_');const oldRoom=editKey.substring(0,idx);
-    const targetRoom=room||oldRoom; // 部屋が空欄の場合は元の部屋を引き継ぐ
+    const targetRoom=room||oldRoom;
     const newKey=targetRoom+'_'+ds;
-    // 移動先に別の予約があれば先に消す
-    if(bks[newKey]&&bks[newKey].isStart!==false){clearSpan(newKey);delete bks[newKey];}
-    else if(bks[newKey])delete bks[newKey]; // isStart:false のゴーストも消す
+    // 移動先に別の予約がある場合は警告
+    if(newKey!==editKey && bks[newKey]&&bks[newKey].isStart!==false){
+      const ex=bks[newKey];
+      if(!confirm(`⚠️ ${targetRoom}号室の${ds}には\n「${ex.name||'（名前なし）'}」様（${ex.nights||1}泊）の予約が入っています。\n\n上書きしてよいですか？`))return;
+      clearSpan(newKey);delete bks[newKey];
+    }else if(bks[newKey]&&newKey!==editKey)delete bks[newKey];
+    clearSpan(editKey);
+    delete bks[editKey];
     data.room=targetRoom;
     bks[newKey]=data;
     markSpan(targetRoom,ds,nights,newKey);
@@ -1400,7 +1398,12 @@ function saveBk(){
     // 新規 部屋あり
     data.no=genReceiptNo(srcVal);
     const key=room+'_'+ds;
-    if(bks[key]&&bks[key].isStart!==false)clearSpan(key);
+    // 既存予約がある場合は警告
+    if(bks[key]&&bks[key].isStart!==false){
+      const ex=bks[key];
+      if(!confirm(`⚠️ ${room}号室の${ds}には\n「${ex.name||'（名前なし）'}」様（${ex.nights||1}泊）の予約が入っています。\n\n上書きしてよいですか？`))return;
+      clearSpan(key);
+    }
     data.room=room;
     bks[key]=data;
     markSpan(room,ds,nights,key);

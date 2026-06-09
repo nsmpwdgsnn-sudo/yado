@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="直接予約台帳">
+<title>直接予約台帳 — 妙見楽園荘</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Shippori+Mincho:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f0e8;--paper:#fffdf8;--ink:#1a1510;--ink2:#7a6a58;--ink3:#b0a090;
+  --border:#ddd5c5;--border2:#c8bca8;--hd:#1e1810;
+  --gold:#c8a060;--green:#2a7a4b;--red:#d64b3a;--blue:#2a5fa8;--purple:#6b4c9a;
+  --shadow:rgba(20,15,8,.12);
+}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;font-size:14px}
+.hdr{background:var(--hd);color:#f5f0e8;padding:10px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+.logo{font-family:'Shippori Mincho',serif;font-size:17px;font-weight:700;letter-spacing:.1em}
+.logo-sub{font-size:10px;color:#a09078;margin-top:1px}
+.hdr-r{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.btn{border:none;border-radius:6px;padding:7px 13px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.btn:active{opacity:.85}
+.btn-gold{background:var(--gold);color:#1e1810}
+.btn-red{background:var(--red);color:#fff}
+.btn-green{background:var(--green);color:#fff}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-out{background:transparent;border:1.5px solid var(--border2);color:var(--ink2)}
+.btn-sm{padding:5px 10px;font-size:11px}
+.sec{padding:12px 14px}
+.sync-bar{display:none;background:#fff3cd;border-bottom:2px solid #ffc107;padding:8px 14px;font-size:12px;color:#7a5800;align-items:center;gap:8px;flex-wrap:wrap}
+.sync-bar.on{display:flex}
+/* 統計 */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;margin-bottom:12px}
+.stat{background:var(--paper);border-radius:8px;padding:10px 12px;text-align:center;cursor:pointer;box-shadow:0 1px 6px var(--shadow)}
+.stat:active{opacity:.85}
+.stat-n{font-size:22px;font-weight:700;font-family:'DM Mono',monospace}
+.stat-l{font-size:10px;color:var(--ink2);margin-top:2px}
+/* CI一覧 */
+.ci-panel{background:var(--paper);border-radius:8px;padding:10px 12px;margin-bottom:12px;display:none;box-shadow:0 1px 6px var(--shadow)}
+.ci-panel.on{display:block}
+.ci-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.ci-item:last-child{border-bottom:none}
+/* フィルター */
+.filter-bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.search-input{flex:1;min-width:140px;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;background:var(--paper);outline:none}
+.search-input:focus{border-color:var(--gold)}
+.fsel{padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;background:var(--paper);outline:none}
+.fsel:focus{border-color:var(--gold)}
+/* テーブル */
+.tbl-wrap{overflow-x:auto;border-radius:8px;box-shadow:0 2px 14px var(--shadow)}
+table{width:100%;border-collapse:collapse;font-size:11px;background:var(--paper)}
+th{background:var(--hd);color:#f5f0e8;padding:7px 8px;text-align:left;font-size:10px;letter-spacing:.04em;white-space:nowrap;position:sticky;top:0;z-index:5}
+td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top;white-space:nowrap}
+tr:hover td{background:#fffbe8}
+.no-cell{font-family:'DM Mono',monospace;font-size:11px;font-weight:700;background:var(--hd);color:var(--gold);border-radius:4px;padding:1px 6px;display:inline-block}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700}
+.badge-pending{background:#f0f4ff;color:#2a5fa8;border:1px solid #b5d4f4}
+.badge-ci{background:#e8f5e9;color:#2a7a4b;border:1px solid #a8dbb8}
+.badge-cancel{background:#fff5f5;color:#d64b3a;border:1px solid #f7c1c1}
+.today-badge{display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;background:var(--red);color:#fff;margin-left:4px;font-weight:700}
+.icon-btn{background:none;border:none;cursor:pointer;color:var(--ink2);padding:3px 6px;border-radius:4px;font-size:12px}
+.icon-btn:hover{background:var(--bg);color:var(--ink)}
+.empty{text-align:center;padding:32px;color:var(--ink3);font-size:13px}
+/* モーダル */
+.ov{display:none;position:fixed;inset:0;background:rgba(20,15,8,.55);z-index:500;align-items:center;justify-content:center;padding:16px}
+.ov.on{display:flex}
+.modal{background:var(--paper);border-radius:12px;padding:18px 20px;width:100%;max-width:480px;box-shadow:0 16px 48px rgba(0,0,0,.3);max-height:92vh;overflow-y:auto}
+.mttl{font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+.fg{margin-bottom:10px}
+.fl{display:block;font-size:10px;font-weight:700;color:var(--ink2);margin-bottom:3px;letter-spacing:.06em;text-transform:uppercase}
+.fi,.fsel2,.fta{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;background:#fffef9;color:var(--ink);outline:none}
+.fi:focus,.fsel2:focus,.fta:focus{border-color:var(--gold)}
+.fta{resize:vertical;min-height:55px}
+.fr2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mact{display:flex;gap:8px;margin-top:14px;justify-content:flex-end;flex-wrap:wrap}
+/* 取込モーダル */
+.import-tabs{display:flex;gap:0;margin-bottom:12px;border-radius:8px;overflow:hidden;border:1.5px solid var(--border2)}
+.import-tab{flex:1;padding:8px;font-size:12px;font-weight:700;cursor:pointer;text-align:center;background:var(--bg);color:var(--ink2);border:none;font-family:inherit}
+.import-tab.on{background:var(--hd);color:var(--gold)}
+.import-pane{display:none}.import-pane.on{display:block}
+.paste-area{width:100%;min-height:110px;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:12px;background:#fffef9;color:var(--ink);outline:none;resize:vertical}
+.paste-area:focus{border-color:var(--gold)}
+.parse-result{background:#f0fdf4;border:1.5px solid #a8dbb8;border-radius:8px;padding:12px;margin-top:10px;display:none}
+.parse-result.on{display:block}
+.pr-row{display:flex;gap:6px;margin-bottom:3px;font-size:12px}
+.pr-label{color:var(--ink2);min-width:70px;font-size:11px;flex-shrink:0}
+/* 同期状態 */
+#syncStatus{font-size:11px;padding:4px 10px;border-radius:12px;font-weight:500}
+.s-ok{background:#e8f5e9;color:#2a7a4b}
+.s-saving{background:#fff8e1;color:#e65100}
+.s-err{background:#fce4ec;color:#c62828}
+.s-offline{background:#f5f5f5;color:#888}
+/* トースト */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e1810;color:#f5f0e8;padding:10px 20px;border-radius:20px;font-size:12px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <div class="logo">📋 直接予約台帳</div>
+    <div class="logo-sub">妙見楽園荘</div>
+  </div>
+  <div class="hdr-r">
+    <span id="syncStatus" class="s-offline">--</span>
+    <button class="btn btn-gold btn-sm" onclick="openAdd()">＋ 予約追加</button>
+  </div>
+</div>
+
+<div class="sync-bar" id="syncBanner">
+  <span id="syncBannerMsg"></span>
+  <button class="btn btn-sm btn-gold" onclick="syncBannerAccept()">クラウドを反映</button>
+  <button class="btn btn-sm btn-out" onclick="syncBannerDismiss()">このデバイスを維持</button>
+</div>
+
+<div class="sec">
+  <!-- ボタン群 -->
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+    <button class="btn btn-out btn-sm" onclick="toggleCIPanel()">🚪 今日のCI</button>
+    <button class="btn btn-out btn-sm" onclick="openImport('mail')">📧 メール取り込み</button>
+    <button class="btn btn-out btn-sm" onclick="openImport('json')">📥 予約管理から取込</button>
+    <button class="btn btn-out btn-sm" onclick="saveToSupabase();showToast('☁️ 保存中...')">☁️ 今すぐ保存</button>
+  </div>
+
+  <!-- 統計 -->
+  <div class="stats" id="stats"></div>
+  <!-- CI一覧 -->
+  <div class="ci-panel" id="ciPanel"></div>
+
+  <!-- フィルター -->
+  <div class="filter-bar">
+    <input class="search-input" id="searchInput" placeholder="氏名・経路・NO で検索..." oninput="renderTable()" style="flex:2;min-width:140px">
+    <input class="search-input" id="ciSearch" placeholder="CI日で検索 例: 06/05" oninput="renderTable()" style="flex:1;min-width:110px">
+    <select class="fsel" id="filterStatus" onchange="renderTable()">
+      <option value="">全ステータス</option>
+      <option value="pending">未チェックイン</option>
+      <option value="checkin">チェックイン済</option>
+      <option value="cancel">キャンセル</option>
+    </select>
+  </div>
+
+  <!-- テーブル -->
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>NO</th><th>受付日</th><th>氏名</th><th>経路</th><th>CI日</th><th>CO日</th><th>泊</th><th>人数</th><th>プラン</th><th>金額</th><th>状態</th><th>操作</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="empty" id="emptyMsg" style="display:none">予約がありません</div>
+  </div>
+</div>
+
+<!-- 予約入力モーダル -->
+<div class="ov" id="entryMod">
+  <div class="modal">
+    <div class="mttl" id="entryModTtl">予約を追加</div>
+    <div class="fr2">
+      <div class="fg">
+        <label class="fl">受付番号（NO）</label>
+        <input class="fi" id="fNo" placeholder="例: 001、A-12（空欄で自動）">
+      </div>
+      <div class="fg">
+        <label class="fl">受付日</label>
+        <input class="fi" id="fRecv" type="date">
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">氏名・グループ名</label>
+      <input class="fi" id="fName" placeholder="例: 山田 太郎">
+    </div>
+    <div class="fr2">
+      <div class="fg">
+        <label class="fl">経路</label>
+        <select class="fsel2" id="fRoute">
+          <option value="電話">電話</option>
+          <option value="HP">HP</option>
+          <option value="メール">メール</option>
+          <option value="SMS">SMS</option>
+          <option value="インスタ">インスタ</option>
+          <option value="口頭・紹介">口頭・紹介</option>
+          <option value="その他">その他</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">状態</label>
+        <select class="fsel2" id="fStatus">
+          <option value="pending">未チェックイン</option>
+          <option value="checkin">チェックイン済</option>
+          <option value="cancel">キャンセル</option>
+        </select>
+      </div>
+    </div>
+    <div class="fr2">
+      <div class="fg">
+        <label class="fl">チェックイン</label>
+        <input class="fi" id="fCI" type="date">
+      </div>
+      <div class="fg">
+        <label class="fl">チェックアウト</label>
+        <input class="fi" id="fCO" type="date">
+      </div>
+    </div>
+    <div class="fr2">
+      <div class="fg">
+        <label class="fl">人数</label>
+        <input class="fi" id="fPax" type="number" min="1" value="2">
+      </div>
+      <div class="fg">
+        <label class="fl">金額（円）</label>
+        <input class="fi" id="fPrice" type="number" placeholder="15000">
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">プラン</label>
+      <input class="fi" id="fPlan" placeholder="例: 素泊まり、夕食付き">
+    </div>
+    <div class="fg">
+      <label class="fl">備考</label>
+      <textarea class="fta" id="fMemo" placeholder="アレルギー・リクエスト等"></textarea>
+    </div>
+    <div class="mact">
+      <button class="btn btn-out btn-sm" id="btnDel" onclick="deleteEntry()" style="display:none;background:#fce4ec;border-color:#f7c1c1;color:#c62828">削除</button>
+      <button class="btn btn-out" onclick="closeEntry()">キャンセル</button>
+      <button class="btn btn-gold" onclick="saveEntry()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 取込モーダル -->
+<div class="ov" id="importMod">
+  <div class="modal">
+    <div class="mttl">予約を取り込む</div>
+    <div class="import-tabs">
+      <button class="import-tab on" id="itab-mail" onclick="selImportTab('mail',this)">📧 メール</button>
+      <button class="import-tab" id="itab-json" onclick="selImportTab('json',this)">📥 予約管理から</button>
+    </div>
+    <div class="import-pane on" id="ipane-mail">
+      <p style="font-size:11px;color:var(--ink2);margin-bottom:8px">HPからの予約確認メールをそのまま貼り付けてください。AIが自動で読み取ります。</p>
+      <textarea class="paste-area" id="mailText" placeholder="ここにメール本文を貼り付けてください..."></textarea>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="btn btn-gold" onclick="parseMail()">🔍 読み取る</button>
+        <button class="btn btn-out" onclick="document.getElementById('mailText').value='';hideParseResult()">クリア</button>
+      </div>
+      <div class="parse-result" id="parseResult">
+        <div style="font-weight:700;margin-bottom:8px;color:var(--green)">✅ 読み取り結果</div>
+        <div id="parseBody"></div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-gold" onclick="importParsed()">このまま登録</button>
+          <button class="btn btn-out" onclick="importAndEdit()">確認して登録</button>
+        </div>
+      </div>
+    </div>
+    <div class="import-pane" id="ipane-json">
+      <p style="font-size:11px;color:var(--ink2);margin-bottom:8px">予約管理アプリの「📋 台帳へ出力」ボタンでコピーしたデータを貼り付けてください。</p>
+      <textarea class="paste-area" id="jsonText" placeholder="データを貼り付けてください..."></textarea>
+      <div id="jsonPreview" style="margin-top:10px"></div>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="btn btn-gold" onclick="parseJson()">🔍 確認する</button>
+        <button class="btn btn-green" id="doImportBtn" style="display:none" onclick="doJsonImport()">✅ 取り込む</button>
+      </div>
+    </div>
+    <div class="mact">
+      <button class="btn btn-out" onclick="closeImport()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ===== Supabase設定 =====
+const SB_URL='https://kcwskxxseypxprnpgbog.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtjd3NreHhzZXlweHBybnBnYm9nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNDMwNjEsImV4cCI6MjA5MDYxOTA2MX0.5ecX39PrkDnVKezTuP0n0_DkMgfz7Xiyzq0jlZHGiHQ';
+const SB_TABLE='dacho_data';
+
+// ===== 状態 =====
+let entries=[];
+let nextId=1;
+let editingId=null;
+let parsedEntry=null;
+let pendingImport=[];
+let ciPanelOpen=false;
+
+// ===== ユーティリティ =====
+function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function fmt(d){if(!d)return '';const p=d.split('-');return p[1]+'/'+p[2];}
+function fmtCI(d){if(!d)return '';const p=d.split('-');return p[0]+'/'+p[1]+'/'+p[2];}
+function calcNights(ci,co){if(!ci||!co)return '';const n=(new Date(co)-new Date(ci))/86400000;return n>0?n+'泊':'';}
+function isToday(d){return !!(d&&d.trim()===todayStr());}
+function displayNo(e){return e.no!==undefined&&e.no!==''?String(e.no):String(e.id).padStart(3,'0');}
+function autoStatus(e){
+  if(e.status==='cancel')return 'cancel';
+  if(e.status==='checkin')return 'checkin';
+  if(e.ci&&e.ci<todayStr())return 'checkin';
+  return 'pending';
+}
+function normStatus(s){
+  if(s==='checkin')return 'checkin';
+  if(s==='cancel')return 'cancel';
+  return 'pending';
+}
+function showToast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.style.opacity='1';
+  setTimeout(()=>el.style.opacity='0',2500);
+}
+function setSyncStatus(state,msg){
+  const el=document.getElementById('syncStatus');
+  const map={ok:'✅ 同期済み',saving:'⏳ 保存中...',error:'❌ 保存失敗',offline:'📴 オフライン'};
+  el.textContent=msg||(map[state]||state);
+  el.className=({ok:'s-ok',saving:'s-saving',error:'s-err',offline:'s-offline'})[state]||'s-offline';
+}
+
+// ===== Supabase =====
+async function saveToSupabase(){
+  setSyncStatus('saving');
+  const ts=Date.now();
+  const payload=JSON.stringify({entries,nextId,ts});
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/'+SB_TABLE,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'apikey':SB_KEY,
+        'Authorization':'Bearer '+SB_KEY,
+        'Prefer':'resolution=merge-duplicates,return=minimal'
+      },
+      body:JSON.stringify({id:1,payload})
+    });
+    if(r.ok){setSyncStatus('ok');localStorage.setItem('dacho_ts',String(ts));}
+    else{const t=await r.text();console.error('save error:',r.status,t);setSyncStatus('error');}
+  }catch(e){console.error('save exception:',e);setSyncStatus('offline');}
+}
+
+async function loadFromSupabase(){
+  setSyncStatus('saving','読込中...');
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/'+SB_TABLE+'?id=eq.1&select=payload',{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    });
+    const rows=await r.json();
+    if(!rows||!rows.length||!rows[0].payload){
+      setSyncStatus('ok','データなし');
+      return false;
+    }
+    const d=JSON.parse(rows[0].payload);
+    entries=(d.entries||[]).map(e=>({...e,status:normStatus(e.status)}));
+    nextId=d.nextId||(entries.length+1);
+    localStorage.setItem('dacho_ts',String(d.ts||0));
+    setSyncStatus('ok');
+    return true;
+  }catch(e){
+    setSyncStatus('offline');
+    return false;
+  }
+}
+
+function loadLocal(){
+  try{
+    const s=localStorage.getItem('dacho_entries');
+    if(s){
+      const d=JSON.parse(s);
+      entries=(d.entries||[]).map(e=>({...e,status:normStatus(e.status)}));
+      nextId=d.nextId||(entries.length+1);
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+function saveLocal(){
+  try{localStorage.setItem('dacho_entries',JSON.stringify({entries,nextId}));}catch(e){}
+}
+
+async function init(){
+  // まずローカルで即表示
+  const hasLocal=loadLocal();
+  if(hasLocal){renderAll();}
+  // Supabaseから最新を取得
+  const ok=await loadFromSupabase();
+  if(ok){
+    saveLocal();
+    renderAll();
+  } else if(!hasLocal){
+    renderAll();
+  }
+  // 定期同期（60秒）
+  setInterval(async()=>{
+    const ok=await loadFromSupabase();
+    if(ok){saveLocal();renderAll();}
+  },60000);
+}
+
+// ===== 描画 =====
+function renderAll(){
+  renderStats();
+  renderTable();
+  if(ciPanelOpen)renderCIPanel();
+}
+
+function renderStats(){
+  const t=todayStr();
+  const active=entries.filter(e=>autoStatus(e)!=='cancel');
+  const pending=entries.filter(e=>autoStatus(e)==='pending');
+  const todayCIs=entries.filter(e=>isToday(e.ci)&&autoStatus(e)!=='cancel');
+  const pax=active.reduce((s,e)=>s+(parseInt(e.pax)||0),0);
+  const d=new Date();
+  document.getElementById('stats').innerHTML=`
+    <div class="stat" onclick="clearFilter()"><div class="stat-n">${active.length}</div><div class="stat-l">総予約数</div></div>
+    <div class="stat" onclick="setFilter('pending')"><div class="stat-n" style="color:#e8a000">${pending.length}</div><div class="stat-l">未CI ▾</div></div>
+    <div class="stat" onclick="toggleCIPanel()"><div class="stat-n" style="color:#2a5fa8">${todayCIs.length}</div><div class="stat-l">今日のCI ▾</div></div>
+    <div class="stat"><div class="stat-n">${pax}</div><div class="stat-l">総人数</div></div>`;
+  // 日付表示
+  document.title='直接予約台帳 — '+d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();
+}
+
+function renderTable(){
+  const q=(document.getElementById('searchInput').value||'').toLowerCase();
+  const ciQ=(document.getElementById('ciSearch').value||'').toLowerCase();
+  const fs=document.getElementById('filterStatus').value;
+  let rows=entries.filter(e=>{
+    const s=autoStatus(e);
+    const no=displayNo(e).toLowerCase();
+    const ciStr=fmtCI(e.ci).toLowerCase();
+    return (!q||(e.name||'').toLowerCase().includes(q)||(e.route||'').toLowerCase().includes(q)||no.includes(q))
+        &&(!ciQ||ciStr.includes(ciQ))
+        &&(!fs||s===fs);
+  });
+  rows.sort((a,b)=>(a.ci||'')>(b.ci||'')?1:(a.ci||'')<(b.ci||'')?-1:0);
+  const tbody=document.getElementById('tbody');
+  tbody.innerHTML='';
+  rows.forEach(e=>{
+    const s=autoStatus(e);
+    const sl={pending:'badge-pending',checkin:'badge-ci',cancel:'badge-cancel'}[s]||'badge-pending';
+    const sl2={pending:'未CI',checkin:'CI済',cancel:'キャンセル'}[s]||'未CI';
+    const tr=document.createElement('tr');
+    if(s==='cancel')tr.style.opacity='0.5';
+    tr.innerHTML=`
+      <td><span class="no-cell">${displayNo(e)}</span></td>
+      <td>${fmt(e.recv)}</td>
+      <td style="font-weight:700">${e.name||''}</td>
+      <td style="color:var(--ink2)">${e.route||''}</td>
+      <td>${fmtCI(e.ci)}${isToday(e.ci)?'<span class="today-badge">今日</span>':''}</td>
+      <td>${fmtCI(e.co)}${isToday(e.co)?'<span class="today-badge">今日</span>':''}</td>
+      <td>${calcNights(e.ci,e.co)}</td>
+      <td>${e.pax?e.pax+'名':''}</td>
+      <td style="color:var(--ink2)">${e.plan||''}</td>
+      <td>${e.price?Number(e.price).toLocaleString()+'円':''}</td>
+      <td><span class="badge ${sl}">${sl2}</span></td>
+      <td><button class="icon-btn" onclick="openEdit(${e.id})">✏️</button></td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('emptyMsg').style.display=rows.length?'none':'block';
+}
+
+function renderCIPanel(){
+  const list=entries.filter(e=>isToday(e.ci)&&autoStatus(e)!=='cancel');
+  const el=document.getElementById('ciPanel');
+  el.innerHTML='<div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--ink2)">今日のチェックイン（'+list.length+'件）</div>'
+    +(list.length?list.map(e=>`<div class="ci-item">
+      <div style="flex:1"><strong>${displayNo(e)} ${e.name||''}</strong>
+      <div style="font-size:11px;color:var(--ink2)">${e.route||''} / ${e.pax||'?'}名${e.plan?' / '+e.plan:''}</div></div>
+      <div style="font-size:11px;color:var(--ink2)">${e.price?Number(e.price).toLocaleString()+'円':''}</div>
+    </div>`).join(''):'<div style="font-size:12px;color:var(--ink3)">今日のチェックインはありません</div>');
+}
+
+function toggleCIPanel(){
+  ciPanelOpen=!ciPanelOpen;
+  const el=document.getElementById('ciPanel');
+  if(ciPanelOpen){renderCIPanel();el.classList.add('on');}
+  else{el.classList.remove('on');}
+}
+
+function clearFilter(){document.getElementById('filterStatus').value='';renderTable();}
+function setFilter(v){document.getElementById('filterStatus').value=v;renderTable();}
+
+// ===== 予約入力 =====
+function openAdd(){
+  editingId=null;
+  document.getElementById('entryModTtl').textContent='予約を追加';
+  document.getElementById('fNo').value='';
+  document.getElementById('fRecv').value=todayStr();
+  document.getElementById('fName').value='';
+  document.getElementById('fRoute').value='電話';
+  document.getElementById('fStatus').value='pending';
+  document.getElementById('fCI').value='';
+  document.getElementById('fCO').value='';
+  document.getElementById('fPax').value=2;
+  document.getElementById('fPrice').value='';
+  document.getElementById('fPlan').value='';
+  document.getElementById('fMemo').value='';
+  document.getElementById('btnDel').style.display='none';
+  document.getElementById('entryMod').classList.add('on');
+}
+
+function openEdit(id){
+  const e=entries.find(x=>x.id===id);if(!e)return;
+  editingId=id;
+  document.getElementById('entryModTtl').textContent='予約を編集';
+  document.getElementById('fNo').value=e.no!==undefined?e.no:'';
+  document.getElementById('fRecv').value=e.recv||todayStr();
+  document.getElementById('fName').value=e.name||'';
+  document.getElementById('fRoute').value=e.route||'電話';
+  document.getElementById('fStatus').value=normStatus(e.status);
+  document.getElementById('fCI').value=e.ci||'';
+  document.getElementById('fCO').value=e.co||'';
+  document.getElementById('fPax').value=e.pax||2;
+  document.getElementById('fPrice').value=e.price||'';
+  document.getElementById('fPlan').value=e.plan||'';
+  document.getElementById('fMemo').value=e.memo||'';
+  document.getElementById('btnDel').style.display='inline-flex';
+  document.getElementById('entryMod').classList.add('on');
+}
+
+function closeEntry(){document.getElementById('entryMod').classList.remove('on');editingId=null;}
+
+async function saveEntry(){
+  const noVal=document.getElementById('fNo').value.trim();
+  const entry={
+    id:editingId||nextId,
+    no:noVal!==''?noVal:undefined,
+    recv:document.getElementById('fRecv').value,
+    name:document.getElementById('fName').value.trim(),
+    route:document.getElementById('fRoute').value,
+    status:document.getElementById('fStatus').value,
+    ci:document.getElementById('fCI').value,
+    co:document.getElementById('fCO').value,
+    pax:document.getElementById('fPax').value,
+    price:document.getElementById('fPrice').value,
+    plan:document.getElementById('fPlan').value,
+    memo:document.getElementById('fMemo').value,
+  };
+  if(!entry.name){alert('氏名を入力してください');return;}
+  if(!entry.ci){alert('チェックイン日を入力してください');return;}
+  if(editingId){const i=entries.findIndex(x=>x.id===editingId);if(i>=0)entries[i]=entry;}
+  else{entries.push(entry);nextId++;}
+  saveLocal();
+  closeEntry();
+  renderAll();
+  await saveToSupabase();
+  showToast('✅ 保存しました');
+}
+
+async function deleteEntry(){
+  if(!editingId)return;
+  if(!confirm('この予約を削除しますか？'))return;
+  entries=entries.filter(x=>x.id!==editingId);
+  saveLocal();closeEntry();renderAll();
+  await saveToSupabase();
+  showToast('🗑️ 削除しました');
+}
+
+// ===== 取込 =====
+function openImport(tab){
+  document.getElementById('mailText').value='';
+  document.getElementById('jsonText').value='';
+  hideParseResult();
+  document.getElementById('jsonPreview').innerHTML='';
+  document.getElementById('doImportBtn').style.display='none';
+  pendingImport=[];parsedEntry=null;
+  selImportTab(tab,document.getElementById('itab-'+tab));
+  document.getElementById('importMod').classList.add('on');
+}
+function closeImport(){document.getElementById('importMod').classList.remove('on');}
+function selImportTab(name,el){
+  document.querySelectorAll('.import-tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  document.querySelectorAll('.import-pane').forEach(p=>p.classList.remove('on'));
+  document.getElementById('ipane-'+name).classList.add('on');
+}
+function hideParseResult(){document.getElementById('parseResult').classList.remove('on');}
+
+async function parseMail(){
+  const txt=document.getElementById('mailText').value.trim();
+  if(!txt){alert('メール本文を貼り付けてください');return;}
+  showToast('🔍 読み取り中...');
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,
+        messages:[{role:'user',content:`以下の予約メール本文から予約情報をJSONのみで抽出してください。説明文・markdownは不要です。
+{"name":"氏名","ci":"YYYY-MM-DD","co":"YYYY-MM-DD","pax":"人数(数字)","plan":"プラン","price":"金額(数字)","route":"HP","memo":"特記事項"}
+不明は空文字。\n\n${txt}`}]})
+    });
+    const d=await res.json();
+    parsedEntry=JSON.parse(d.content.map(i=>i.text||'').join('').replace(/```json|```/g,'').trim());
+    parsedEntry.recv=todayStr();parsedEntry.status='pending';
+    document.getElementById('parseBody').innerHTML=`
+      <div class="pr-row"><span class="pr-label">氏名</span><strong>${parsedEntry.name||'（不明）'}</strong></div>
+      <div class="pr-row"><span class="pr-label">CI→CO</span>${parsedEntry.ci||'?'} → ${parsedEntry.co||'?'}</div>
+      <div class="pr-row"><span class="pr-label">人数</span>${parsedEntry.pax||'?'}名</div>
+      <div class="pr-row"><span class="pr-label">金額</span>${parsedEntry.price?Number(parsedEntry.price).toLocaleString()+'円':'（不明）'}</div>
+      ${parsedEntry.plan?`<div class="pr-row"><span class="pr-label">プラン</span>${parsedEntry.plan}</div>`:''}`;
+    document.getElementById('parseResult').classList.add('on');
+    showToast('✅ 読み取り完了');
+  }catch(e){showToast('❌ 読み取り失敗。手動で入力してください');}
+}
+
+async function importParsed(){
+  if(!parsedEntry||!parsedEntry.name){alert('氏名が読み取れませんでした');return;}
+  entries.push({...parsedEntry,id:nextId++});
+  saveLocal();closeImport();renderAll();
+  await saveToSupabase();
+  showToast('✅ 登録しました');
+}
+function importAndEdit(){
+  if(!parsedEntry)return;
+  closeImport();
+  document.getElementById('entryModTtl').textContent='予約を追加（確認）';
+  document.getElementById('fNo').value='';
+  document.getElementById('fRecv').value=todayStr();
+  document.getElementById('fName').value=parsedEntry.name||'';
+  document.getElementById('fRoute').value=parsedEntry.route||'HP';
+  document.getElementById('fStatus').value='pending';
+  document.getElementById('fCI').value=parsedEntry.ci||'';
+  document.getElementById('fCO').value=parsedEntry.co||'';
+  document.getElementById('fPax').value=parsedEntry.pax||2;
+  document.getElementById('fPrice').value=parsedEntry.price||'';
+  document.getElementById('fPlan').value=parsedEntry.plan||'';
+  document.getElementById('fMemo').value=parsedEntry.memo||'';
+  document.getElementById('btnDel').style.display='none';
+  document.getElementById('entryMod').classList.add('on');
+}
+
+function parseJson(){
+  const text=document.getElementById('jsonText').value.trim();
+  if(!text){alert('データを貼り付けてください');return;}
+  let arr;
+  try{arr=JSON.parse(text.replace(/```json|```/g,'').trim());if(!Array.isArray(arr))throw new Error();}
+  catch(e){alert('データの形式が正しくありません');return;}
+  pendingImport=arr.map(e=>({...e,status:'pending',_dup:entries.some(d=>d.name===e.name&&d.ci===e.ci)}));
+  const newCnt=pendingImport.filter(e=>!e._dup).length;
+  const dupCnt=pendingImport.filter(e=>e._dup).length;
+  let html=`<div style="font-size:12px;color:var(--ink2);margin-bottom:8px">${arr.length}件確認。新規: ${newCnt}件 / 重複スキップ: ${dupCnt}件</div>`;
+  pendingImport.forEach((e,i)=>{
+    html+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;${e._dup?'opacity:.5':''}">
+      <input type="checkbox" id="jimp-${i}" ${e._dup?'':'checked'} ${e._dup?'disabled':''}>
+      <div><strong>${e.name||'（氏名なし）'}</strong> <span style="color:var(--ink2)">${e.route||''} / CI:${fmt(e.ci)} / ${e.pax||'?'}名</span></div>
+      ${e._dup?'<span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:4px">重複</span>':''}
+    </div>`;
+  });
+  document.getElementById('jsonPreview').innerHTML=html;
+  document.getElementById('doImportBtn').style.display=newCnt>0?'inline-flex':'none';
+}
+
+async function doJsonImport(){
+  let count=0;
+  pendingImport.forEach((e,i)=>{
+    const cb=document.getElementById('jimp-'+i);
+    if(!cb||!cb.checked||cb.disabled)return;
+    entries.push({id:nextId++,name:e.name||'',recv:e.recv||todayStr(),route:e.route||'',
+      ci:e.ci||'',co:e.co||'',pax:String(e.pax||''),plan:e.plan||'',
+      price:String(e.price||''),status:'pending',memo:e.memo||''});
+    count++;
+  });
+  saveLocal();closeImport();renderAll();
+  await saveToSupabase();
+  showToast('✅ '+count+'件を取り込みました');
+}
+
+// ===== 起動 =====
+init();
+</script>
+</body>
+</html>

@@ -248,7 +248,7 @@ td.c.bk:hover{filter:brightness(1.08)}
   </div>
   <div class="hdr-r">
     <button class="btn btn-gold btn-sm" onclick="openManual(null,null)">＋ 予約入力</button>
-    <button class="btn btn-sm" style="background:#4a7c59;color:#fff" onclick="window.open('dacho.html','_blank')">📋 直接台帳</button>
+    <button class="btn btn-sm" style="background:#4a7c59;color:#fff" onclick="openDacho()">📋 直接台帳</button>
   </div>
 </div>
 
@@ -2594,6 +2594,46 @@ function renderSettings(){
   const cc=document.getElementById('cancelCount');if(cc)cc.textContent=cancelledBks.length;
   initGasUrlInput();
   updateSyncStatus(localStorage.getItem('yado_ts')?'ok':'offline');
+}
+
+function openDacho(){
+  // 直接予約（OTA以外）のデータを抽出してlocalStorageに保存
+  const OTA_SRCS=['rakuten','jalan','yahoo','yukoyuko'];
+  const directBks=[];
+  // 割当済み
+  Object.entries(bks).forEach(([key,bk])=>{
+    if(bk.isStart===false)return;
+    if(OTA_SRCS.includes(bk.src))return;
+    const idx=key.indexOf('_');
+    directBks.push({
+      name:bk.name||'',
+      recv:bk.bookDate||'',
+      route:bk.src==='tel'?'電話':bk.src==='sms'?'SMS':bk.src==='insta'?'インスタ':bk.src==='kuchi'?'口頭・紹介':bk.src==='hp'?'HP':bk.src||'電話',
+      ci:bk.ciDate||key.substring(idx+1),
+      co:bk.coDate||'',
+      pax:String((bk.paxAdult||0)+(bk.paxChild||0)+(bk.paxInfant||0)||bk.pax||''),
+      plan:bk.plan||'',
+      price:String(bk.price||''),
+      memo:bk.memo||''
+    });
+  });
+  // 未割当
+  unassigned.forEach(u=>{
+    if(OTA_SRCS.includes(u.src))return;
+    directBks.push({
+      name:u.name||'',
+      recv:u.bookDate||'',
+      route:u.src==='tel'?'電話':u.src==='sms'?'SMS':u.src==='insta'?'インスタ':u.src==='kuchi'?'口頭・紹介':u.src==='hp'?'HP':u.src||'電話',
+      ci:u.ciDate||'',
+      co:u.coDate||'',
+      pax:String((u.paxAdult||0)+(u.paxChild||0)+(u.paxInfant||0)||u.pax||''),
+      plan:u.plan||'',
+      price:String(u.price||''),
+      memo:u.memo||''
+    });
+  });
+  localStorage.setItem('dacho_import_data', JSON.stringify(directBks));
+  window.open('dacho.html','_blank');
 }
 
 function resetAll(){

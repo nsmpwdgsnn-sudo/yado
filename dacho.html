@@ -663,6 +663,34 @@ async function doJsonImport(){
 
 // ===== 起動 =====
 init();
+
+// 予約管理アプリからのデータを自動取込
+(function(){
+  const raw=localStorage.getItem('dacho_import_data');
+  if(!raw)return;
+  localStorage.removeItem('dacho_import_data');
+  let arr;
+  try{arr=JSON.parse(raw);if(!Array.isArray(arr)||arr.length===0)return;}catch(e){return;}
+  // pendingImportにセットしてモーダルを開く
+  pendingImport=arr.map(e=>({...e,status:'pending',_dup:entries.some(d=>d.name===e.name&&d.ci===e.ci)}));
+  const newCnt=pendingImport.filter(e=>!e._dup).length;
+  const dupCnt=pendingImport.filter(e=>e._dup).length;
+  let html=`<div style="font-size:12px;color:var(--ink2);margin-bottom:8px">${arr.length}件確認。新規: ${newCnt}件 / 重複スキップ: ${dupCnt}件</div>`;
+  pendingImport.forEach((e,i)=>{
+    html+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;${e._dup?'opacity:.5':''}">
+      <input type="checkbox" id="jimp-${i}" ${e._dup?'':'checked'} ${e._dup?'disabled':''}>
+      <div><strong>${e.name||'（氏名なし）'}</strong> <span style="color:var(--ink2)">${e.route||''} / CI:${fmt(e.ci)} / ${e.pax||'?'}名</span></div>
+      ${e._dup?'<span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:4px">重複</span>':''}
+    </div>`;
+  });
+  document.getElementById('jsonPreview').innerHTML=html;
+  document.getElementById('doImportBtn').style.display=newCnt>0?'inline-flex':'none';
+  // JSONタブを選択してモーダルを開く
+  selImportTab('json',document.getElementById('itab-json'));
+  document.getElementById('importMod').classList.add('on');
+  if(newCnt>0)showToast('📥 予約管理から'+newCnt+'件の直接予約が見つかりました');
+  else showToast('ℹ️ 新規の直接予約はありません（'+dupCnt+'件は重複）');
+})();
 </script>
 </body>
 </html>

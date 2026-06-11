@@ -1400,7 +1400,7 @@ function saveBk(){
     data.payMethod=SRC_PRE_PAY[srcVal]||'';
   }else{
     data.prepaid=false;
-    if(!data.payMethod)delete data.payMethod;
+    delete data.payMethod;  // チェックなしの場合は必ずpayMethodを削除
   }
 
   if(editKey){
@@ -2472,9 +2472,9 @@ function renderCheckout(){
     if(bk.prepaid&&bk.payMethod&&!cd.paid){
       cd.payMethod=bk.payMethod;
     }
-    // 支払方法の優先順：① 既に保存済み ② 予約データのpayMethod（メール取込時にセット）③ SRC_TO_PAYのデフォルト
+    // 支払方法の優先順：① 既に保存済み ② 事前決済フラグありの場合のみpayMethod ③ SRC_TO_PAYのデフォルト
     if(!cd.payMethod){
-      if(bk.payMethod)cd.payMethod=bk.payMethod;
+      if(bk.prepaid&&bk.payMethod)cd.payMethod=bk.payMethod;
       else if(SRC_TO_PAY[bk.src])cd.payMethod=SRC_TO_PAY[bk.src];
     }
     // 直接予約で補助金（discount）がある場合は自動的にsubsidyをセット

@@ -635,6 +635,13 @@ td.c.bk:hover{filter:brightness(1.08)}
         <label class="fl">補助金名（例: 南の宝箱かごしま宿泊割）</label>
         <input class="fi" id="fSubsidy" type="text" placeholder="補助金・割引名">
       </div>
+      <div class="fg" id="fPrepaidGroup" style="display:none">
+        <label class="fl">決済</label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;background:#fffef9">
+          <input type="checkbox" id="fPrepaid" style="width:16px;height:16px;cursor:pointer">
+          <span style="font-size:13px">✅ 事前カード決済済み</span>
+        </label>
+      </div>
       <div class="fg">
         <label class="fl">ペット</label>
         <select class="fsel" id="fPet">
@@ -1284,6 +1291,7 @@ function openManual(room,ds){
   document.getElementById('fBookDate').value=todayStr;
   document.getElementById('fDiscount').value='0';
   document.getElementById('fSubsidy').value='';
+  document.getElementById('fPrepaid').checked=false;
   updateDiscountVisibility();
   document.getElementById('manualMod').classList.add('on');
   setTimeout(()=>document.getElementById('fName').focus(),100);
@@ -1296,6 +1304,8 @@ function updateDiscountVisibility(){
   document.getElementById('fSubsidyGroup').style.display='block';
   document.getElementById('fDiscountGroup').querySelector('.fl').textContent=
     isOta?'OTAポイント割引（円）':'補助金・割引額（円）';
+  // OTAの場合のみ事前カード決済チェックボックスを表示
+  document.getElementById('fPrepaidGroup').style.display=isOta?'block':'none';
 }
 
 function openDirectInput(){openManual(null,null);}
@@ -1339,6 +1349,7 @@ function editBk(room,ds){
   document.getElementById('fBookDate').value=bk.bookDate||'';
   document.getElementById('fDiscount').value=bk.discount||'0';
   document.getElementById('fSubsidy').value=bk.subsidy||'';
+  document.getElementById('fPrepaid').checked=!!(bk.prepaid);
   updateDiscountVisibility();
   document.getElementById('manualMod').classList.add('on');
 }
@@ -1381,6 +1392,16 @@ function saveBk(){
     bookDate:document.getElementById('fBookDate').value,
     ciDate:ds, isStart:true
   };
+  // 事前カード決済チェックボックス
+  const OTA_SRCS2=['rakuten','jalan','yahoo','yukoyuko'];
+  const SRC_PRE_PAY={'rakuten':'ota_rakuten_pre','jalan':'ota_jalan_pre','yahoo':'ota_yahoo_pre','yukoyuko':''};
+  if(OTA_SRCS2.includes(srcVal)&&document.getElementById('fPrepaid').checked){
+    data.prepaid=true;
+    data.payMethod=SRC_PRE_PAY[srcVal]||'';
+  }else{
+    data.prepaid=false;
+    if(!data.payMethod)delete data.payMethod;
+  }
 
   if(editKey){
     // 編集
@@ -1607,12 +1628,15 @@ function parseOta(){
   let m;
   if(currentOta==='rakuten'){
     m=text.match(/宿泊者氏名\s*[：:]\s*(.+)/)||text.match(/お名前\s*[：:]\s*(.+)/);if(m)d.name=cleanName(m[1]);
+    // 会員氏名（漢字）があれば優先して上書き
+    const kanjiNameM=text.match(/会員氏名[\t\s：:]+(.+)/);if(kanjiNameM){const kn=cleanName(kanjiNameM[1]);if(kn)d.name=kn;}
     m=text.match(/チェックイン日時\s*[：:]\s*(\d{4}-\d{2}-\d{2})\s*(\d{1,2}:\d{2})?/)||text.match(/チェックイン\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);
     if(m){d.ciDate=normDate(m[1])||m[1];if(m[2])d.ci=m[2];}
     m=text.match(/泊数\s*[：:]\s*(\d+)/)||text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
+    if(!m){const coM2=text.match(/チェックアウト日時[\t\s：:]+([\d]{4}-[\d]{2}-[\d]{2})/);if(coM2&&d.ciDate){const ci2=new Date(d.ciDate);const co2=new Date(coM2[1]);const n2=Math.round((co2-ci2)/86400000);if(n2>0)d.nights=n2;}}
     m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/)||text.match(/大人(\d+)人/);if(m)d.paxAdult=m[1];
     // 料金：合計(A)を定価として優先（現地徴収額は0円になる場合があるので使わない）
-    m=text.match(/合計\(A\)\s*[：:]\s*([\d,]+)円/)||text.match(/合計[：:]\s*([\d,]+)円/);
+    m=text.match(/合計\(A\)\s*[：:]\s*([\d,]+)円/)||text.match(/宿泊料金合計[\t\s：:]+([\d,]+)円/)||text.match(/合計[：:]\s*([\d,]+)円/);
     if(m)d.price=m[1].replace(/,/g,'');
     // クーポン・ポイント割引：サービスクーポン(C)や楽天ポイント(B)を合算
     let totalDisc=0;
@@ -1633,6 +1657,7 @@ function parseOta(){
     m=text.match(/宿泊日時\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);
     if(m){d.ciDate=normDate(m[1]);const tm=text.match(/宿泊日時[：:][^\n]*?(\d{1,2}:\d{2})/);if(tm)d.ci=tm[1];}
     m=text.match(/泊数\s*[：:]\s*(\d+)/)||text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
+    if(!m){const coM2=text.match(/チェックアウト日時[\t\s：:]+([\d]{4}-[\d]{2}-[\d]{2})/);if(coM2&&d.ciDate){const ci2=new Date(d.ciDate);const co2=new Date(coM2[1]);const n2=Math.round((co2-ci2)/86400000);if(n2>0)d.nights=n2;}}
     // 部屋数を検出（複数部屋対応）
     const roomCountM=text.match(/部屋数\s*[：:]\s*(\d+)室/)||text.match(/(\d+)室/);
     const roomCount=roomCountM?parseInt(roomCountM[1]):1;
@@ -1640,10 +1665,10 @@ function parseOta(){
     const roomPaxMatches=[...text.matchAll(/(\d+)部屋目[^\n]*大人[：:]?\s*(\d+)名?/g)];
     // 全体の大人人数
     m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/);if(m)d.paxAdult=m[1];
-    // 料金：宿泊者への請求額（合計）を優先
-    m=text.match(/宿泊者への請求額\s*[：:]\s*([\d,]+)円/)||text.match(/合計\s*[：:]\s*([\d,]+)円[^）]/)||text.match(/合計[：:]\s*([\d,]+)円/);
+    // 料金：定価（小計・合計）を優先、ポイント・クーポン差し引き前の金額を使う
+    m=text.match(/小計[：:]\s*([\d,]+)円/)||text.match(/合計[：:]\s*([\d,]+)円(?!.*税)/)||text.match(/合計[：:]\s*([\d,]+)円/);
     if(m)d.price=m[1].replace(/,/g,'');
-    // ポイント・クーポン割引を合算
+    // ポイント・クーポン割引を合算してdiscountに保存
     let jalanDisc=0;
     const ptM2=text.match(/ポイント利用\s*[：:]\s*([\d,]+)/);
     if(ptM2)jalanDisc+=parseInt(ptM2[1].replace(/,/g,'')||'0');
@@ -1657,7 +1682,7 @@ function parseOta(){
     m=text.match(/宿泊代表者連絡先\s*[：:]\s*([\d\-]{10,})/)||text.match(/(0\d[\d\-]{8,12})(?!\d)/);if(m)d.tel=m[1];
     m=text.match(/住所\s*[：:]\s*(.+)/);if(m)d.addr=m[1].trim();
     m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
-    m=text.match(/予約者から宿への要望[^：:]*[：:]\s*([\s\S]+?)(?:\n■|\n━|$)/);if(m)d.memo=m[1].replace(/\n/g,' ').trim();
+    m=text.match(/予約者から宿への要望[^：:]*[：:]\s*([\s\S]+?)(?:\n■|\n━|\n\n|$)/);if(m){const memo=m[1].replace(/\n/g,' ').trim();if(memo&&!/^[\s（\(）\)：:\-]*$/.test(memo)&&memo.length>1)d.memo=memo;}
     // 複数部屋の場合：各部屋の料金を計算して複数データに分割
     if(roomCount>1){
       // 部屋ごとの料金を取得（「1部屋目　8,200円」形式）

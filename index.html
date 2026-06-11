@@ -1675,16 +1675,13 @@ function parseOta(){
     const cpM2=text.match(/クーポン利用\s*[：:]\s*([\d,]+)/);
     if(cpM2)jalanDisc+=parseInt(cpM2[1].replace(/,/g,'')||'0');
     if(jalanDisc>0)d.discount=String(jalanDisc);
-    // 事前精算の検出：決済情報セクション内の記述のみ対象（変更フォーム説明文の誤反応を防ぐ）
+    // 事前精算の検出：「現地精算」が明記されていれば現地、それ以外で事前フラグがあれば事前
     {
-      // ■決済情報セクションだけ切り出して判定
-      const paySection=text.match(/■決済情報[\s\S]*?(?=\n■|$)/)?.[0]||'';
-      const payLine=text.match(/決済情報\s*[：:][^\n]*/)?.[0]||'';
-      const checkTarget=paySection+payLine;
-      if(checkTarget.match(/精算不要|オンラインカード決済済|カード決済済/)
-        ||(checkTarget.match(/事前カード決済/)&&!text.match(/現地精算/))){
-        d.prepaid=true;d.payMethod='ota_jalan_pre';
-      }
+      // 予約概要・決済情報セクションを切り出す（末尾の変更フォーム説明文を除外）
+      const mainText=text.split(/キャンセル、予約内容変更をサポートデスク/)[0]||text;
+      const isGenchi=!!/現地精算/.test(mainText);
+      const isJizen=!!/精算不要|オンラインカード決済済|カード決済済|事前カード決済/.test(mainText);
+      if(isJizen&&!isGenchi){d.prepaid=true;d.payMethod='ota_jalan_pre';}
     }
     m=text.match(/宿泊代表者連絡先\s*[：:]\s*([\d\-]{10,})/)||text.match(/(0\d[\d\-]{8,12})(?!\d)/);if(m)d.tel=m[1];
     m=text.match(/住所\s*[：:]\s*(.+)/);if(m)d.addr=m[1].trim();

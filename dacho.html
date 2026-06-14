@@ -653,7 +653,7 @@ function parseJson(){
   let html=`<div style="font-size:12px;color:var(--ink2);margin-bottom:8px">${arr.length}件確認。新規: ${newCnt}件 / 重複スキップ: ${dupCnt}件</div>`;
   pendingImport.forEach((e,i)=>{
     html+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;${e._dup?'opacity:.5':''}">
-      <input type="checkbox" id="jimp-${i}" ${e._dup?'':'checked'} ${e._dup?'disabled':''}>
+      <input type="checkbox" id="jimp-${i}" ${(e._dup&&!e.cancelled)?'':'checked'} ${(e._dup&&!e.cancelled)?'disabled':''}>
       <div><strong>${e.name||'（氏名なし）'}</strong> <span style="color:var(--ink2)">${e.route||''} / CI:${fmt(e.ci)} / ${e.pax||'?'}名</span></div>
       ${e._dup?'<span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:4px">重複</span>':''}
     </div>`;
@@ -669,7 +669,7 @@ async function doJsonImport(){
     if(!cb||!cb.checked||cb.disabled)return;
     entries.push({id:nextId++,name:e.name||'',recv:e.recv||todayStr(),route:e.route||'',
       ci:e.ci||'',co:e.co||'',pax:String(e.pax||''),plan:e.plan||'',
-      price:String(e.price||''),status:'pending',memo:e.memo||''});
+      price:String(e.price||''),status:e.cancelled?'cancel':'pending',memo:e.memo||''});
     count++;
   });
   saveLocal();closeImport();renderAll();
@@ -695,7 +695,7 @@ init();
   let html=`<div style="font-size:12px;color:var(--ink2);margin-bottom:8px">${arr.length}件確認。新規: ${newCnt}件 / 重複スキップ: ${dupCnt}件</div>`;
   pendingImport.forEach((e,i)=>{
     html+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;${e._dup?'opacity:.5':''}">
-      <input type="checkbox" id="jimp-${i}" ${e._dup?'':'checked'} ${e._dup?'disabled':''}>
+      <input type="checkbox" id="jimp-${i}" ${(e._dup&&!e.cancelled)?'':'checked'} ${(e._dup&&!e.cancelled)?'disabled':''}>
       <div><strong>${e.name||'（氏名なし）'}</strong> <span style="color:var(--ink2)">${e.route||''} / CI:${fmt(e.ci)} / ${e.pax||'?'}名</span></div>
       ${e._dup?'<span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:4px">重複</span>':''}
     </div>`;

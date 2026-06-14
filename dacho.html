@@ -133,7 +133,11 @@ tr:hover td{background:#fffbe8}
   <!-- フィルター -->
   <div class="filter-bar">
     <input class="search-input" id="searchInput" placeholder="氏名・経路・NO で検索..." oninput="renderTable()" style="flex:2;min-width:140px">
-    <input class="search-input" id="ciSearch" placeholder="CI日で検索 例: 06/05" oninput="renderTable()" style="flex:1;min-width:110px">
+    <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:150px">
+      <label style="font-size:11px;color:var(--ink2);white-space:nowrap;flex-shrink:0">CI日:</label>
+      <input class="search-input" id="ciSearchPicker" type="date" onchange="renderTable()" style="flex:1;min-width:0;padding:7px 8px" value="">
+      <button class="btn btn-out btn-sm" onclick="document.getElementById('ciSearchPicker').value='';document.getElementById('ciSearchDisp').value='';renderTable()" title="CI日クリア" style="padding:7px 9px;font-size:13px">✕</button>
+    </div>
     <select class="fsel" id="filterStatus" onchange="renderTable()">
       <option value="">全ステータス</option>
       <option value="pending">未チェックイン</option>
@@ -293,14 +297,16 @@ function calcNights(ci,co){if(!ci||!co)return '';const n=(new Date(co)-new Date(
 function isToday(d){return !!(d&&d.trim()===todayStr());}
 function displayNo(e){return e.no!==undefined&&e.no!==''?String(e.no):String(e.id).padStart(3,'0');}
 function autoStatus(e){
-  if(e.status==='cancel')return 'cancel';
-  if(e.status==='checkin')return 'checkin';
+  // cancelは必ず優先（CI日が過去でも上書きしない）
+  const s=normStatus(e.status);
+  if(s==='cancel')return 'cancel';
+  if(s==='checkin')return 'checkin';
   if(e.ci&&e.ci<todayStr())return 'checkin';
   return 'pending';
 }
 function normStatus(s){
-  if(s==='checkin')return 'checkin';
-  if(s==='cancel')return 'cancel';
+  if(s==='checkin'||s==='チェックイン済')return 'checkin';
+  if(s==='cancel'||s==='キャンセル')return 'cancel';
   return 'pending';
 }
 function showToast(msg){
@@ -395,6 +401,17 @@ async function init(){
 }
 
 // ===== 描画 =====
+function onCIPickerChange(v){
+  const p=v.split('-');
+  document.getElementById('ciSearchDisp').value=v?p[0]+'/'+p[1]+'/'+p[2]:'';
+  renderTable();
+}
+function clearCISearch(){
+  document.getElementById('ciSearchPicker').value='';
+  document.getElementById('ciSearchDisp').value='';
+  renderTable();
+}
+
 function renderAll(){
   renderStats();
   renderTable();
@@ -419,14 +436,13 @@ function renderStats(){
 
 function renderTable(){
   const q=(document.getElementById('searchInput').value||'').toLowerCase();
-  const ciQ=(document.getElementById('ciSearch').value||'').toLowerCase();
+  const ciQ=(document.getElementById('ciSearchPicker').value||'').trim();
   const fs=document.getElementById('filterStatus').value;
   let rows=entries.filter(e=>{
     const s=autoStatus(e);
     const no=displayNo(e).toLowerCase();
-    const ciStr=fmtCI(e.ci).toLowerCase();
     return (!q||(e.name||'').toLowerCase().includes(q)||(e.route||'').toLowerCase().includes(q)||no.includes(q))
-        &&(!ciQ||ciStr.includes(ciQ))
+        &&(!ciQ||e.ci===ciQ)
         &&(!fs||s===fs);
   });
   rows.sort((a,b)=>(a.ci||'')>(b.ci||'')?1:(a.ci||'')<(b.ci||'')?-1:0);
@@ -631,7 +647,7 @@ function parseJson(){
   let arr;
   try{arr=JSON.parse(text.replace(/```json|```/g,'').trim());if(!Array.isArray(arr))throw new Error();}
   catch(e){alert('データの形式が正しくありません');return;}
-  pendingImport=arr.map(e=>({...e,status:'pending',_dup:entries.some(d=>d.name===e.name&&d.ci===e.ci)}));
+  pendingImport=arr.map(e=>({...e,status:e.cancelled?'cancel':'pending',_dup:entries.some(d=>d.name===e.name&&d.ci===e.ci)}));
   const newCnt=pendingImport.filter(e=>!e._dup).length;
   const dupCnt=pendingImport.filter(e=>e._dup).length;
   let html=`<div style="font-size:12px;color:var(--ink2);margin-bottom:8px">${arr.length}件確認。新規: ${newCnt}件 / 重複スキップ: ${dupCnt}件</div>`;
@@ -662,6 +678,7 @@ async function doJsonImport(){
 }
 
 // ===== 起動 =====
+document.getElementById('ciSearchPicker').value='';
 init();
 
 // 予約管理アプリからのデータを自動取込
@@ -672,7 +689,7 @@ init();
   let arr;
   try{arr=JSON.parse(raw);if(!Array.isArray(arr)||arr.length===0)return;}catch(e){return;}
   // pendingImportにセットしてモーダルを開く
-  pendingImport=arr.map(e=>({...e,status:'pending',_dup:entries.some(d=>d.name===e.name&&d.ci===e.ci)}));
+  pendingImport=arr.map(e=>({...e,status:e.cancelled?'cancel':'pending',_dup:entries.some(d=>d.name===e.name&&d.ci===e.ci)}));
   const newCnt=pendingImport.filter(e=>!e._dup).length;
   const dupCnt=pendingImport.filter(e=>e._dup).length;
   let html=`<div style="font-size:12px;color:var(--ink2);margin-bottom:8px">${arr.length}件確認。新規: ${newCnt}件 / 重複スキップ: ${dupCnt}件</div>`;

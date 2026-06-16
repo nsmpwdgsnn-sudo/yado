@@ -2963,10 +2963,12 @@ function init(){
     const el=document.getElementById(id);
     if(el)el.addEventListener('change',kinmuUpdatePreview);
   });
-  window.addEventListener('online',()=>{
-    showToast('🌐 オンライン復帰 - Supabaseに保存中...');
-    saveToSupabase();
-  });
+  setTimeout(()=>{
+    window.addEventListener('online',()=>{
+      showToast('🌐 オンライン復帰 - Supabaseに保存中...');
+      saveToSupabase();
+    });
+  },3000);
 }
 init();
 </script>

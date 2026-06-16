@@ -233,9 +233,9 @@ td.c.bk:hover{filter:brightness(1.08)}
 /* トースト */
 #toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1e1810;color:#f5f0e8;padding:10px 20px;border-radius:20px;font-size:12px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
 .checkout-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-#syncBanner{display:none;background:#fff3cd;border-bottom:2px solid #ffc107;padding:8px 14px;font-size:12px;color:#7a5800;align-items:center;gap:8px;flex-wrap:wrap}
-#syncBanner.on{display:flex}
-#syncTs{font-size:10px;color:#a07800;margin-left:auto;font-family:'DM Mono',monospace}
+#syncBanner{display:none}
+#syncTs{display:none}
+#syncIndicator{font-size:10px;padding:2px 8px;border-radius:10px;font-family:'DM Mono',monospace;transition:all .3s;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -247,6 +247,7 @@ td.c.bk:hover{filter:brightness(1.08)}
     <div class="logo-sub">妙見楽園荘　客室アサインシステム</div>
   </div>
   <div class="hdr-r">
+    <span id="syncIndicator" style="font-size:10px;padding:2px 8px;border-radius:10px;background:#2e2418;color:#a09078;font-family:'DM Mono',monospace">☁️ --:--</span>
     <button class="btn btn-gold btn-sm" onclick="openManual(null,null)">＋ 予約入力</button>
     <button class="btn btn-sm" style="background:#4a7c59;color:#fff" onclick="openDacho()">📋 直接台帳</button>
   </div>
@@ -268,13 +269,8 @@ td.c.bk:hover{filter:brightness(1.08)}
   <div class="tab" onclick="showTab('kinmu')">👷 勤怠</div>
   <div class="tab" onclick="showTab('settings')">⚙️ 設定</div>
 </div>
-<!-- 同期バナー -->
-<div id="syncBanner">
-  <span id="syncBannerMsg">⚠️ 別の端末で保存されたデータがあります。</span>
-  <button class="btn btn-sm" style="background:#ffc107;color:#1e1810;padding:4px 10px;font-size:11px" onclick="syncBannerAccept()">クラウドのデータを反映する</button>
-  <button class="btn btn-sm" style="background:transparent;border:1px solid #aaa;color:#555;padding:4px 10px;font-size:11px" onclick="syncBannerDismiss()">このデバイスで上書き保存</button>
-  <span id="syncTs"></span>
-</div>
+<!-- 同期バナー（廃止・互換性のため要素だけ残す） -->
+<div id="syncBanner" style="display:none"><span id="syncBannerMsg"></span><span id="syncTs"></span></div>
 <!-- アサイン帳 -->
 <div class="sec on" id="sec-assign">
   <div class="anav">
@@ -898,11 +894,20 @@ function save(){
   saveToSupabase(ts);
 }function queueGasSave(){}
 function updateSyncStatus(state){
+  const ind=document.getElementById('syncIndicator');
+  if(ind){
+    const t=new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+    if(state==='saving'){ind.textContent='⏳ 保存中...';ind.style.background='#3a2e18';ind.style.color='#ffc107';}
+    else if(state==='ok'){ind.textContent='☁️ '+t;ind.style.background='#1a2e1a';ind.style.color='#66bb6a';}
+    else if(state==='synced'){ind.textContent='🔄 '+t;ind.style.background='#1a2030';ind.style.color='#64b5f6';}
+    else if(state==='unsent'){ind.textContent='📵 未送信あり';ind.style.background='#2e1a1a';ind.style.color='#ef9a9a';ind.style.fontWeight='bold';}
+    else{ind.textContent='❌ オフライン';ind.style.background='#2e1a1a';ind.style.color='#ef9a9a';}
+  }
   const el=document.getElementById('gasSyncStatus');if(!el)return;
-  const map={saving:'⏳ Supabase保存中...',ok:'✅ Supabase同期済み ('+new Date().toLocaleTimeString('ja-JP')+')',error:'❌ Supabase保存失敗（ローカルは保存済み）',offline:'📴 オフライン（ローカルは保存済み）'};
+  const map={saving:'⏳ Supabase保存中...',ok:'✅ Supabase同期済み ('+new Date().toLocaleTimeString('ja-JP')+')',synced:'🔄 クラウドから自動反映済み ('+new Date().toLocaleTimeString('ja-JP')+')',unsent:'📵 未送信あり（ネット接続を確認）',error:'❌ Supabase保存失敗（ローカルは保存済み）',offline:'📴 オフライン（ローカルは保存済み）'};
   el.textContent='同期状態: '+(map[state]||state);
-  el.style.background=state==='ok'?'#e8f5e9':state==='saving'?'#fff8e1':'#fce4ec';
-  el.style.color=state==='ok'?'#2a7a4b':state==='saving'?'#e65100':'#c62828';
+  el.style.background=state==='ok'||state==='synced'?'#e8f5e9':state==='saving'?'#fff8e1':'#fce4ec';
+  el.style.color=state==='ok'||state==='synced'?'#2a7a4b':state==='saving'?'#e65100':'#c62828';
 }
 function manualSaveToGAS(){
   showToast('📤 クラウドに保存中...');
@@ -917,8 +922,15 @@ function manualSaveToGAS(){
     .catch(()=>{updateSyncStatus('offline');showToast('❌ オフライン - クラウド保存できません');});
 }
 // ===== Supabase =====
+function markUnsent(){localStorage.setItem('yado_unsent','1');}
+function clearUnsent(){localStorage.removeItem('yado_unsent');}
+function hasUnsent(){return !!localStorage.getItem('yado_unsent');}
 function saveToSupabase(ts){
   ts=ts||Date.now();
+  // 保存前にtsを確定（自動同期の誤検知防止）
+  localStorage.setItem('yado_ts',String(ts));
+  markUnsent();
+  updateSyncStatus('saving');
   const payload={bks,unassigned,roomStatus,checkoutData,cancelledBks,kinmuRecords,kinmuStaffList,kinmuSettings,ts};
   fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.1',{
     method:'PATCH',
@@ -930,14 +942,14 @@ function saveToSupabase(ts){
         method:'POST',
         headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
         body:JSON.stringify({id:1,payload:JSON.stringify(payload)})
-      }).then(r2=>{if(r2.ok)updateSyncStatus('ok');else updateSyncStatus('error');})
-        .catch(e=>{console.error('Supabase insert error',e);updateSyncStatus('offline');});
+      }).then(r2=>{if(r2.ok){clearUnsent();updateSyncStatus('ok');}else updateSyncStatus('error');})
+        .catch(e=>{console.error('Supabase insert error',e);updateSyncStatus('unsent');});
     } else if(r.ok){
-      updateSyncStatus('ok');
+      clearUnsent();updateSyncStatus('ok');
     } else {
-      updateSyncStatus('error');
+      updateSyncStatus('unsent');
     }
-  }).catch(e=>{console.error('Supabase save error',e);updateSyncStatus('offline');});
+  }).catch(e=>{console.error('Supabase save error',e);updateSyncStatus('unsent');});
 }
 function loadFromSupabase(){
   showToast('☁️ Supabaseから読み込み中...');
@@ -2899,42 +2911,19 @@ function kinmuDeleteRecord(){
   kinmuSave();kinmuCloseRecord();kinmuRenderMonthly();
   showToast('🗑️ 削除しました');
 }
-// ===== 同期バナー =====
-function syncBannerAccept(){
-  const d=window._pendingCloudData;
-  if(!d){document.getElementById('syncBanner').classList.remove('on');return;}
-  if(d.bks)bks=d.bks;if(d.unassigned)unassigned=d.unassigned;if(d.roomStatus)roomStatus=d.roomStatus;
-  if(d.checkoutData)checkoutData=d.checkoutData;if(d.cancelledBks)cancelledBks=d.cancelledBks;
-  if(d.kinmuRecords)kinmuRecords=d.kinmuRecords;if(d.kinmuStaffList)kinmuStaffList=d.kinmuStaffList;if(d.kinmuSettings)kinmuSettings=d.kinmuSettings;
-  normalizeDates();
-  try{localStorage.setItem('yado_bks',JSON.stringify(bks));}catch(e){}
-  try{localStorage.setItem('yado_ua',JSON.stringify(unassigned));}catch(e){}
-  try{localStorage.setItem('yado_rs',JSON.stringify(roomStatus));}catch(e){}
-  try{localStorage.setItem('yado_co',JSON.stringify(checkoutData));}catch(e){}
-  try{localStorage.setItem('yado_cancelled',JSON.stringify(cancelledBks));}catch(e){}
-  try{localStorage.setItem('kinmu_records',JSON.stringify(kinmuRecords));}catch(e){}
-  try{localStorage.setItem('kinmu_staff',JSON.stringify(kinmuStaffList));}catch(e){}
-  try{localStorage.setItem('kinmu_settings',JSON.stringify(kinmuSettings));}catch(e){}
-  localStorage.setItem('yado_ts',String(d.ts));
-  ROOMS.forEach(r=>{if(!roomStatus[r.no])roomStatus[r.no]='empty';});
-  rebuildAllSpans();render();renderUnassigned();renderLedger();
-  window._pendingCloudData=null;
-  document.getElementById('syncBanner').classList.remove('on');
-  showToast('✅ クラウドのデータを反映しました');
-}
-function syncBannerDismiss(){
-  window._pendingCloudData=null;
-  document.getElementById('syncBanner').classList.remove('on');
-  save();showToast('📌 このデバイスのデータで上書き保存しました');
-}
+// ===== 同期バナー（廃止済み・互換性のみ） =====
+function syncBannerAccept(){/* 廃止 - 自動同期に変更 */}
+function syncBannerDismiss(){/* 廃止 - 自動同期に変更 */}
 // ===== 初期化 =====
 function init(){
   const n=new Date();cy=n.getFullYear();cm=n.getMonth();
   load();kinmuLoad();
   render();renderUnassigned();renderLedger();
   const _kn=new Date();kinmuCy=_kn.getFullYear();kinmuCm=_kn.getMonth()+1;
-  // 起動時はバナーで通知のみ（サイレント上書きしない）
-  function checkCloudSync(){
+  // 起動時インジケーター初期化
+  updateSyncStatus(hasUnsent()?'unsent':localStorage.getItem('yado_ts')?'ok':'offline');
+  // 自動同期（バナーなし・サイレント反映）
+  function autoSyncFromCloud(){
     fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.1&select=payload',{
       headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
     }).then(r=>r.json()).then(rows=>{
@@ -2942,22 +2931,29 @@ function init(){
       const d=JSON.parse(rows[0].payload);
       const localTs=parseInt(localStorage.getItem('yado_ts')||'0');
       const cloudTs=parseInt(d.ts||'0');
-      // クラウドが1秒以上新しければバナー表示（タイムスタンプのズレを考慮）
-      // 5秒以上の差がある場合のみバナー表示（同一端末での微小なズレを無視）
-      if(cloudTs<=localTs+5000)return;
-      // 既にバナー表示中なら更新しない
-      if(window._pendingCloudData)return;
-      window._pendingCloudData=d;
-      const cloudTime=new Date(cloudTs).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-      const localTime=localTs>0?new Date(localTs).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'なし';
-      document.getElementById('syncBannerMsg').textContent='⚠️ 別の端末で保存されたデータがあります（クラウド更新: '+cloudTime+'）';
-      document.getElementById('syncTs').textContent='このデバイスの保存: '+localTime;
-      document.getElementById('syncBanner').classList.add('on');
+      if(cloudTs<=localTs+5000)return; // クラウドが新しくなければ何もしない
+      // モーダルが開いていたらスキップ（入力中データを守る）
+      const modal=document.querySelector('.modal.on, .modal-overlay.on');
+      if(modal)return;
+      // サイレント自動反映
+      if(d.bks)bks=d.bks;if(d.unassigned)unassigned=d.unassigned;if(d.roomStatus)roomStatus=d.roomStatus;
+      if(d.checkoutData)checkoutData=d.checkoutData;if(d.cancelledBks)cancelledBks=d.cancelledBks;
+      if(d.kinmuRecords)kinmuRecords=d.kinmuRecords;if(d.kinmuStaffList)kinmuStaffList=d.kinmuStaffList;if(d.kinmuSettings)kinmuSettings=d.kinmuSettings;
+      localStorage.setItem('yado_ts',String(d.ts));
+      clearUnsent();
+      normalizeDates();
+      try{localStorage.setItem('yado_bks',JSON.stringify(bks));}catch(e){}
+      try{localStorage.setItem('yado_ua',JSON.stringify(unassigned));}catch(e){}
+      try{localStorage.setItem('yado_rs',JSON.stringify(roomStatus));}catch(e){}
+      try{localStorage.setItem('yado_co',JSON.stringify(checkoutData));}catch(e){}
+      try{localStorage.setItem('yado_cancelled',JSON.stringify(cancelledBks));}catch(e){}
+      ROOMS.forEach(r=>{if(!roomStatus[r.no])roomStatus[r.no]='empty';});
+      rebuildAllSpans();render();renderUnassigned();renderLedger();
+      updateSyncStatus('synced');
     }).catch(e=>console.error('sync check error',e));
   }
-  checkCloudSync();
-  // 60秒ごとに定期チェック（タブを開きっぱなしでも検知できる）
-  setInterval(checkCloudSync, 60000);
+  autoSyncFromCloud();
+  setInterval(autoSyncFromCloud, 30000);
   // オンライン復帰時にペンディング保存を再試行
   ['kRStaff','kRStart','kREnd','kRTransport','kRBath'].forEach(id=>{
     const el=document.getElementById(id);
@@ -2965,8 +2961,10 @@ function init(){
   });
   setTimeout(()=>{
     window.addEventListener('online',()=>{
-      showToast('🌐 オンライン復帰 - Supabaseに保存中...');
-      saveToSupabase();
+      if(hasUnsent()){
+        showToast('🌐 オンライン復帰 - 未送信データをSupabaseに保存中...');
+        saveToSupabase();
+      }
     });
   },3000);
 }

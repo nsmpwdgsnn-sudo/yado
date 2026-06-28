@@ -2333,6 +2333,8 @@ function renderMonthlyCheckout(){
   rows.sort((a,b)=>a.ds.localeCompare(b.ds)||a.room.localeCompare(b.room));
 
   // 集計
+  // actualPay = 定価 - 割引 + ペット + 追加 → これが「実際に受け取るべき金額」
+  // 精算済み・未精算ともに actualPay ベースで統一することで合計が一致する
   let totals={cash:0,rakuten_pay:0,paypay:0,dpay:0,bank_transfer:0,subsidy:0,tr_rakuten:0,tr_jalan:0,jalan_point:0,tr_yahoo:0,yahoo_local:0,yukoyuko_local:0,unpaid:0};
   let totBasePrice=0,totUnpaid=0;
   rows.forEach(r=>{
@@ -2341,10 +2343,9 @@ function renderMonthlyCheckout(){
       const buckets=payToBucket(r.cd.payMethod,{price:r.basePrice},r.discount);
       buckets.forEach(b=>{if(totals[b.bucket]!==undefined)totals[b.bucket]+=b.amt;});
     }else{
-      // 未精算も実受取額（定価-割引）で統一
-      const unpaidAmt=r.basePrice-(r.discount||0);
-      totals.unpaid+=unpaidAmt;
-      totUnpaid+=unpaidAmt;
+      // 未精算は定価ベース（割引分はOTA・補助金から別途回収されるため）
+      totals.unpaid+=r.basePrice;
+      totUnpaid+=r.basePrice;
     }
   });
   // 楽天ペイ振込に現地OTA分を集約

@@ -778,6 +778,7 @@ const PAY_LABELS_GLOBAL={
   ota_yahoo_pre:'ヤフー事前決済',
   ota_yahoo_local:'ヤフー現地',
   ota_yukoyuko:'ゆこゆこ現地',
+  bank_transfer:'銀行口座振込',
 };
 // 支払方法→集計バケット変換
 function payToBucket(method, bk, discount){
@@ -794,6 +795,8 @@ function payToBucket(method, bk, discount){
       return disc>0?[{bucket:'paypay',amt:actual},{bucket:'subsidy',amt:disc}]:[{bucket:'paypay',amt:actual}];
     case 'dpay':
       return disc>0?[{bucket:'dpay',amt:actual},{bucket:'subsidy',amt:disc}]:[{bucket:'dpay',amt:actual}];
+    case 'bank_transfer':
+      return disc>0?[{bucket:'bank_transfer',amt:actual},{bucket:'subsidy',amt:disc}]:[{bucket:'bank_transfer',amt:actual}];
     case 'subsidy':       return [{bucket:'subsidy',     amt:actual}];
     case 'ota_rakuten_pre':  return [{bucket:'tr_rakuten',  amt:base}]; // 楽天T振込（定価全額）
     case 'ota_rakuten_local': // 楽天T現地→楽天ペイ（デフォルト）
@@ -1403,40 +1406,19 @@ function saveBk(){
     const idx=editKey.indexOf('_');const oldRoom=editKey.substring(0,idx);
     const targetRoom=room||oldRoom; // 部屋が空欄の場合は元の部屋を引き継ぐ
     const newKey=targetRoom+'_'+ds;
-    // 移動先の全泊数分のセルで重複チェック
-    const editConflicts=[];
-    for(let i=0;i<nights;i++){
-      const [ey,emo,ed]=ds.split('-').map(Number);
-      const end=new Date(ey,emo-1,ed+i);
-      const checkKey=targetRoom+'_'+fmt(end.getFullYear(),end.getMonth()+1,end.getDate());
-      if(checkKey===editKey)continue; // 自分自身はスキップ
-      const existing=bks[checkKey];
-      if(!existing)continue;
-      if(existing.isStart===false||existing.isStart===0||existing.isStart==='false'){
-        const parentKey=existing.parentKey;
-        if(parentKey&&parentKey!==editKey&&bks[parentKey]&&!editConflicts.some(c=>c.key===parentKey)){
-          editConflicts.push({key:parentKey,bk:bks[parentKey],dayOffset:i});
-        }
-      }else{
-        if(!editConflicts.some(c=>c.key===checkKey)){
-          editConflicts.push({key:checkKey,bk:existing,dayOffset:i});
-        }
-      }
-    }
-    if(editConflicts.length>0){
-      const lines=editConflicts.map(c=>{
-        const offset=c.dayOffset===0?'チェックイン日':`${c.dayOffset+1}日目`;
-        return `【${offset}】「${c.bk.name||'（名前なし）'}」様（${c.bk.nights||1}泊）`;
-      }).join('\n');
-      if(!confirm("⚠️ "+targetRoom+"号室に既存の予約があります:\n\n"+lines+"\n\n上書きしてよいですか？\n（キャンセルすると既存予約を維持します）")){
+    // 移動先に別の予約があれば警告して確認
+    if(bks[newKey]&&bks[newKey].isStart!==false&&newKey!==editKey){
+      const existing=bks[newKey];
+      const existName=existing.name||"（名前なし）";
+      const existNights=existing.nights||1;
+      if(!confirm("⚠️ "+targetRoom+"号室の"+ds+"には\n「"+existName+"」様（"+existNights+"泊）の予約が入っています。\n\n上書きしてよいですか？\n（キャンセルすると既存予約を維持します）")){
         // キャンセルされたら元の予約を復元
         bks[editKey]=oldBk;
         markSpan(oldRoom,editKey.substring(editKey.indexOf("_")+1),oldBk.nights,editKey);
         return;
       }
-      const cleared=new Set();
-      editConflicts.forEach(c=>{if(!cleared.has(c.key)){clearSpan(c.key);delete bks[c.key];cleared.add(c.key);}});
-    }else if(bks[newKey]&&newKey!==editKey)delete bks[newKey];
+      clearSpan(newKey);delete bks[newKey];
+    }else if(bks[newKey])delete bks[newKey];
     data.room=targetRoom;
     bks[newKey]=data;
     markSpan(targetRoom,ds,nights,newKey);
@@ -1444,35 +1426,15 @@ function saveBk(){
     // 新規 部屋あり
     data.no=genReceiptNo(srcVal);
     const key=room+"_"+ds;
-    // 重複チェック：新規予約の全泊数分を確認
-    const newConflicts=[];
-    for(let i=0;i<nights;i++){
-      const [ny,nmo,nd2]=ds.split('-').map(Number);
-      const nd3=new Date(ny,nmo-1,nd2+i);
-      const checkKey=room+'_'+fmt(nd3.getFullYear(),nd3.getMonth()+1,nd3.getDate());
-      const existing=bks[checkKey];
-      if(!existing)continue;
-      if(existing.isStart===false||existing.isStart===0||existing.isStart==='false'){
-        const parentKey=existing.parentKey;
-        if(parentKey&&bks[parentKey]&&!newConflicts.some(c=>c.key===parentKey)){
-          newConflicts.push({key:parentKey,bk:bks[parentKey],dayOffset:i});
-        }
-      }else{
-        if(!newConflicts.some(c=>c.key===checkKey)){
-          newConflicts.push({key:checkKey,bk:existing,dayOffset:i});
-        }
-      }
-    }
-    if(newConflicts.length>0){
-      const lines=newConflicts.map(c=>{
-        const offset=c.dayOffset===0?'チェックイン日':`${c.dayOffset+1}日目`;
-        return `【${offset}】「${c.bk.name||'（名前なし）'}」様（${c.bk.nights||1}泊）`;
-      }).join('\n');
-      if(!confirm("⚠️ "+room+"号室に既存の予約があります:\n\n"+lines+"\n\n上書きしてよいですか？\n（キャンセルすると既存予約を維持します）")){
+    // 重複チェック：既存予約がある場合は警告
+    if(bks[key]&&bks[key].isStart!==false){
+      const existing=bks[key];
+      const existName=existing.name||"（名前なし）";
+      const existNights=existing.nights||1;
+      if(!confirm("⚠️ "+room+"号室の"+ds+"には\n「"+existName+"」様（"+existNights+"泊）の予約が入っています。\n\n上書きしてよいですか？\n（キャンセルすると既存予約を維持します）")){
         return;
       }
-      const cleared=new Set();
-      newConflicts.forEach(c=>{if(!cleared.has(c.key)){clearSpan(c.key);delete bks[c.key];cleared.add(c.key);}});
+      clearSpan(key);
     }
     data.room=room;
     bks[key]=data;
@@ -1611,47 +1573,21 @@ function doAssign(){
     if(!dsRaw){alert('チェックイン日が未設定です。先に編集してください');closeAssign();return;}
     const dsParts=dsRaw.replace(/\//g,'-').split('-');
     const ds=dsParts.length===3?fmt(parseInt(dsParts[0]),parseInt(dsParts[1]),parseInt(dsParts[2])):dsRaw;
-    const nights=parseInt(u.nights)||1;
-    // 重複チェック：割り当て予定の全泊数分のセルを確認
-    const conflictKeys=[];
-    for(let i=0;i<nights;i++){
-      const [y,mo,d]=ds.split('-').map(Number);
-      const nd=new Date(y,mo-1,d+i);
-      const checkKey=room+'_'+fmt(nd.getFullYear(),nd.getMonth()+1,nd.getDate());
-      const existing=bks[checkKey];
-      if(!existing)continue;
-      // isStart===false の場合は親キーを探して既存予約情報を取得
-      if(existing.isStart===false||existing.isStart===0||existing.isStart==='false'){
-        const parentKey=existing.parentKey;
-        const parent=parentKey&&bks[parentKey];
-        if(parent&&!conflictKeys.some(c=>c.key===parentKey)){
-          conflictKeys.push({key:parentKey,bk:parent,dayOffset:i});
-        }
-      }else{
-        if(!conflictKeys.some(c=>c.key===checkKey)){
-          conflictKeys.push({key:checkKey,bk:existing,dayOffset:i});
-        }
-      }
-    }
-    if(conflictKeys.length>0){
-      const lines=conflictKeys.map(c=>{
-        const offset=c.dayOffset===0?'チェックイン日':`${c.dayOffset+1}日目`;
-        return `【${offset}】「${c.bk.name||'（名前なし）'}」様（${c.bk.nights||1}泊）`;
-      }).join('\n');
-      if(!confirm(`⚠️ ${room}号室に既存の予約があります:\n\n${lines}\n\n上書きしてよいですか？\n（キャンセルすると既存予約を維持します）`)){
+    const key=room+'_'+ds;
+    // 既存予約との重複チェック
+    if(bks[key]&&bks[key].isStart!==false){
+      const existing=bks[key];
+      const existName=existing.name||'（名前なし）';
+      const existNights=existing.nights||1;
+      if(!confirm(`⚠️ ${room}号室の${ds}には\n「${existName}」様（${existNights}泊）の予約が入っています。\n\n上書きしてよいですか？\n（キャンセルすると既存予約を維持します）`)){
         return;
       }
-      // 上書き確認後：既存予約のスパンをすべてクリア
-      const cleared=new Set();
-      conflictKeys.forEach(c=>{
-        if(!cleared.has(c.key)){clearSpan(c.key);delete bks[c.key];cleared.add(c.key);}
-      });
+      clearSpan(key);
     }
     const data=JSON.parse(JSON.stringify(u));
     data.isStart=true;data.room=room;
-    const key=room+'_'+ds;
     bks[key]=data;
-    markSpan(room,ds,nights,key);
+    markSpan(room,ds,parseInt(u.nights)||1,key);
     unassigned.splice(assigningIdx,1);
     assigningIdx=null;
     save();closeAssign();renderUnassigned();renderLedger();
@@ -2400,7 +2336,7 @@ function renderMonthlyCheckout(){
   rows.sort((a,b)=>a.ds.localeCompare(b.ds)||a.room.localeCompare(b.room));
 
   // 集計
-  let totals={cash:0,rakuten_pay:0,paypay:0,dpay:0,subsidy:0,tr_rakuten:0,tr_jalan:0,jalan_point:0,tr_yahoo:0,yahoo_local:0,yukoyuko_local:0,unpaid:0};
+  let totals={cash:0,rakuten_pay:0,paypay:0,dpay:0,bank_transfer:0,subsidy:0,tr_rakuten:0,tr_jalan:0,jalan_point:0,tr_yahoo:0,yahoo_local:0,yukoyuko_local:0,unpaid:0};
   let totBasePrice=0,totPaid=0,totUnpaid=0;
   rows.forEach(r=>{
     totBasePrice+=r.basePrice;
@@ -2432,6 +2368,7 @@ function renderMonthlyCheckout(){
     ${totRakutenPay?scard('楽天ペイ振込',totRakutenPay,'#cc0000','OTA現地＋直接予約カード'):scard('楽天ペイ振込',0)}
     ${totals.paypay?scard('PayPay振込',totals.paypay,'#1a9f2a'):''}
     ${totals.dpay?scard('d払い振込',totals.dpay,'#c00060'):''}
+    ${totals.bank_transfer?scard('銀行口座振込',totals.bank_transfer,'#5b4a00'):''}
     ${totals.subsidy?scard('補助金振込',totals.subsidy,'#2a5fa8','かごしま割等'):''}
     ${totals.tr_rakuten?scard('楽天T振込',totals.tr_rakuten,'#cc0000','事前カード決済'):''}
     ${totals.tr_jalan?scard('じゃらん振込',totals.tr_jalan,'#007a35','事前精算残金'):''}
@@ -2509,11 +2446,11 @@ function renderCheckout(){
     if(src==='yahoo')   return ['ota_yahoo_pre','ota_yahoo_local','cash','rakuten_pay'];
     if(src==='yukoyuko')return ['cash','rakuten_pay','paypay','dpay'];
     // 直接予約：補助金は予約時に自動セットされるのでボタン不要
-    return ['cash','rakuten_pay','paypay','dpay'];
+    return ['cash','rakuten_pay','paypay','dpay','bank_transfer'];
   }
 
   // 集計バケット
-  let totals={cash:0,rakuten_pay:0,paypay:0,dpay:0,subsidy:0,tr_rakuten:0,tr_jalan:0,jalan_point:0,tr_yahoo:0,yahoo_local:0,yukoyuko_local:0,unpaid:0};
+  let totals={cash:0,rakuten_pay:0,paypay:0,dpay:0,bank_transfer:0,subsidy:0,tr_rakuten:0,tr_jalan:0,jalan_point:0,tr_yahoo:0,yahoo_local:0,yukoyuko_local:0,unpaid:0};
   let totBasePrice=0;
 
   content.innerHTML=ciRooms.map(({room,bk,key})=>{
@@ -2585,7 +2522,8 @@ function renderCheckout(){
   const totTrJalan=totals.tr_jalan||0;
   const totJalanPoint=totals.jalan_point||0;
   const totTrYahoo=totals.tr_yahoo||0;
-  const grandTotal=totCash+totRakutenPay+totPayPay+totDpay+totSubsidy+totTrRakuten+totTrJalan+totJalanPoint+totTrYahoo;
+  const totBankTransfer=totals.bank_transfer||0;
+  const grandTotal=totCash+totRakutenPay+totPayPay+totDpay+totBankTransfer+totSubsidy+totTrRakuten+totTrJalan+totJalanPoint+totTrYahoo;
 
   function scard(label,val,color=''){
     const v=val>0?`<strong style="font-family:'DM Mono',monospace${color?';color:'+color:''}">${val.toLocaleString()}円</strong>`:`<strong style="color:#bbb">—</strong>`;
@@ -2598,6 +2536,7 @@ function renderCheckout(){
     ${scard('楽天ペイ振込',totRakutenPay,'#cc0000')}
     ${totPayPay>0?scard('PayPay振込',totPayPay,'#1a9f2a'):''}
     ${totDpay>0?scard('d払い振込',totDpay,'#c00060'):''}
+    ${totals.bank_transfer>0?scard('銀行口座振込',totals.bank_transfer,'#5b4a00'):''}
     ${totSubsidy>0?scard('補助金振込',totSubsidy,'#2a5fa8'):''}
     ${totTrRakuten>0?scard('楽天T振込',totTrRakuten,'#cc0000'):''}
     ${totTrJalan>0?scard('じゃらん振込',totTrJalan,'#007a35'):''}

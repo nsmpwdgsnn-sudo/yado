@@ -2333,22 +2333,22 @@ function renderMonthlyCheckout(){
   rows.sort((a,b)=>a.ds.localeCompare(b.ds)||a.room.localeCompare(b.room));
 
   // 集計
-  let totals={cash:0,rakuten_pay:0,paypay:0,dpay:0,subsidy:0,tr_rakuten:0,tr_jalan:0,jalan_point:0,tr_yahoo:0,yahoo_local:0,yukoyuko_local:0,unpaid:0};
-  let totBasePrice=0,totPaid=0,totUnpaid=0;
+  let totals={cash:0,rakuten_pay:0,paypay:0,dpay:0,bank_transfer:0,subsidy:0,tr_rakuten:0,tr_jalan:0,jalan_point:0,tr_yahoo:0,yahoo_local:0,yukoyuko_local:0,unpaid:0};
+  let totBasePrice=0,totUnpaid=0;
   rows.forEach(r=>{
     totBasePrice+=r.basePrice;
-    const actualAmt=r.basePrice-r.discount; // 実受取額（割引後）
     if(r.cd.paid){
       const buckets=payToBucket(r.cd.payMethod,{price:r.basePrice},r.discount);
       buckets.forEach(b=>{if(totals[b.bucket]!==undefined)totals[b.bucket]+=b.amt;});
-      totPaid+=actualAmt; // 精算済み＝実受取額ベース（各項目合計と一致）
     }else{
-      totals.unpaid+=actualAmt; // 未精算も実受取額ベースで統一
-      totUnpaid+=actualAmt;
+      totals.unpaid+=r.basePrice;
+      totUnpaid+=r.basePrice;
     }
   });
   // 楽天ペイ振込に現地OTA分を集約
   const totRakutenPay=(totals.rakuten_pay||0)+(totals.yahoo_local||0)+(totals.yukoyuko_local||0);
+  // 精算済み＝全バケット合算（unpaid除く）→ 各項目合計と必ず一致
+  const totPaid=totals.cash+totRakutenPay+totals.paypay+totals.dpay+totals.bank_transfer+totals.subsidy+totals.tr_rakuten+totals.tr_jalan+totals.jalan_point+totals.tr_yahoo;
 
   function scard(label,val,color,sub){
     if(!val&&val!==0)return '';
@@ -2361,7 +2361,7 @@ function renderMonthlyCheckout(){
 
   document.getElementById('coMonthlySummary').innerHTML=`
     ${scard('宿泊件数',rows.length+'件','')}
-    ${scard('宿泊料金合計',totBasePrice,'','割引前定価')}
+    ${scard('宿泊料金合計',totBasePrice)}
     ${scard('現金',totals.cash,'#2a7a4b')}
     ${totRakutenPay?scard('楽天ペイ振込',totRakutenPay,'#cc0000','OTA現地＋直接予約カード'):scard('楽天ペイ振込',0)}
     ${totals.paypay?scard('PayPay振込',totals.paypay,'#1a9f2a'):''}
@@ -2527,7 +2527,7 @@ function renderCheckout(){
   }
   summary.innerHTML=`
     ${scard('宿泊件数（CIのみ）',ciRooms.length+'件'.replace('円',''))}
-    ${scard('宿泊料金合計',totBasePrice,'','割引前定価')}
+    ${scard('宿泊料金合計',totBasePrice)}
     ${scard('現金',totCash,'#2a7a4b')}
     ${scard('楽天ペイ振込',totRakutenPay,'#cc0000')}
     ${totPayPay>0?scard('PayPay振込',totPayPay,'#1a9f2a'):''}

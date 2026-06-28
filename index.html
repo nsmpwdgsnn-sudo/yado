@@ -2341,8 +2341,10 @@ function renderMonthlyCheckout(){
       const buckets=payToBucket(r.cd.payMethod,{price:r.basePrice},r.discount);
       buckets.forEach(b=>{if(totals[b.bucket]!==undefined)totals[b.bucket]+=b.amt;});
     }else{
-      totals.unpaid+=r.basePrice;
-      totUnpaid+=r.basePrice;
+      // 未精算も実受取額（定価-割引）で統一
+      const unpaidAmt=r.basePrice-(r.discount||0);
+      totals.unpaid+=unpaidAmt;
+      totUnpaid+=unpaidAmt;
     }
   });
   // 楽天ペイ振込に現地OTA分を集約
@@ -2361,7 +2363,7 @@ function renderMonthlyCheckout(){
 
   document.getElementById('coMonthlySummary').innerHTML=`
     ${scard('宿泊件数',rows.length+'件','')}
-    ${scard('宿泊料金合計',totBasePrice)}
+    ${scard('宿泊料金合計',totBasePrice,'#888','定価（参考）')}
     ${scard('現金',totals.cash,'#2a7a4b')}
     ${totRakutenPay?scard('楽天ペイ振込',totRakutenPay,'#cc0000','OTA現地＋直接予約カード'):scard('楽天ペイ振込',0)}
     ${totals.paypay?scard('PayPay振込',totals.paypay,'#1a9f2a'):''}
@@ -2527,7 +2529,7 @@ function renderCheckout(){
   }
   summary.innerHTML=`
     ${scard('宿泊件数（CIのみ）',ciRooms.length+'件'.replace('円',''))}
-    ${scard('宿泊料金合計',totBasePrice)}
+    ${scard('宿泊料金合計',totBasePrice,'#888','定価（参考）')}
     ${scard('現金',totCash,'#2a7a4b')}
     ${scard('楽天ペイ振込',totRakutenPay,'#cc0000')}
     ${totPayPay>0?scard('PayPay振込',totPayPay,'#1a9f2a'):''}

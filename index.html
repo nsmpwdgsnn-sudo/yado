@@ -778,7 +778,6 @@ const PAY_LABELS_GLOBAL={
   ota_yahoo_pre:'ヤフー事前決済',
   ota_yahoo_local:'ヤフー現地',
   ota_yukoyuko:'ゆこゆこ現地',
-  bank_transfer:'銀行口座振込',
 };
 // 支払方法→集計バケット変換
 function payToBucket(method, bk, discount){
@@ -795,8 +794,6 @@ function payToBucket(method, bk, discount){
       return disc>0?[{bucket:'paypay',amt:actual},{bucket:'subsidy',amt:disc}]:[{bucket:'paypay',amt:actual}];
     case 'dpay':
       return disc>0?[{bucket:'dpay',amt:actual},{bucket:'subsidy',amt:disc}]:[{bucket:'dpay',amt:actual}];
-    case 'bank_transfer':
-      return disc>0?[{bucket:'bank_transfer',amt:actual},{bucket:'subsidy',amt:disc}]:[{bucket:'bank_transfer',amt:actual}];
     case 'subsidy':       return [{bucket:'subsidy',     amt:actual}];
     case 'ota_rakuten_pre':  return [{bucket:'tr_rakuten',  amt:base}]; // 楽天T振込（定価全額）
     case 'ota_rakuten_local': // 楽天T現地→楽天ペイ（デフォルト）
@@ -2336,17 +2333,18 @@ function renderMonthlyCheckout(){
   rows.sort((a,b)=>a.ds.localeCompare(b.ds)||a.room.localeCompare(b.room));
 
   // 集計
-  let totals={cash:0,rakuten_pay:0,paypay:0,dpay:0,bank_transfer:0,subsidy:0,tr_rakuten:0,tr_jalan:0,jalan_point:0,tr_yahoo:0,yahoo_local:0,yukoyuko_local:0,unpaid:0};
+  let totals={cash:0,rakuten_pay:0,paypay:0,dpay:0,subsidy:0,tr_rakuten:0,tr_jalan:0,jalan_point:0,tr_yahoo:0,yahoo_local:0,yukoyuko_local:0,unpaid:0};
   let totBasePrice=0,totPaid=0,totUnpaid=0;
   rows.forEach(r=>{
     totBasePrice+=r.basePrice;
+    const actualAmt=r.basePrice-r.discount; // 実受取額（割引後）
     if(r.cd.paid){
       const buckets=payToBucket(r.cd.payMethod,{price:r.basePrice},r.discount);
       buckets.forEach(b=>{if(totals[b.bucket]!==undefined)totals[b.bucket]+=b.amt;});
-      totPaid+=r.basePrice; // 精算済み合計も定価ベース
+      totPaid+=actualAmt; // 精算済み＝実受取額ベース（各項目合計と一致）
     }else{
-      totals.unpaid+=r.basePrice;
-      totUnpaid+=r.basePrice;
+      totals.unpaid+=actualAmt; // 未精算も実受取額ベースで統一
+      totUnpaid+=actualAmt;
     }
   });
   // 楽天ペイ振込に現地OTA分を集約
@@ -2363,12 +2361,11 @@ function renderMonthlyCheckout(){
 
   document.getElementById('coMonthlySummary').innerHTML=`
     ${scard('宿泊件数',rows.length+'件','')}
-    ${scard('宿泊料金合計',totBasePrice)}
+    ${scard('宿泊料金合計',totBasePrice,'','割引前定価')}
     ${scard('現金',totals.cash,'#2a7a4b')}
     ${totRakutenPay?scard('楽天ペイ振込',totRakutenPay,'#cc0000','OTA現地＋直接予約カード'):scard('楽天ペイ振込',0)}
     ${totals.paypay?scard('PayPay振込',totals.paypay,'#1a9f2a'):''}
     ${totals.dpay?scard('d払い振込',totals.dpay,'#c00060'):''}
-    ${totals.bank_transfer?scard('銀行口座振込',totals.bank_transfer,'#5b4a00'):''}
     ${totals.subsidy?scard('補助金振込',totals.subsidy,'#2a5fa8','かごしま割等'):''}
     ${totals.tr_rakuten?scard('楽天T振込',totals.tr_rakuten,'#cc0000','事前カード決済'):''}
     ${totals.tr_jalan?scard('じゃらん振込',totals.tr_jalan,'#007a35','事前精算残金'):''}
@@ -2446,11 +2443,11 @@ function renderCheckout(){
     if(src==='yahoo')   return ['ota_yahoo_pre','ota_yahoo_local','cash','rakuten_pay'];
     if(src==='yukoyuko')return ['cash','rakuten_pay','paypay','dpay'];
     // 直接予約：補助金は予約時に自動セットされるのでボタン不要
-    return ['cash','rakuten_pay','paypay','dpay','bank_transfer'];
+    return ['cash','rakuten_pay','paypay','dpay'];
   }
 
   // 集計バケット
-  let totals={cash:0,rakuten_pay:0,paypay:0,dpay:0,bank_transfer:0,subsidy:0,tr_rakuten:0,tr_jalan:0,jalan_point:0,tr_yahoo:0,yahoo_local:0,yukoyuko_local:0,unpaid:0};
+  let totals={cash:0,rakuten_pay:0,paypay:0,dpay:0,subsidy:0,tr_rakuten:0,tr_jalan:0,jalan_point:0,tr_yahoo:0,yahoo_local:0,yukoyuko_local:0,unpaid:0};
   let totBasePrice=0;
 
   content.innerHTML=ciRooms.map(({room,bk,key})=>{
@@ -2522,8 +2519,7 @@ function renderCheckout(){
   const totTrJalan=totals.tr_jalan||0;
   const totJalanPoint=totals.jalan_point||0;
   const totTrYahoo=totals.tr_yahoo||0;
-  const totBankTransfer=totals.bank_transfer||0;
-  const grandTotal=totCash+totRakutenPay+totPayPay+totDpay+totBankTransfer+totSubsidy+totTrRakuten+totTrJalan+totJalanPoint+totTrYahoo;
+  const grandTotal=totCash+totRakutenPay+totPayPay+totDpay+totSubsidy+totTrRakuten+totTrJalan+totJalanPoint+totTrYahoo;
 
   function scard(label,val,color=''){
     const v=val>0?`<strong style="font-family:'DM Mono',monospace${color?';color:'+color:''}">${val.toLocaleString()}円</strong>`:`<strong style="color:#bbb">—</strong>`;
@@ -2531,12 +2527,11 @@ function renderCheckout(){
   }
   summary.innerHTML=`
     ${scard('宿泊件数（CIのみ）',ciRooms.length+'件'.replace('円',''))}
-    ${scard('宿泊料金合計',totBasePrice)}
+    ${scard('宿泊料金合計',totBasePrice,'','割引前定価')}
     ${scard('現金',totCash,'#2a7a4b')}
     ${scard('楽天ペイ振込',totRakutenPay,'#cc0000')}
     ${totPayPay>0?scard('PayPay振込',totPayPay,'#1a9f2a'):''}
     ${totDpay>0?scard('d払い振込',totDpay,'#c00060'):''}
-    ${totals.bank_transfer>0?scard('銀行口座振込',totals.bank_transfer,'#5b4a00'):''}
     ${totSubsidy>0?scard('補助金振込',totSubsidy,'#2a5fa8'):''}
     ${totTrRakuten>0?scard('楽天T振込',totTrRakuten,'#cc0000'):''}
     ${totTrJalan>0?scard('じゃらん振込',totTrJalan,'#007a35'):''}

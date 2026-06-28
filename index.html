@@ -1643,7 +1643,12 @@ function parseOta(){
   }else if(currentOta==='jalan'){
     m=text.match(/宿泊代表者氏名\s*[：:]\s*(.+?)(?:　様|　$|\n)/)||text.match(/宿泊代表者氏名\s*[：:]\s*(.+)/);if(m)d.name=cleanName(m[1]);
     m=text.match(/宿泊日時\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);
-    if(m){d.ciDate=normDate(m[1]);const tm=text.match(/宿泊日時[：:][^\n]*?(\d{1,2}:\d{2})/);if(tm)d.ci=tm[1];}
+    if(m){
+      d.ciDate=normDate(m[1]);
+      // CI時刻：「宿泊日時：2026年06月28日(日)14:00 ～」形式から取得
+      const tm=text.match(/宿泊日時[：:][^\n]*?[）)][\s　]*(\d{1,2}:\d{2})/)||text.match(/宿泊日時[：:][^\n]*?(\d{1,2}:\d{2})/);
+      if(tm)d.ci=tm[1];
+    }
     m=text.match(/泊数\s*[：:]\s*(\d+)/)||text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
     // 部屋数を検出（複数部屋対応）
     const roomCountM=text.match(/部屋数\s*[：:]\s*(\d+)室/)||text.match(/(\d+)室/);
@@ -1652,10 +1657,10 @@ function parseOta(){
     const roomPaxMatches=[...text.matchAll(/(\d+)部屋目[^\n]*大人[：:]?\s*(\d+)名?/g)];
     // 全体の大人人数
     m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/);if(m)d.paxAdult=m[1];
-    // 料金：宿泊者への請求額（合計）を優先
-    m=text.match(/宿泊者への請求額\s*[：:]\s*([\d,]+)円/)||text.match(/合計\s*[：:]\s*([\d,]+)円[^）]/)||text.match(/合計[：:]\s*([\d,]+)円/);
+    // 料金：定価（小計）を取得 ※「宿泊者への請求額」は割引後なので使わない
+    m=text.match(/小計[：:]\s*([\d,]+)円/)||text.match(/合計[：:]\s*([\d,]+)円(?!\s*[（(]税)/);
     if(m)d.price=m[1].replace(/,/g,'');
-    // ポイント・クーポン割引を合算
+    // ポイント・クーポン割引を合算してdiscountにセット
     let jalanDisc=0;
     const ptM2=text.match(/ポイント利用\s*[：:]\s*([\d,]+)/);
     if(ptM2)jalanDisc+=parseInt(ptM2[1].replace(/,/g,'')||'0');
@@ -1669,7 +1674,12 @@ function parseOta(){
     m=text.match(/宿泊代表者連絡先\s*[：:]\s*([\d\-]{10,})/)||text.match(/(0\d[\d\-]{8,12})(?!\d)/);if(m)d.tel=m[1];
     m=text.match(/住所\s*[：:]\s*(.+)/);if(m)d.addr=m[1].trim();
     m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
-    m=text.match(/予約者から宿への要望[^：:]*[：:]\s*([\s\S]+?)(?:\n■|\n━|$)/);if(m)d.memo=m[1].replace(/\n/g,' ').trim();
+    m=text.match(/予約者から宿への要望[^：:]*[：:]\s*([\s\S]+?)(?:\n■|\n━|$)/);
+    if(m){
+      // 残室情報など不要な行を除去
+      const memoText=m[1].replace(/\n/g,' ').replace(/■残室情報[^■]*/,'').trim();
+      if(memoText)d.memo=memoText;
+    }
     // 複数部屋の場合：各部屋の料金を計算して複数データに分割
     if(roomCount>1){
       // 部屋ごとの料金を取得（「1部屋目　8,200円」形式）
@@ -2350,8 +2360,10 @@ function renderMonthlyCheckout(){
   });
   // 楽天ペイ振込に現地OTA分を集約
   const totRakutenPay=(totals.rakuten_pay||0)+(totals.yahoo_local||0)+(totals.yukoyuko_local||0);
-  // 精算済み＝全バケット合算（unpaid除く）→ 各項目合計と必ず一致
-  const totPaid=totals.cash+totRakutenPay+totals.paypay+totals.dpay+totals.bank_transfer+totals.subsidy+totals.tr_rakuten+totals.tr_jalan+totals.jalan_point+totals.tr_yahoo;
+  // 精算済み（定価ベース）= 宿泊料金ベースの受取額合計
+  // 補助金(subsidy)・じゃらんP(jalan_point)は定価に含まれない外部からの入金なので別枠
+  // 精算済み + 未精算 = 宿泊料金合計（定価）が成立するよう定価ベースで計算
+  const totPaid=totals.cash+totRakutenPay+totals.paypay+totals.dpay+totals.bank_transfer+totals.tr_rakuten+totals.tr_jalan+totals.tr_yahoo;
 
   function scard(label,val,color,sub){
     if(!val&&val!==0)return '';
@@ -2369,10 +2381,10 @@ function renderMonthlyCheckout(){
     ${totRakutenPay?scard('楽天ペイ振込',totRakutenPay,'#cc0000','OTA現地＋直接予約カード'):scard('楽天ペイ振込',0)}
     ${totals.paypay?scard('PayPay振込',totals.paypay,'#1a9f2a'):''}
     ${totals.dpay?scard('d払い振込',totals.dpay,'#c00060'):''}
-    ${totals.subsidy?scard('補助金振込',totals.subsidy,'#2a5fa8','かごしま割等'):''}
+    ${totals.subsidy?scard('補助金振込',totals.subsidy,'#2a5fa8','かごしま割等（定価外・別途入金）'):''}
     ${totals.tr_rakuten?scard('楽天T振込',totals.tr_rakuten,'#cc0000','事前カード決済'):''}
     ${totals.tr_jalan?scard('じゃらん振込',totals.tr_jalan,'#007a35','事前精算残金'):''}
-    ${totals.jalan_point?scard('じゃらんP振込',totals.jalan_point,'#007a35','ポイント・クーポン分'):''}
+    ${totals.jalan_point?scard('じゃらんP振込',totals.jalan_point,'#007a35','ポイント・クーポン（定価外・別途入金）'):''}
     ${totals.tr_yahoo?scard('ヤフー振込',totals.tr_yahoo,'#cc0033','事前決済'):''}
     ${scard('精算済み',totPaid,'var(--green)')}
     ${scard('未精算',totUnpaid,'var(--red)')}

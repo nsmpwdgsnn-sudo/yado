@@ -1618,6 +1618,35 @@ function parseOta(){
   let d={src:currentOta,name:'',ciDate:'',nights:1,paxAdult:'',price:'',ci:'15:00',co:'10:00',memo:'',tel:'',pet:''};
   let m;
   if(currentOta==='rakuten'){
+    // 提携販売先（Trip.com等）形式の検出
+    const isPartner=!!(text.match(/予約の種類\s*[：:]\s*提携販売先/)||text.match(/法人決済/));
+    if(isPartner){
+      // 氏名
+      m=text.match(/宿泊代表者氏名\s*[：:]\s*(.+)/);if(m)d.name=cleanName(m[1]);
+      // CI日：「チェックイン日時  :   2026年08月13日(木)」
+      m=text.match(/チェックイン日時\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);
+      if(m)d.ciDate=normDate(m[1]);
+      // 泊数：「宿泊日数  :   1泊」
+      m=text.match(/宿泊日数\s*[：:]\s*(\d+)/)||text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
+      // 人数：「人数（大人）  :   4」
+      m=text.match(/人数[（(]大人[）)]\s*[：:]\s*(\d+)/);if(m)d.paxAdult=m[1];
+      m=text.match(/人数[（(]子供[）)]\s*[：:]\s*(\d+)/);if(m&&parseInt(m[1])>0)d.paxChild=m[1];
+      // 料金：「合計  :   25,520 円」
+      m=text.match(/^合計\s*[：:]\s*([\d,]+)\s*円/m);if(m)d.price=m[1].replace(/,/g,'');
+      // 法人決済は事前決済扱い
+      if(text.match(/法人決済/)){d.prepaid=true;d.payMethod='ota_rakuten_pre';}
+      // 電話番号
+      m=text.match(/予約者連絡先\s*[：:]\s*(.+)/);if(m)d.tel=m[1].trim();
+      // 予約番号
+      m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
+      // 部屋名（管理用）をメモに
+      m=text.match(/部屋名称（管理用）\s*[：:]\s*(.+)/);
+      if(m)d.memo=(d.memo?d.memo+'\n':'')+'部屋: '+m[1].trim();
+      // リクエスト欄（子供年齢等）をメモに
+      m=text.match(/リクエスト内容[：:]\s*([\s\S]+?)(?:\n▼|$)/);
+      if(m){const req=m[1].replace(/\n/g,' ').trim();if(req)d.memo=(d.memo?d.memo+'\n':'')+'リクエスト: '+req;}
+    }else{
+    // 通常の楽天トラベル形式
     m=text.match(/宿泊者氏名\s*[：:]\s*(.+)/)||text.match(/お名前\s*[：:]\s*(.+)/);if(m)d.name=cleanName(m[1]);
     m=text.match(/チェックイン日時\s*[：:]\s*(\d{4}-\d{2}-\d{2})\s*(\d{1,2}:\d{2})?/)||text.match(/チェックイン\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);
     if(m){d.ciDate=normDate(m[1])||m[1];if(m[2])d.ci=m[2];}
@@ -1640,6 +1669,7 @@ function parseOta(){
     }
     m=text.match(/宿泊者連絡先\s*[：:]\s*([\d\-]{10,})/)||text.match(/(0\d[\d\-]{8,12})(?!\d)/);if(m)d.tel=m[1];
     m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
+    }
   }else if(currentOta==='jalan'){
     m=text.match(/宿泊代表者氏名\s*[：:]\s*(.+?)(?:　様|　$|\n)/)||text.match(/宿泊代表者氏名\s*[：:]\s*(.+)/);if(m)d.name=cleanName(m[1]);
     m=text.match(/宿泊日時\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);

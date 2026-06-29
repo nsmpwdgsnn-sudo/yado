@@ -18,7 +18,7 @@
   --sat:#2a5fa8;--sat-bg:#f0f4ff;--sat-cell:#f5f7ff;
   --hd:#1e1810;
   --rakuten:#cc0000;--jalan:#007a35;--yahoo:#cc0033;--yukoyuko:#d97000;--hp:#6b4c9a;
-  --tel:#6b4c9a;--sms:#6b4c9a;--insta:#6b4c9a;--kuchi:#6b4c9a;
+  --tel:#6b4c9a;--sms:#6b4c9a;--insta:#6b4c9a;--kuchi:#6b4c9a;--line:#00b900;
   --unassigned:#e8a000;--green:#2a7a4b;--red:#d64b3a;--gold:#c8a060;
   --shadow:rgba(20,15,8,.12);
 }
@@ -577,6 +577,7 @@ td.c.bk:hover{filter:brightness(1.08)}
           <button class="src-btn" style="background:var(--insta)" onclick="setSrc('insta',this)">インスタ</button>
           <button class="src-btn" style="background:var(--kuchi)" onclick="setSrc('kuchi',this)">口頭・紹介</button>
           <button class="src-btn" style="background:var(--hp)" onclick="setSrc('hp',this)">HP</button>
+          <button class="src-btn" style="background:var(--line)" onclick="setSrc('line',this)">LINE</button>
         </div>
       </div>
       <input type="hidden" id="fSrc" value="tel">
@@ -778,6 +779,7 @@ const PAY_LABELS_GLOBAL={
   ota_yahoo_pre:'ヤフー事前決済',
   ota_yahoo_local:'ヤフー現地',
   ota_yukoyuko:'ゆこゆこ現地',
+  bank_transfer:'銀行口座振込',
 };
 // 支払方法→集計バケット変換
 function payToBucket(method, bk, discount){
@@ -2368,11 +2370,11 @@ function renderMonthlyCheckout(){
   rows.forEach(r=>{
     totBasePrice+=r.basePrice;
     if(r.cd.paid){
+      // 精算済み = ✅の定価合計（精算済み＋未精算＝定価合計が成立）
+      totPaid+=r.basePrice;
+      // 各カードはバケット別の内訳参考として集計
       const buckets=payToBucket(r.cd.payMethod,{price:r.basePrice},r.discount);
-      buckets.forEach(b=>{
-        if(totals[b.bucket]!==undefined)totals[b.bucket]+=b.amt;
-        if(b.bucket!=='unpaid')totPaid+=b.amt;
-      });
+      buckets.forEach(b=>{if(totals[b.bucket]!==undefined)totals[b.bucket]+=b.amt;});
     }else{
       totals.unpaid+=r.basePrice;
       totUnpaid+=r.basePrice;
@@ -2380,8 +2382,6 @@ function renderMonthlyCheckout(){
   });
   // 楽天ペイ振込カード：直接rakuten_pay + OTA現地（yahoo_local・yukoyuko_local）を集約
   const totRakutenPay=(totals.rakuten_pay||0)+(totals.yahoo_local||0)+(totals.yukoyuko_local||0);
-  // 精算済み = カード表示と同じ内訳で合算（表示カードと必ず一致）
-  const totPaidRecalc=totals.cash+totRakutenPay+totals.paypay+totals.dpay+totals.bank_transfer+totals.subsidy+totals.tr_rakuten+totals.tr_jalan+totals.jalan_point+totals.tr_yahoo;
 
   function scard(label,val,color,sub){
     if(!val&&val!==0)return '';
@@ -2405,13 +2405,13 @@ function renderMonthlyCheckout(){
     ${totals.tr_jalan?scard('じゃらん振込',totals.tr_jalan,'#007a35','事前精算残金'):''}
     ${totals.jalan_point?scard('じゃらんP振込',totals.jalan_point,'#007a35','ポイント・クーポン分'):''}
     ${totals.tr_yahoo?scard('ヤフー振込',totals.tr_yahoo,'#cc0033','事前決済'):''}
-    ${scard('精算済み',totPaidRecalc,'var(--green)')}
+    ${scard('精算済み',totPaid,'var(--green)')}
     ${scard('未精算',totUnpaid,'var(--red)')}
   `;
 
   if(!rows.length){document.getElementById('coMonthlyContent').innerHTML='<div class="empty-msg">この月の予約はありません</div>';return;}
 
-  const SRC_LABEL_MAP={rakuten:'楽天',jalan:'じゃらん',yahoo:'Yahoo',yukoyuko:'ゆこゆこ',tel:'電話',sms:'SMS',insta:'インスタ',kuchi:'口頭',hp:'HP'};
+  const SRC_LABEL_MAP={rakuten:'楽天',jalan:'じゃらん',yahoo:'Yahoo',yukoyuko:'ゆこゆこ',tel:'電話',sms:'SMS',insta:'インスタ',kuchi:'口頭',hp:'HP',line:'LINE'};
   const tableRows=rows.map(r=>{
     const payLbl=PAY_LABELS_GLOBAL[r.cd.payMethod]||'未設定';
     const statusLbl=r.cd.paid?'<span style="color:var(--green)">✅精算済</span>':'<span style="color:var(--red)">⏳未精算</span>';
@@ -2476,8 +2476,9 @@ function renderCheckout(){
     }
     if(src==='yahoo')   return ['ota_yahoo_pre','ota_yahoo_local','cash','rakuten_pay'];
     if(src==='yukoyuko')return ['cash','rakuten_pay','paypay','dpay'];
+    if(src==='line') return ['cash','rakuten_pay','paypay','dpay','bank_transfer'];
     // 直接予約：補助金は予約時に自動セットされるのでボタン不要
-    return ['cash','rakuten_pay','paypay','dpay'];
+    return ['cash','rakuten_pay','paypay','dpay','bank_transfer'];
   }
 
   // 集計バケット
@@ -2656,7 +2657,7 @@ function openDacho(){
     directBks.push({
       name:bk.name||'',
       recv:bk.bookDate||'',
-      route:bk.src==='tel'?'電話':bk.src==='sms'?'SMS':bk.src==='insta'?'インスタ':bk.src==='kuchi'?'口頭・紹介':bk.src==='hp'?'HP':bk.src||'電話',
+      route:bk.src==='tel'?'電話':bk.src==='sms'?'SMS':bk.src==='insta'?'インスタ':bk.src==='kuchi'?'口頭・紹介':bk.src==='hp'?'HP':bk.src==='line'?'LINE':bk.src||'電話',
       ci:bk.ciDate||key.substring(idx+1),
       co:bk.coDate||'',
       pax:String((bk.paxAdult||0)+(bk.paxChild||0)+(bk.paxInfant||0)||bk.pax||''),
@@ -2671,7 +2672,7 @@ function openDacho(){
     directBks.push({
       name:u.name||'',
       recv:u.bookDate||'',
-      route:u.src==='tel'?'電話':u.src==='sms'?'SMS':u.src==='insta'?'インスタ':u.src==='kuchi'?'口頭・紹介':u.src==='hp'?'HP':u.src||'電話',
+      route:u.src==='tel'?'電話':u.src==='sms'?'SMS':u.src==='insta'?'インスタ':u.src==='kuchi'?'口頭・紹介':u.src==='hp'?'HP':u.src==='line'?'LINE':u.src||'電話',
       ci:u.ciDate||'',
       co:u.coDate||'',
       pax:String((u.paxAdult||0)+(u.paxChild||0)+(u.paxInfant||0)||u.pax||''),

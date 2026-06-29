@@ -2368,12 +2368,12 @@ function renderMonthlyCheckout(){
   rows.forEach(r=>{
     totBasePrice+=r.basePrice;
     if(r.cd.paid){
-      // 精算済み = ✅の定価合計（割引はOTA・補助金が補填するため宿の受取は定価）
-      totPaid+=r.basePrice;
       const buckets=payToBucket(r.cd.payMethod,{price:r.basePrice},r.discount);
-      buckets.forEach(b=>{if(totals[b.bucket]!==undefined)totals[b.bucket]+=b.amt;});
+      buckets.forEach(b=>{
+        if(totals[b.bucket]!==undefined)totals[b.bucket]+=b.amt;
+        if(b.bucket!=='unpaid')totPaid+=b.amt;
+      });
     }else{
-      // 未精算も定価合計
       totals.unpaid+=r.basePrice;
       totUnpaid+=r.basePrice;
     }

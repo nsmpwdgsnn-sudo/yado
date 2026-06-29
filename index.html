@@ -2378,8 +2378,10 @@ function renderMonthlyCheckout(){
       totUnpaid+=r.basePrice;
     }
   });
-  // 楽天ペイ振込に現地OTA分を集約
+  // 楽天ペイ振込カード：直接rakuten_pay + OTA現地（yahoo_local・yukoyuko_local）を集約
   const totRakutenPay=(totals.rakuten_pay||0)+(totals.yahoo_local||0)+(totals.yukoyuko_local||0);
+  // 精算済み = カード表示と同じ内訳で合算（表示カードと必ず一致）
+  const totPaidRecalc=totals.cash+totRakutenPay+totals.paypay+totals.dpay+totals.bank_transfer+totals.subsidy+totals.tr_rakuten+totals.tr_jalan+totals.jalan_point+totals.tr_yahoo;
 
   function scard(label,val,color,sub){
     if(!val&&val!==0)return '';
@@ -2397,12 +2399,13 @@ function renderMonthlyCheckout(){
     ${totRakutenPay?scard('楽天ペイ振込',totRakutenPay,'#cc0000','OTA現地＋直接予約カード'):scard('楽天ペイ振込',0)}
     ${totals.paypay?scard('PayPay振込',totals.paypay,'#1a9f2a'):''}
     ${totals.dpay?scard('d払い振込',totals.dpay,'#c00060'):''}
-    ${totals.subsidy?scard('補助金振込',totals.subsidy,'#2a5fa8','かごしま割等（定価外・別途入金）'):''}
+    ${totals.bank_transfer?scard('銀行口座振込',totals.bank_transfer,'#5b4a00'):''}
+    ${totals.subsidy?scard('補助金振込',totals.subsidy,'#2a5fa8','かごしま割等'):''}
     ${totals.tr_rakuten?scard('楽天T振込',totals.tr_rakuten,'#cc0000','事前カード決済'):''}
     ${totals.tr_jalan?scard('じゃらん振込',totals.tr_jalan,'#007a35','事前精算残金'):''}
     ${totals.jalan_point?scard('じゃらんP振込',totals.jalan_point,'#007a35','ポイント・クーポン分'):''}
     ${totals.tr_yahoo?scard('ヤフー振込',totals.tr_yahoo,'#cc0033','事前決済'):''}
-    ${scard('精算済み',totPaid,'var(--green)')}
+    ${scard('精算済み',totPaidRecalc,'var(--green)')}
     ${scard('未精算',totUnpaid,'var(--red)')}
   `;
 

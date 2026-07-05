@@ -1798,15 +1798,16 @@ function parseOta(){
     m=text.match(/お名前\s*\n?([^\n]+)/)||text.match(/\[お名前\]\s*(.+)/);if(m)d.name=cleanName(m[1]);
     m=text.match(/住所\s*\n?([^\n]+)/)||text.match(/\[住所\]\s*(.+)/);if(m)d.addr=m[1].replace(/^\s*[\]\[】【]/,'').trim();
     m=text.match(/電話番号\s*\n?([^\n]+)/)||text.match(/\[電話番号\]\s*(\S+)/);if(m)d.tel=m[1].replace(/^\s*[\]\[】【]/,'').trim();
-    // 部屋：「[部屋] 温泉付き離れ和室１２畳(500)」の（）内の部屋番号を読み取り、割当時の初期選択に使う
-    m=text.match(/\[部屋\][^\n]*?[（(](\d{3,4})[）)]/)||text.match(/^部屋\s*\n?[^\n]*?[（(](\d{3,4})[）)]/m);
-    if(m)d.suggestedRoom=m[1];
-    // 部屋番号の指定がない場合：「本館近く」「川沿い」のキーワードからエリアを判定
-    if(!d.suggestedRoom){
-      const roomLineM=text.match(/\[部屋\][^\n]*/)||text.match(/^部屋\s*\n?[^\n]*/m);
-      const roomLine=roomLineM?roomLineM[0]:'';
-      if(roomLine.includes('本館近く')||roomLine.includes('本館'))d.suggestedArea='本館近く';
-      else if(roomLine.includes('川沿い')||roomLine.includes('川'))d.suggestedArea='川沿い';
+    // 部屋：「[部屋]」欄は同じ行または次の行に値が書かれる（他項目と同様）
+    m=text.match(/\[部屋\]\s*\n?([^\n]*)/)||text.match(/^部屋\s*\n?([^\n]*)/m);
+    const roomLine=m?m[1]:'';
+    const rm=roomLine.match(/[（(](\d{3,4})[）)]/);
+    if(rm){
+      d.suggestedRoom=rm[1];
+    }else if(roomLine.includes('本館近く')||roomLine.includes('本館')){
+      d.suggestedArea='本館近く';
+    }else if(roomLine.includes('川沿い')||roomLine.includes('川')){
+      d.suggestedArea='川沿い';
     }
     m=text.match(/ペットの有無\s*\n?([^\n]+)/)||text.match(/\[ペットの有無\]\s*(.+)/);if(m&&!m[1].match(/ではありません/))d.pet=m[1].trim();
     m=text.match(/備考[　\s]*ご希望など\s*\n([^\n]*)/);if(m&&m[1].trim())d.memo=m[1].trim();

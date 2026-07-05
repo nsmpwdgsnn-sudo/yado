@@ -1522,6 +1522,8 @@ function renderUnassigned(){
           <div class="ucard-detail">
             📅 ${u.ciDate||'日程未定'}　${u.nights||1}泊　${paxSummary(u)}
             ${u.price?'　💴 '+fmtPrice(u.price):''}
+            ${u.suggestedRoom?'　🏠 '+esc(u.suggestedRoom)+'号室':''}
+            ${u.suggestedArea?'　🏠 '+esc(u.suggestedArea):''}
             ${u.futon?'　🛏 布団'+u.futon+'枚':''}
             ${u.pet?'　🐾 '+u.pet:''}
             ${u.memo?'<br>📝 '+esc(u.memo):''}
@@ -1575,7 +1577,8 @@ function editUnassigned(i){
 function openAssign(i){
   assigningIdx=i;
   const u=unassigned[i];
-  document.getElementById('assignSub').textContent=`${esc(u.name)}　${u.ciDate||'日程未定'}　${u.nights||1}泊`;
+  const areaTxt=u.suggestedRoom?`　🏠 ${u.suggestedRoom}号室`:(u.suggestedArea?`　🏠 ${u.suggestedArea}`:'');
+  document.getElementById('assignSub').textContent=`${esc(u.name)}　${u.ciDate||'日程未定'}　${u.nights||1}泊${areaTxt}`;
   const sel=document.getElementById('assignRoom');
   if(u.suggestedRoom&&[...sel.options].some(o=>o.value===String(u.suggestedRoom))){
     sel.value=String(u.suggestedRoom);
@@ -1798,6 +1801,13 @@ function parseOta(){
     // 部屋：「[部屋] 温泉付き離れ和室１２畳(500)」の（）内の部屋番号を読み取り、割当時の初期選択に使う
     m=text.match(/\[部屋\][^\n]*?[（(](\d{3,4})[）)]/)||text.match(/^部屋\s*\n?[^\n]*?[（(](\d{3,4})[）)]/m);
     if(m)d.suggestedRoom=m[1];
+    // 部屋番号の指定がない場合：「本館近く」「川沿い」のキーワードからエリアを判定
+    if(!d.suggestedRoom){
+      const roomLineM=text.match(/\[部屋\][^\n]*/)||text.match(/^部屋\s*\n?[^\n]*/m);
+      const roomLine=roomLineM?roomLineM[0]:'';
+      if(roomLine.includes('本館近く')||roomLine.includes('本館'))d.suggestedArea='本館近く';
+      else if(roomLine.includes('川沿い')||roomLine.includes('川'))d.suggestedArea='川沿い';
+    }
     m=text.match(/ペットの有無\s*\n?([^\n]+)/)||text.match(/\[ペットの有無\]\s*(.+)/);if(m&&!m[1].match(/ではありません/))d.pet=m[1].trim();
     m=text.match(/備考[　\s]*ご希望など\s*\n([^\n]*)/);if(m&&m[1].trim())d.memo=m[1].trim();
   }
@@ -1813,6 +1823,7 @@ function parseOta(){
     ${isMulti?d._multiRoom.rooms.map((r,i)=>`<div class="pr-row"><span class="pr-label">${i+1}部屋目</span><span class="pr-val">大人${r.paxAdult}名　${parseInt(r.price).toLocaleString()}円</span></div>`).join('')
     :`<div class="pr-row"><span class="pr-label">料金</span><span class="pr-val">${d.price?fmtPrice(d.price):'<span class="pr-err">読み取れず</span>'}</span></div>`}
     ${d.suggestedRoom?`<div class="pr-row"><span class="pr-label">部屋</span><span class="pr-val" style="color:#2a5fa8;font-weight:700">🏠 ${esc(d.suggestedRoom)}号室（割当時に自動選択）</span></div>`:''}
+    ${d.suggestedArea?`<div class="pr-row"><span class="pr-label">部屋エリア</span><span class="pr-val" style="color:#2a5fa8;font-weight:700">🏠 ${esc(d.suggestedArea)}</span></div>`:''}
     ${d.discount&&parseInt(d.discount)>0?`<div class="pr-row"><span class="pr-label">ポイント・割引</span><span class="pr-val" style="color:var(--red)">-${parseInt(d.discount).toLocaleString()}円</span></div>`:''}
     ${d.prepaid?`<div class="pr-row"><span class="pr-label">決済</span><span class="pr-val" style="color:#2a5fa8;font-weight:700">✅ 事前決済済</span></div>`:''}
     ${d.tel?`<div class="pr-row"><span class="pr-label">連絡先</span><span class="pr-val">${esc(d.tel)}</span></div>`:''}

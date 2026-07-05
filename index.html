@@ -1676,8 +1676,9 @@ function parseOta(){
     const roomPaxMatches=[...text.matchAll(/(\d+)部屋目[^\n]*大人[：:]?\s*(\d+)名?/g)];
     // 全体の大人人数
     m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/);if(m)d.paxAdult=m[1];
-    // 料金：定価（小計）を取得 ※「宿泊者への請求額」は割引後なので使わない
-    m=text.match(/小計[：:]\s*([\d,]+)円/)||text.match(/合計[：:]\s*([\d,]+)円(?!\s*[（(]税)/);
+    // 料金：定価（宿泊全体の合計）を取得 ※「宿泊者への請求額」は割引後なので使わない
+    // 「合計」を優先（複数泊の場合、各泊ごとの「小計」だけだと1泊分しか取れないため）
+    m=text.match(/合計[：:]\s*([\d,]+)円/)||text.match(/小計[：:]\s*([\d,]+)円/);
     if(m)d.price=m[1].replace(/,/g,'');
     // ポイント・クーポン割引を合算してdiscountにセット
     let jalanDisc=0;

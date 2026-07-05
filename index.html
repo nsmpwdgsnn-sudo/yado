@@ -1576,6 +1576,10 @@ function openAssign(i){
   assigningIdx=i;
   const u=unassigned[i];
   document.getElementById('assignSub').textContent=`${esc(u.name)}　${u.ciDate||'日程未定'}　${u.nights||1}泊`;
+  const sel=document.getElementById('assignRoom');
+  if(u.suggestedRoom&&[...sel.options].some(o=>o.value===String(u.suggestedRoom))){
+    sel.value=String(u.suggestedRoom);
+  }
   document.getElementById('assignMod').classList.add('on');
 }
 function closeAssign(){document.getElementById('assignMod').classList.remove('on');}
@@ -1790,7 +1794,10 @@ function parseOta(){
     m=text.match(/チェックイン時間\s*\n?(\d{1,2}:\d{2})/)||text.match(/チェックイン.*?(\d{1,2}:\d{2})/);if(m)d.ci=m[1];
     m=text.match(/お名前\s*\n?([^\n]+)/)||text.match(/\[お名前\]\s*(.+)/);if(m)d.name=cleanName(m[1]);
     m=text.match(/住所\s*\n?([^\n]+)/)||text.match(/\[住所\]\s*(.+)/);if(m)d.addr=m[1].replace(/^\s*[\]\[】【]/,'').trim();
-    m=text.match(/電話番号\s*\n?([^\n]+)/)||text.match(/\[電話番号\]\s*(\S+)/);if(m)d.tel=m[1].trim();
+    m=text.match(/電話番号\s*\n?([^\n]+)/)||text.match(/\[電話番号\]\s*(\S+)/);if(m)d.tel=m[1].replace(/^\s*[\]\[】【]/,'').trim();
+    // 部屋：「[部屋] 温泉付き離れ和室１２畳(500)」の（）内の部屋番号を読み取り、割当時の初期選択に使う
+    m=text.match(/\[部屋\][^\n]*?[（(](\d{3,4})[）)]/)||text.match(/^部屋\s*\n?[^\n]*?[（(](\d{3,4})[）)]/m);
+    if(m)d.suggestedRoom=m[1];
     m=text.match(/ペットの有無\s*\n?([^\n]+)/)||text.match(/\[ペットの有無\]\s*(.+)/);if(m&&!m[1].match(/ではありません/))d.pet=m[1].trim();
     m=text.match(/備考[　\s]*ご希望など\s*\n([^\n]*)/);if(m&&m[1].trim())d.memo=m[1].trim();
   }
@@ -1805,6 +1812,7 @@ function parseOta(){
     :`<div class="pr-row"><span class="pr-label">大人人数</span><span class="pr-val">${d.paxAdult?d.paxAdult+'名':'<span class="pr-err">読み取れず</span>'}</span></div>`}
     ${isMulti?d._multiRoom.rooms.map((r,i)=>`<div class="pr-row"><span class="pr-label">${i+1}部屋目</span><span class="pr-val">大人${r.paxAdult}名　${parseInt(r.price).toLocaleString()}円</span></div>`).join('')
     :`<div class="pr-row"><span class="pr-label">料金</span><span class="pr-val">${d.price?fmtPrice(d.price):'<span class="pr-err">読み取れず</span>'}</span></div>`}
+    ${d.suggestedRoom?`<div class="pr-row"><span class="pr-label">部屋</span><span class="pr-val" style="color:#2a5fa8;font-weight:700">🏠 ${esc(d.suggestedRoom)}号室（割当時に自動選択）</span></div>`:''}
     ${d.discount&&parseInt(d.discount)>0?`<div class="pr-row"><span class="pr-label">ポイント・割引</span><span class="pr-val" style="color:var(--red)">-${parseInt(d.discount).toLocaleString()}円</span></div>`:''}
     ${d.prepaid?`<div class="pr-row"><span class="pr-label">決済</span><span class="pr-val" style="color:#2a5fa8;font-weight:700">✅ 事前決済済</span></div>`:''}
     ${d.tel?`<div class="pr-row"><span class="pr-label">連絡先</span><span class="pr-val">${esc(d.tel)}</span></div>`:''}

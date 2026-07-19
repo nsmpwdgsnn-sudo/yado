@@ -105,7 +105,9 @@ tr:hover td{background:#fffbe8}
     <div class="logo-sub">妙見楽園荘</div>
   </div>
   <div class="hdr-r">
+    <button class="btn btn-out btn-sm" onclick="backToMain()">← 予約管理に戻る</button>
     <span id="syncStatus" class="s-offline">--</span>
+    <button class="btn btn-out btn-sm" onclick="openHistoryModal()">🕐 復元</button>
     <button class="btn btn-gold btn-sm" onclick="openAdd()">＋ 予約追加</button>
   </div>
 </div>
@@ -234,6 +236,19 @@ tr:hover td{background:#fffbe8}
   </div>
 </div>
 
+<!-- 復元ポイントモーダル -->
+<div class="ov" id="historyMod">
+  <div class="modal">
+    <div class="mttl">🕐 復元ポイント</div>
+    <div style="font-size:11px;color:var(--ink2);margin-bottom:10px;line-height:1.7">
+      予約の削除・編集の直前や、定期的（1時間ごと）に自動で状態を保存しています。<br>
+      間違って予約を消してしまった場合など、以前の状態にワンタップで戻せます。
+    </div>
+    <div id="historyModList" style="max-height:340px;overflow-y:auto"></div>
+    <div class="mact"><button class="btn btn-out" onclick="closeHistoryModal()">閉じる</button></div>
+  </div>
+</div>
+
 <!-- 取込モーダル -->
 <div class="ov" id="importMod">
   <div class="modal">
@@ -288,6 +303,8 @@ let editingId=null;
 let parsedEntry=null;
 let pendingImport=[];
 let ciPanelOpen=false;
+let deletedEntries=[]; // 削除済み予約の退避（データ消失防止）
+let snapshotHistory=[]; // 復元ポイント（自動スナップショット）
 
 // ===== ユーティリティ =====
 function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -309,6 +326,15 @@ function normStatus(s){
   if(s==='cancel'||s==='キャンセル')return 'cancel';
   return 'pending';
 }
+function backToMain(){
+  // 予約管理アプリ（index.html）から window.open で開かれた場合はタブを閉じて元の画面に戻る。
+  // 直接このページを開いていた場合（ブックマーク等）は window.close が効かないため、index.htmlへ移動する。
+  if(window.opener&&!window.opener.closed){
+    window.close();
+    return;
+  }
+  location.href='index.html';
+}
 function showToast(msg){
   const el=document.getElementById('toast');
   el.textContent=msg;el.style.opacity='1';
@@ -325,7 +351,7 @@ function setSyncStatus(state,msg){
 async function saveToSupabase(){
   setSyncStatus('saving');
   const ts=Date.now();
-  const payload=JSON.stringify({entries,nextId,ts});
+  const payload=JSON.stringify({entries,nextId,deletedEntries,history:snapshotHistory,ts});
   try{
     const r=await fetch(SB_URL+'/rest/v1/'+SB_TABLE,{
       method:'POST',
@@ -354,8 +380,19 @@ async function loadFromSupabase(){
       return false;
     }
     const d=JSON.parse(rows[0].payload);
+    // ローカルの方が新しい（＝まだクラウドに送れていない編集がある）場合は上書きしない
+    const localTs=parseInt(localStorage.getItem('dacho_local_ts')||'0');
+    const cloudTs=parseInt(d.ts||0);
+    if(localTs>cloudTs){
+      setSyncStatus('unsent','📵 未送信のローカル編集あり');
+      return false;
+    }
+    // 上書きされる前の状態を復元ポイントとして退避（データ消失防止）
+    pushSnapshot('クラウド反映前のローカル状態');
     entries=(d.entries||[]).map(e=>({...e,status:normStatus(e.status)}));
     nextId=d.nextId||(entries.length+1);
+    if(d.deletedEntries)mergeDeletedFromCloud(d.deletedEntries);
+    mergeHistoryFromCloud(d.history);
     localStorage.setItem('dacho_ts',String(d.ts||0));
     setSyncStatus('ok');
     return true;
@@ -372,6 +409,8 @@ function loadLocal(){
       const d=JSON.parse(s);
       entries=(d.entries||[]).map(e=>({...e,status:normStatus(e.status)}));
       nextId=d.nextId||(entries.length+1);
+      loadDeletedLocal();
+      loadHistoryLocal();
       return true;
     }
   }catch(e){}
@@ -379,6 +418,76 @@ function loadLocal(){
 }
 function saveLocal(){
   try{localStorage.setItem('dacho_entries',JSON.stringify({entries,nextId}));}catch(e){}
+  try{localStorage.setItem('dacho_local_ts',String(Date.now()));}catch(e){}
+}
+
+// ===== 削除済み予約の退避（データ消失防止）=====
+function loadDeletedLocal(){
+  try{const s=localStorage.getItem('dacho_deleted');if(s)deletedEntries=JSON.parse(s);}catch(e){deletedEntries=[];}
+}
+function saveDeletedLocal(){
+  try{localStorage.setItem('dacho_deleted',JSON.stringify(deletedEntries));}catch(e){}
+}
+function mergeDeletedFromCloud(cloudDeleted){
+  if(!Array.isArray(cloudDeleted)||!cloudDeleted.length)return;
+  const seen=new Set(deletedEntries.map(e=>e.id+'_'+e.deletedAt));
+  cloudDeleted.forEach(e=>{const k=e.id+'_'+e.deletedAt;if(!seen.has(k)){deletedEntries.push(e);seen.add(k);}});
+  saveDeletedLocal();
+}
+
+// ===== 復元ポイント（自動スナップショット）=====
+function loadHistoryLocal(){
+  try{const h=localStorage.getItem('dacho_history');if(h)snapshotHistory=JSON.parse(h);}catch(e){snapshotHistory=[];}
+}
+function saveHistoryLocal(){
+  try{localStorage.setItem('dacho_history',JSON.stringify(snapshotHistory));}catch(e){}
+}
+function pruneHistory(){
+  const cutoff=Date.now()-30*24*60*60*1000;
+  snapshotHistory=snapshotHistory.filter(h=>h.ts>=cutoff);
+  if(snapshotHistory.length>60)snapshotHistory=snapshotHistory.slice(snapshotHistory.length-60);
+}
+function pushSnapshot(label){
+  try{
+    snapshotHistory.push({ts:Date.now(),label:label||'自動保存',entries:JSON.parse(JSON.stringify(entries)),nextId});
+    pruneHistory();saveHistoryLocal();
+  }catch(e){console.error('pushSnapshot error',e);}
+}
+function mergeHistoryFromCloud(cloudHistory){
+  if(!Array.isArray(cloudHistory)||!cloudHistory.length)return;
+  const seen=new Set(snapshotHistory.map(h=>h.ts+'_'+h.label));
+  cloudHistory.forEach(h=>{const key=h.ts+'_'+h.label;if(!seen.has(key)){snapshotHistory.push(h);seen.add(key);}});
+  snapshotHistory.sort((a,b)=>a.ts-b.ts);
+  pruneHistory();saveHistoryLocal();
+}
+function openHistoryModal(){
+  renderHistoryList();
+  document.getElementById('historyMod').classList.add('on');
+}
+function closeHistoryModal(){document.getElementById('historyMod').classList.remove('on');}
+function renderHistoryList(){
+  const el=document.getElementById('historyModList');if(!el)return;
+  if(!snapshotHistory.length){el.innerHTML='<div style="font-size:12px;color:var(--ink3);padding:12px 0">まだ復元ポイントがありません</div>';return;}
+  const rows=[...snapshotHistory].sort((a,b)=>b.ts-a.ts).slice(0,30);
+  el.innerHTML=rows.map(h=>{
+    const dt=new Date(h.ts).toLocaleString('ja-JP');
+    const cnt=(h.entries||[]).length;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <div><strong>${dt}</strong><br><span style="color:var(--ink2)">${(h.label||'').replace(/</g,'&lt;')}　（${cnt}件）</span></div>
+      <button class="btn btn-out btn-sm" onclick="restoreSnapshot(${h.ts})">この時点に戻す</button>
+    </div>`;
+  }).join('');
+}
+async function restoreSnapshot(ts){
+  const snap=snapshotHistory.find(h=>h.ts===ts);if(!snap)return;
+  const dt=new Date(snap.ts).toLocaleString('ja-JP');
+  if(!confirm('🕐 '+dt+'（'+(snap.label||'')+'）の状態に戻します。\n\n現在のデータは上書きされますが、戻す前の状態も自動的に復元ポイントとして保存されます。\n\nよろしいですか？'))return;
+  pushSnapshot('復元操作の前の状態');
+  entries=JSON.parse(JSON.stringify(snap.entries));
+  nextId=snap.nextId||(entries.length+1);
+  saveLocal();closeHistoryModal();renderAll();
+  await saveToSupabase();
+  showToast('✅ 復元しました（'+dt+'の状態）');
 }
 
 async function init(){
@@ -393,6 +502,10 @@ async function init(){
   } else if(!hasLocal){
     renderAll();
   }
+  // 起動時の復元ポイント（前回から6時間以上経っていれば記録）
+  const lastSnap=snapshotHistory.length?snapshotHistory[snapshotHistory.length-1].ts:0;
+  if(Date.now()-lastSnap>6*60*60*1000)pushSnapshot('起動時の自動保存');
+  setInterval(()=>pushSnapshot('定期自動保存'),60*60*1000); // 1時間ごと
   // 定期同期（60秒）
   setInterval(async()=>{
     const ok=await loadFromSupabase();
@@ -551,7 +664,7 @@ async function saveEntry(){
   };
   if(!entry.name){alert('氏名を入力してください');return;}
   if(!entry.ci){alert('チェックイン日を入力してください');return;}
-  if(editingId){const i=entries.findIndex(x=>x.id===editingId);if(i>=0)entries[i]=entry;}
+  if(editingId){pushSnapshot('編集前：'+(entries.find(x=>x.id===editingId)||{}).name);const i=entries.findIndex(x=>x.id===editingId);if(i>=0)entries[i]=entry;}
   else{entries.push(entry);nextId++;}
   saveLocal();
   closeEntry();
@@ -562,11 +675,15 @@ async function saveEntry(){
 
 async function deleteEntry(){
   if(!editingId)return;
-  if(!confirm('この予約を削除しますか？'))return;
+  if(!confirm('この予約を削除しますか？\n（削除しても復元ポイントから元に戻せます）'))return;
+  const removed=entries.find(x=>x.id===editingId);
+  pushSnapshot('予約削除前：'+(removed&&removed.name||''));
+  if(removed)deletedEntries.push({...removed,deletedAt:new Date().toISOString()});
+  saveDeletedLocal();
   entries=entries.filter(x=>x.id!==editingId);
   saveLocal();closeEntry();renderAll();
   await saveToSupabase();
-  showToast('🗑️ 削除しました');
+  showToast('🗑️ 削除しました（復元ポイントあり）');
 }
 
 // ===== 取込 =====
@@ -650,12 +767,14 @@ function parseJson(){
   pendingImport=arr.map(e=>({...e,status:e.cancelled?'cancel':'pending',_dup:entries.some(d=>d.name===e.name&&d.ci===e.ci)}));
   const newCnt=pendingImport.filter(e=>!e._dup).length;
   const dupCnt=pendingImport.filter(e=>e._dup).length;
-  let html=`<div style="font-size:12px;color:var(--ink2);margin-bottom:8px">${arr.length}件確認。新規: ${newCnt}件 / 重複スキップ: ${dupCnt}件</div>`;
+  let html=`<div style="font-size:12px;color:var(--ink2);margin-bottom:8px">${arr.length}件確認。新規: ${newCnt}件${dupCnt?'（すでに台帳にある'+dupCnt+'件は非表示にしています）':''}</div>`;
   pendingImport.forEach((e,i)=>{
-    html+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;${e._dup?'opacity:.5':''}">
-      <input type="checkbox" id="jimp-${i}" ${(e._dup&&!e.cancelled)?'':'checked'} ${(e._dup&&!e.cancelled)?'disabled':''}>
+    if(e._dup&&!e.cancelled)return; // すでに台帳にある予約（更新不要）はリストに出さない（スクロール軽減）
+    const isDupCancel=e._dup&&e.cancelled;
+    html+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <input type="checkbox" id="jimp-${i}" checked>
       <div><strong>${e.name||'（氏名なし）'}</strong> <span style="color:var(--ink2)">${e.route||''} / CI:${fmt(e.ci)} / ${e.pax||'?'}名</span></div>
-      ${e._dup?'<span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:4px">重複</span>':''}
+      ${isDupCancel?'<span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:4px">既存分をｷｬﾝｾﾙ更新</span>':''}
     </div>`;
   });
   document.getElementById('jsonPreview').innerHTML=html;
@@ -692,12 +811,14 @@ init();
   pendingImport=arr.map(e=>({...e,status:e.cancelled?'cancel':'pending',_dup:entries.some(d=>d.name===e.name&&d.ci===e.ci)}));
   const newCnt=pendingImport.filter(e=>!e._dup).length;
   const dupCnt=pendingImport.filter(e=>e._dup).length;
-  let html=`<div style="font-size:12px;color:var(--ink2);margin-bottom:8px">${arr.length}件確認。新規: ${newCnt}件 / 重複スキップ: ${dupCnt}件</div>`;
+  let html=`<div style="font-size:12px;color:var(--ink2);margin-bottom:8px">${arr.length}件確認。新規: ${newCnt}件${dupCnt?'（すでに台帳にある'+dupCnt+'件は非表示にしています）':''}</div>`;
   pendingImport.forEach((e,i)=>{
-    html+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;${e._dup?'opacity:.5':''}">
-      <input type="checkbox" id="jimp-${i}" ${(e._dup&&!e.cancelled)?'':'checked'} ${(e._dup&&!e.cancelled)?'disabled':''}>
+    if(e._dup&&!e.cancelled)return; // すでに台帳にある予約（更新不要）はリストに出さない（スクロール軽減）
+    const isDupCancel=e._dup&&e.cancelled;
+    html+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <input type="checkbox" id="jimp-${i}" checked>
       <div><strong>${e.name||'（氏名なし）'}</strong> <span style="color:var(--ink2)">${e.route||''} / CI:${fmt(e.ci)} / ${e.pax||'?'}名</span></div>
-      ${e._dup?'<span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:4px">重複</span>':''}
+      ${isDupCancel?'<span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:4px">既存分をｷｬﾝｾﾙ更新</span>':''}
     </div>`;
   });
   document.getElementById('jsonPreview').innerHTML=html;

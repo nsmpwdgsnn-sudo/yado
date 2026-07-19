@@ -527,6 +527,16 @@ td.c.bk:hover{filter:brightness(1.08)}
     <button class="btn btn-out" onclick="saveToSupabase();showToast('📤 Supabaseに保存中...')" style="width:100%;justify-content:center;margin-bottom:8px">📤 Supabaseに手動保存する</button>
   </div>
 
+  <!-- 復元ポイント -->
+  <div style="background:var(--paper);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow)">
+    <div style="font-size:13px;font-weight:700;margin-bottom:6px">🕐 復元ポイント（自動保存）</div>
+    <div style="font-size:11px;color:var(--ink2);margin-bottom:10px;line-height:1.7">
+      予約の削除・上書き・リセットの直前や、定期的（1時間ごと）に自動で状態を保存しています。<br>
+      間違って予約を消してしまった場合など、以前の状態にワンタップで戻せます（クラウド経由で他端末の記録も反映されます）。
+    </div>
+    <div id="historyList" style="max-height:260px;overflow-y:auto"></div>
+  </div>
+
   <!-- データ管理 -->
   <div style="background:var(--paper);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow)">
     <div style="font-size:13px;font-weight:700;margin-bottom:8px">データ管理</div>
@@ -542,6 +552,7 @@ td.c.bk:hover{filter:brightness(1.08)}
     <button class="btn btn-out" onclick="fixBracketNames()" style="width:100%;justify-content:center;margin-bottom:8px">🔧 名前の先頭の ] を一括削除</button>
     <button class="btn btn-out" onclick="fixAllDates()" style="width:100%;justify-content:center;margin-bottom:8px">📅 日付形式を一括修正（/ → -）</button>
   </div>
+
 
   <!-- 危険ゾーン（分離） -->
   <details style="background:#fff5f5;border:2px solid #e57373;border-radius:10px;padding:14px;margin-bottom:12px">
@@ -950,7 +961,7 @@ function saveToSupabase(ts){
   localStorage.setItem('yado_ts',String(ts));
   markUnsent();
   updateSyncStatus('saving');
-  const payload={bks,unassigned,roomStatus,checkoutData,cancelledBks,kinmuRecords,kinmuStaffList,kinmuSettings,ts};
+  const payload={bks,unassigned,roomStatus,checkoutData,cancelledBks,kinmuRecords,kinmuStaffList,kinmuSettings,history:snapshotHistory,ts};
   fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.1',{
     method:'PATCH',
     headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
@@ -985,6 +996,7 @@ function loadFromSupabase(){
     if(d.kinmuRecords)kinmuRecords=d.kinmuRecords;
     if(d.kinmuStaffList)kinmuStaffList=d.kinmuStaffList;
     if(d.kinmuSettings)kinmuSettings=d.kinmuSettings;
+    mergeHistoryFromCloud(d.history);
     normalizeDates();
     try{localStorage.setItem('yado_bks',JSON.stringify(bks));}catch(e){}
     try{localStorage.setItem('yado_ua',JSON.stringify(unassigned));}catch(e){}
@@ -1050,11 +1062,12 @@ function load(){
   try{const c=localStorage.getItem('yado_co');if(c)checkoutData=JSON.parse(c);}catch(e){console.error('load co',e);}
   try{const s=localStorage.getItem('yado_rs');if(s)roomStatus=JSON.parse(s);}catch(e){console.error('load rs',e);}
   try{const x=localStorage.getItem('yado_cancelled');if(x)cancelledBks=JSON.parse(x);}catch(e){}
+  loadHistoryLocal();
   ROOMS.forEach(r=>{if(!roomStatus[r.no])roomStatus[r.no]='empty';});
   rebuildAllSpans();
 }
 function exportData(){
-  const data={bks,unassigned,roomStatus,checkoutData,cancelledBks,exportedAt:new Date().toISOString()};
+  const data={bks,unassigned,roomStatus,checkoutData,cancelledBks,history:snapshotHistory,exportedAt:new Date().toISOString()};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;
@@ -1069,11 +1082,13 @@ function importData(e){
     try{
       const data=JSON.parse(ev.target.result);
       if(!confirm('データをインポートします。現在のデータは上書きされます。よろしいですか？'))return;
+      pushSnapshot('バックアップ復元前');
       if(data.bks)bks=data.bks;
       if(data.unassigned)unassigned=data.unassigned;
       if(data.roomStatus)roomStatus=data.roomStatus;
       if(data.checkoutData)checkoutData=data.checkoutData;
       if(data.cancelledBks)cancelledBks=data.cancelledBks;
+      if(data.history)mergeHistoryFromCloud(data.history);
       normalizeDates();
       save();render();renderUnassigned();renderLedger();renderSettings();
       alert('インポートしました！');
@@ -1472,8 +1487,78 @@ function saveBk(){
 }
 
 // 上書きで消える予約を必ずキャンセル台帳へ退避する（データ消失防止）
+// ===== 復元ポイント（自動スナップショット）=====
+// バグや操作ミスで予約が消えても復元できるよう、定期的＆危険操作の直前に
+// 全データのスナップショットを取り、ローカルとクラウド両方に保持する。
+let snapshotHistory=[];
+function loadHistoryLocal(){
+  try{const h=localStorage.getItem('yado_history');if(h)snapshotHistory=JSON.parse(h);}catch(e){snapshotHistory=[];}
+}
+function saveHistoryLocal(){
+  try{localStorage.setItem('yado_history',JSON.stringify(snapshotHistory));}catch(e){console.error('save history',e);}
+}
+function pruneHistory(){
+  const cutoff=Date.now()-30*24*60*60*1000; // 30日以上前は削除
+  snapshotHistory=snapshotHistory.filter(h=>h.ts>=cutoff);
+  if(snapshotHistory.length>60)snapshotHistory=snapshotHistory.slice(snapshotHistory.length-60); // 最大60件
+}
+function pushSnapshot(label){
+  try{
+    snapshotHistory.push({
+      ts:Date.now(),label:label||'自動保存',
+      bks:JSON.parse(JSON.stringify(bks)),
+      unassigned:JSON.parse(JSON.stringify(unassigned)),
+      roomStatus:JSON.parse(JSON.stringify(roomStatus)),
+      checkoutData:JSON.parse(JSON.stringify(checkoutData)),
+      cancelledBks:JSON.parse(JSON.stringify(cancelledBks))
+    });
+    pruneHistory();
+    saveHistoryLocal();
+  }catch(e){console.error('pushSnapshot error',e);}
+}
+// クラウド側の復元ポイントとローカルの復元ポイントを合成（どちらの端末で記録されたものも失わない）
+function mergeHistoryFromCloud(cloudHistory){
+  if(!Array.isArray(cloudHistory)||!cloudHistory.length)return;
+  const seen=new Set(snapshotHistory.map(h=>h.ts+'_'+h.label));
+  cloudHistory.forEach(h=>{
+    const key=h.ts+'_'+h.label;
+    if(!seen.has(key)){snapshotHistory.push(h);seen.add(key);}
+  });
+  snapshotHistory.sort((a,b)=>a.ts-b.ts);
+  pruneHistory();
+  saveHistoryLocal();
+}
+function renderHistoryList(){
+  const el=document.getElementById('historyList');if(!el)return;
+  if(!snapshotHistory.length){el.innerHTML='<div style="font-size:11px;color:var(--ink3)">まだ復元ポイントがありません</div>';return;}
+  const rows=[...snapshotHistory].sort((a,b)=>b.ts-a.ts).slice(0,30);
+  el.innerHTML=rows.map(h=>{
+    const dt=new Date(h.ts).toLocaleString('ja-JP');
+    const cnt=Object.values(h.bks||{}).filter(b=>b.isStart!==false).length;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:11px">
+      <div><strong>${dt}</strong><br><span style="color:var(--ink2)">${esc(h.label||'')}　（予約${cnt}件）</span></div>
+      <button class="btn btn-out btn-sm" onclick="restoreSnapshot(${h.ts})">この時点に戻す</button>
+    </div>`;
+  }).join('');
+}
+function restoreSnapshot(ts){
+  const snap=snapshotHistory.find(h=>h.ts===ts);if(!snap)return;
+  const dt=new Date(snap.ts).toLocaleString('ja-JP');
+  if(!confirm('🕐 '+dt+'（'+(snap.label||'')+'）の状態に戻します。\n\n現在のデータは上書きされますが、念のため戻す前の状態も復元ポイントとして自動保存されます。\n\nよろしいですか？'))return;
+  pushSnapshot('復元操作の前の状態');
+  bks=JSON.parse(JSON.stringify(snap.bks));
+  unassigned=JSON.parse(JSON.stringify(snap.unassigned));
+  roomStatus=JSON.parse(JSON.stringify(snap.roomStatus));
+  checkoutData=JSON.parse(JSON.stringify(snap.checkoutData));
+  cancelledBks=JSON.parse(JSON.stringify(snap.cancelledBks));
+  rebuildAllSpans();
+  save();render();renderUnassigned();renderLedger();renderSettings();
+  showToast('✅ 復元しました（'+dt+'の状態）');
+}
+
 function archiveOverwritten(bk,room,reason){
   if(!bk)return;
+  pushSnapshot('上書き前：'+(bk.name||''));
   cancelledBks.push({...bk,room:room||bk.room,cancelledAt:new Date().toISOString(),originalKey:(bk.room||room)+'_'+(bk.ciDate||''),cancelReason:reason||'上書きにより自動退避（別の予約で置き換え）'});
 }
 // 「今日」がその予約の宿泊期間中かどうか（宿泊中の予約を誤って上書きしないための判定）
@@ -1500,6 +1585,7 @@ function confirmOverwrite(existing,room,ds){
 
 function delBk(){
   if(!editKey)return;
+  pushSnapshot('予約削除前：'+(bks[editKey]&&bks[editKey].name||''));
   // まずキャンセルか完全削除かを選択
   const keep=confirm('この予約をキャンセルとして台帳に残しますか？\n\n[OK] → キャンセル記録として残す（推奨）\n[キャンセル] → 完全に削除する');
   // 未割当のキャンセルにも対応
@@ -1520,6 +1606,7 @@ function delBk(){
 
 function delUnassignedBk(idx){
   const u=unassigned[idx];if(!u)return;
+  pushSnapshot('未割当削除前：'+(u.name||''));
   const keep=confirm('この予約をキャンセルとして台帳に残しますか？\n\n[OK] → キャンセル記録として残す（推奨）\n[キャンセル] → 完全に削除する');
   if(keep){
     cancelledBks.push({...u,room:'未割当（キャンセル）',cancelledAt:new Date().toISOString()});
@@ -2688,6 +2775,7 @@ function renderSettings(){
   const cc=document.getElementById('cancelCount');if(cc)cc.textContent=cancelledBks.length;
   initGasUrlInput();
   updateSyncStatus(localStorage.getItem('yado_ts')?'ok':'offline');
+  renderHistoryList();
 }
 
 function openDacho(){
@@ -2727,7 +2815,7 @@ function openDacho(){
     });
   });
   localStorage.setItem('dacho_import_data', JSON.stringify(directBks));
-  window.open('dacho.html','_blank');
+  window.open('dacho.html','yado_dacho_window');
 }
 
 function resetAll(){
@@ -2735,7 +2823,7 @@ function resetAll(){
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
   ov.innerHTML=`<div style="background:#fff;border-radius:12px;padding:24px;width:100%;max-width:320px;text-align:center">
     <div style="font-size:18px;margin-bottom:8px">🗑️ リセット確認</div>
-    <div style="font-size:13px;color:#666;margin-bottom:20px">全予約データを削除します。<br>この操作は取り消せません。</div>
+    <div style="font-size:13px;color:#666;margin-bottom:20px">全予約データを削除します。<br>（リセット直前の状態は「⚙️ 設定」の復元ポイントに残り、後から復元できます）</div>
     <div style="display:flex;gap:10px">
       <button id="resetCancel" style="flex:1;padding:12px;border:1.5px solid #ddd;border-radius:8px;background:#fff;font-size:14px;cursor:pointer">キャンセル</button>
       <button id="resetOk" style="flex:1;padding:12px;border:none;border-radius:8px;background:#d64b3a;color:#fff;font-size:14px;font-weight:700;cursor:pointer">削除する</button>
@@ -2744,10 +2832,11 @@ function resetAll(){
   document.getElementById('resetCancel').onclick=()=>ov.remove();
   document.getElementById('resetOk').onclick=()=>{
     ov.remove();
+    pushSnapshot('全リセット前');
     ['yado_bks','yado_ua','yado_rs','yado_co'].forEach(k=>localStorage.removeItem(k));
     bks={};unassigned=[];roomStatus={};checkoutData={};cancelledBks=[];
     save();render();renderUnassigned();renderLedger();renderSettings();
-    showToast('✅ リセットしました');
+    showToast('✅ リセットしました（復元ポイントから元に戻せます）');
   };
 }
 
@@ -3004,6 +3093,10 @@ function init(){
   const _kn=new Date();kinmuCy=_kn.getFullYear();kinmuCm=_kn.getMonth()+1;
   // 起動時インジケーター初期化
   updateSyncStatus(hasUnsent()?'unsent':localStorage.getItem('yado_ts')?'ok':'offline');
+  // 定期的な復元ポイント（前回から6時間以上経っていれば起動時にも1つ記録）
+  const lastSnap=snapshotHistory.length?snapshotHistory[snapshotHistory.length-1].ts:0;
+  if(Date.now()-lastSnap>6*60*60*1000)pushSnapshot('起動時の自動保存');
+  setInterval(()=>pushSnapshot('定期自動保存'),60*60*1000); // 1時間ごと
   // 自動同期（バナーなし・サイレント反映）
   function autoSyncFromCloud(){
     fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.1&select=payload',{
@@ -3017,10 +3110,13 @@ function init(){
       // モーダルが開いていたらスキップ（入力中データを守る）
       const modal=document.querySelector('.modal.on, .modal-overlay.on');
       if(modal)return;
+      // クラウドで上書きする前に、念のため今のローカル状態を復元ポイントとして残す
+      pushSnapshot('自動同期でクラウドに上書きされる前のローカル状態');
       // サイレント自動反映
       if(d.bks)bks=d.bks;if(d.unassigned)unassigned=d.unassigned;if(d.roomStatus)roomStatus=d.roomStatus;
       if(d.checkoutData)checkoutData=d.checkoutData;if(d.cancelledBks)cancelledBks=d.cancelledBks;
       if(d.kinmuRecords)kinmuRecords=d.kinmuRecords;if(d.kinmuStaffList)kinmuStaffList=d.kinmuStaffList;if(d.kinmuSettings)kinmuSettings=d.kinmuSettings;
+      mergeHistoryFromCloud(d.history);
       localStorage.setItem('yado_ts',String(d.ts));
       clearUnsent();
       normalizeDates();

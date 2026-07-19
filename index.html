@@ -1425,14 +1425,13 @@ function saveBk(){
     // 移動先に別の予約があれば警告して確認
     if(bks[newKey]&&bks[newKey].isStart!==false&&newKey!==editKey){
       const existing=bks[newKey];
-      const existName=existing.name||"（名前なし）";
-      const existNights=existing.nights||1;
-      if(!confirm("⚠️ "+targetRoom+"号室の"+ds+"には\n「"+existName+"」様（"+existNights+"泊）の予約が入っています。\n\n上書きしてよいですか？\n（キャンセルすると既存予約を維持します）")){
+      if(!confirmOverwrite(existing,targetRoom,ds)){
         // キャンセルされたら元の予約を復元
         bks[editKey]=oldBk;
         markSpan(oldRoom,editKey.substring(editKey.indexOf("_")+1),oldBk.nights,editKey);
         return;
       }
+      archiveOverwritten(existing,targetRoom);
       clearSpan(newKey);delete bks[newKey];
     }else if(bks[newKey])delete bks[newKey];
     data.room=targetRoom;
@@ -1445,11 +1444,10 @@ function saveBk(){
     // 重複チェック：既存予約がある場合は警告
     if(bks[key]&&bks[key].isStart!==false){
       const existing=bks[key];
-      const existName=existing.name||"（名前なし）";
-      const existNights=existing.nights||1;
-      if(!confirm("⚠️ "+room+"号室の"+ds+"には\n「"+existName+"」様（"+existNights+"泊）の予約が入っています。\n\n上書きしてよいですか？\n（キャンセルすると既存予約を維持します）")){
+      if(!confirmOverwrite(existing,room,ds)){
         return;
       }
+      archiveOverwritten(existing,room);
       clearSpan(key);
     }
     data.room=room;
@@ -1471,6 +1469,33 @@ function saveBk(){
     return;
   }
   save();closeManual();render();renderUnassigned();renderLedger();
+}
+
+// 上書きで消える予約を必ずキャンセル台帳へ退避する（データ消失防止）
+function archiveOverwritten(bk,room,reason){
+  if(!bk)return;
+  cancelledBks.push({...bk,room:room||bk.room,cancelledAt:new Date().toISOString(),originalKey:(bk.room||room)+'_'+(bk.ciDate||''),cancelReason:reason||'上書きにより自動退避（別の予約で置き換え）'});
+}
+// 「今日」がその予約の宿泊期間中かどうか（宿泊中の予約を誤って上書きしないための判定）
+function isCurrentlyStaying(bk){
+  if(!bk||!bk.ciDate)return false;
+  try{
+    const parts=bk.ciDate.replace(/\//g,'-').split('-').map(Number);
+    const ci=new Date(parts[0],parts[1]-1,parts[2]);
+    const co=new Date(parts[0],parts[1]-1,parts[2]+(parseInt(bk.nights)||1));
+    const today=new Date();today.setHours(0,0,0,0);
+    return today>=ci&&today<co;
+  }catch(e){return false;}
+}
+// 宿泊中の予約を上書きしようとした場合は、より強い確認（部屋番号の入力）を要求する
+function confirmOverwrite(existing,room,ds){
+  const existName=existing.name||"（名前なし）";
+  const existNights=existing.nights||1;
+  if(isCurrentlyStaying(existing)){
+    const typed=prompt("🔴 警告：この予約は本日ご宿泊中の可能性があります！\n\n"+room+"号室の"+ds+"には\n「"+existName+"」様（"+existNights+"泊）が宿泊中の予約として入っています。\n\n本当に上書き（削除）する場合は、部屋番号「"+room+"」を入力してください。\n（誤操作防止のため、キャンセル記録には自動的に残ります）");
+    return typed===String(room);
+  }
+  return confirm("⚠️ "+room+"号室の"+ds+"には\n「"+existName+"」様（"+existNights+"泊）の予約が入っています。\n\n上書きしてよいですか？\n（キャンセルすると既存予約を維持します。上書きした場合も自動的にキャンセル台帳に記録されます）");
 }
 
 function delBk(){
@@ -1600,11 +1625,10 @@ function doAssign(){
     // 既存予約との重複チェック
     if(bks[key]&&bks[key].isStart!==false){
       const existing=bks[key];
-      const existName=existing.name||'（名前なし）';
-      const existNights=existing.nights||1;
-      if(!confirm(`⚠️ ${room}号室の${ds}には\n「${existName}」様（${existNights}泊）の予約が入っています。\n\n上書きしてよいですか？\n（キャンセルすると既存予約を維持します）`)){
+      if(!confirmOverwrite(existing,room,ds)){
         return;
       }
+      archiveOverwritten(existing,room);
       clearSpan(key);
     }
     const data=JSON.parse(JSON.stringify(u));

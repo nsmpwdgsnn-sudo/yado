@@ -1815,7 +1815,7 @@ function parseOta(){
     m=text.match(/^(\d{5}-\d{3}-\d{6}-\d{6})/m)||text.match(/\[受付番号\]\s*(\S+)/);if(m)d.otaNo=m[1];
     m=text.match(/(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})より(\d+)泊/)||text.match(/\[宿泊日[^\]]*\]\s*(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})より(\d+)泊/);
     if(m){d.ciDate=normDate(m[1]);d.nights=parseInt(m[2]);}
-    m=text.match(/大人(\d+)/)||text.match(/\[人数\]\s*大人(\d+)/);if(m)d.paxAdult=m[1];
+    m=text.match(/\[人数\]\s*大人\s*(\d+)/)||text.match(/大人\s*(\d+)\s*名/);if(m)d.paxAdult=m[1];
     const priceMatches=text.match(/大人\s+[\d,]+\s*円\s*x\s*\d+\s*人\s*=\s*([\d,]+)\s*円/g);
     if(priceMatches){let total=0;priceMatches.forEach(line=>{const n=line.match(/=\s*([\d,]+)\s*円/);if(n)total+=parseInt(n[1].replace(/,/g,''));});if(total>0)d.price=String(total);}
     m=text.match(/チェックイン時間\s*\n?(\d{1,2}:\d{2})/)||text.match(/チェックイン.*?(\d{1,2}:\d{2})/);if(m)d.ci=m[1];
@@ -2706,7 +2706,7 @@ function openDacho(){
       route:bk.src==='tel'?'電話':bk.src==='sms'?'SMS':bk.src==='insta'?'インスタ':bk.src==='kuchi'?'口頭・紹介':bk.src==='hp'?'HP':bk.src==='line'?'LINE':bk.src||'電話',
       ci:bk.ciDate||key.substring(idx+1),
       co:bk.coDate||'',
-      pax:String((bk.paxAdult||0)+(bk.paxChild||0)+(bk.paxInfant||0)||bk.pax||''),
+      pax:String((parseInt(bk.paxAdult)||0)+(parseInt(bk.paxChild)||0)+(parseInt(bk.paxInfant)||0)||bk.pax||''),
       plan:bk.plan||'',
       price:String(bk.price||''),
       memo:bk.memo||''
@@ -2722,7 +2722,7 @@ function openDacho(){
       route:u.src==='tel'?'電話':u.src==='sms'?'SMS':u.src==='insta'?'インスタ':u.src==='kuchi'?'口頭・紹介':u.src==='hp'?'HP':u.src==='line'?'LINE':u.src||'電話',
       ci:u.ciDate||'',
       co:u.coDate||'',
-      pax:String((u.paxAdult||0)+(u.paxChild||0)+(u.paxInfant||0)||u.pax||''),
+      pax:String((parseInt(u.paxAdult)||0)+(parseInt(u.paxChild)||0)+(parseInt(u.paxInfant)||0)||u.pax||''),
       plan:u.plan||'',
       price:String(u.price||''),
       memo:u.memo||''

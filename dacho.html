@@ -122,6 +122,7 @@ tr:hover td{background:#fffbe8}
   <!-- ボタン群 -->
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
     <button class="btn btn-out btn-sm" onclick="toggleCIPanel()">🚪 今日のCI</button>
+    <button class="btn btn-out btn-sm" onclick="toggleUpcomingPanel()">📅 近日チェックイン</button>
     <button class="btn btn-out btn-sm" onclick="openImport('mail')">📧 メール取り込み</button>
     <button class="btn btn-out btn-sm" onclick="openImport('json')">📥 予約管理から取込</button>
     <button class="btn btn-out btn-sm" onclick="saveToSupabase();showToast('☁️ 保存中...')">☁️ 今すぐ保存</button>
@@ -131,6 +132,8 @@ tr:hover td{background:#fffbe8}
   <div class="stats" id="stats"></div>
   <!-- CI一覧 -->
   <div class="ci-panel" id="ciPanel"></div>
+  <!-- 近日チェックイン一覧（連絡先未入力の警告つき） -->
+  <div class="ci-panel" id="upcomingPanel"></div>
 
   <!-- フィルター -->
   <div class="filter-bar">
@@ -152,7 +155,7 @@ tr:hover td{background:#fffbe8}
   <div class="tbl-wrap">
     <table>
       <thead><tr>
-        <th>NO</th><th>受付日</th><th>氏名</th><th>経路</th><th>CI日</th><th>CO日</th><th>泊</th><th>人数</th><th>プラン</th><th>金額</th><th>状態</th><th>操作</th>
+        <th>NO</th><th>受付日</th><th>氏名</th><th>電話</th><th>経路</th><th>CI日</th><th>CO日</th><th>泊</th><th>人数</th><th>プラン</th><th>金額</th><th>状態</th><th>操作</th>
       </tr></thead>
       <tbody id="tbody"></tbody>
     </table>
@@ -177,6 +180,10 @@ tr:hover td{background:#fffbe8}
     <div class="fg">
       <label class="fl">氏名・グループ名</label>
       <input class="fi" id="fName" placeholder="例: 山田 太郎">
+    </div>
+    <div class="fg">
+      <label class="fl">電話番号</label>
+      <input class="fi" id="fTel" type="tel" placeholder="例: 090-1234-5678">
     </div>
     <div class="fr2">
       <div class="fg">
@@ -529,6 +536,7 @@ function renderAll(){
   renderStats();
   renderTable();
   if(ciPanelOpen)renderCIPanel();
+  if(upcomingPanelOpen)renderUpcomingPanel();
 }
 
 function renderStats(){
@@ -537,11 +545,14 @@ function renderStats(){
   const pending=entries.filter(e=>autoStatus(e)==='pending');
   const todayCIs=entries.filter(e=>isToday(e.ci)&&autoStatus(e)!=='cancel');
   const pax=active.reduce((s,e)=>s+(parseInt(e.pax)||0),0);
+  const upcoming=getUpcomingEntries();
+  const noTelCount=upcoming.filter(e=>!e.tel).length;
   const d=new Date();
   document.getElementById('stats').innerHTML=`
     <div class="stat" onclick="clearFilter()"><div class="stat-n">${active.length}</div><div class="stat-l">総予約数</div></div>
     <div class="stat" onclick="setFilter('pending')"><div class="stat-n" style="color:#e8a000">${pending.length}</div><div class="stat-l">未CI ▾</div></div>
     <div class="stat" onclick="toggleCIPanel()"><div class="stat-n" style="color:#2a5fa8">${todayCIs.length}</div><div class="stat-l">今日のCI ▾</div></div>
+    <div class="stat" onclick="toggleUpcomingPanel()"><div class="stat-n" style="color:var(--purple)">${upcoming.length}${noTelCount?'<span style="font-size:10px;color:var(--red)"> ⚠️'+noTelCount+'</span>':''}</div><div class="stat-l">近日CI(1週間) ▾</div></div>
     <div class="stat"><div class="stat-n">${pax}</div><div class="stat-l">総人数</div></div>`;
   // 日付表示
   document.title='直接予約台帳 — '+d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();
@@ -571,6 +582,7 @@ function renderTable(){
       <td><span class="no-cell">${displayNo(e)}</span></td>
       <td>${fmt(e.recv)}</td>
       <td style="font-weight:700">${e.name||''}</td>
+      <td>${e.tel?`<a href="tel:${e.tel.replace(/[^0-9+]/g,'')}" style="color:var(--blue);text-decoration:none">${e.tel}</a>`:'<span style="color:var(--red);font-size:10px">⚠️ 未入力</span>'}</td>
       <td style="color:var(--ink2)">${e.route||''}</td>
       <td>${fmtCI(e.ci)}${isToday(e.ci)?'<span class="today-badge">今日</span>':''}</td>
       <td>${fmtCI(e.co)}${isToday(e.co)?'<span class="today-badge">今日</span>':''}</td>
@@ -603,6 +615,62 @@ function toggleCIPanel(){
   else{el.classList.remove('on');}
 }
 
+// ===== 近日チェックイン一覧（連絡先未入力の見える化） =====
+let upcomingPanelOpen=false;
+function daysUntil(ci){
+  if(!ci)return null;
+  const t=todayStr().split('-').map(Number);
+  const c=ci.split('-').map(Number);
+  if(c.length<3||isNaN(c[0])||isNaN(c[1])||isNaN(c[2]))return null;
+  const td=new Date(t[0],t[1]-1,t[2]);
+  const cd=new Date(c[0],c[1]-1,c[2]);
+  return Math.round((cd-td)/86400000);
+}
+function getUpcomingEntries(){
+  return entries
+    .filter(e=>autoStatus(e)!=='cancel')
+    .map(e=>({...e,_d:daysUntil(e.ci)}))
+    .filter(e=>e._d!==null&&e._d>=1&&e._d<=7)
+    .sort((a,b)=>a._d-b._d);
+}
+function upcomingGroupLabel(d){
+  if(d===1)return '🔴 明日';
+  if(d<=3)return '🟠 3日以内';
+  return '🟡 1週間以内';
+}
+function renderUpcomingPanel(){
+  const list=getUpcomingEntries();
+  const el=document.getElementById('upcomingPanel');
+  if(!list.length){
+    el.innerHTML='<div style="font-size:12px;font-weight:700;margin-bottom:6px;color:var(--ink2)">📅 近日チェックイン（1週間以内）</div><div style="font-size:12px;color:var(--ink3)">該当する予約はありません</div>';
+    return;
+  }
+  let lastGroup='';
+  let html='<div style="font-size:12px;font-weight:700;margin-bottom:6px;color:var(--ink2)">📅 近日チェックイン（1週間以内・'+list.length+'件）</div>';
+  list.forEach(e=>{
+    const g=upcomingGroupLabel(e._d);
+    if(g!==lastGroup){
+      html+=`<div style="font-size:11px;font-weight:700;color:var(--ink2);margin-top:8px;margin-bottom:2px">${g}</div>`;
+      lastGroup=g;
+    }
+    const telHtml=e.tel
+      ?`<a href="tel:${e.tel.replace(/[^0-9+]/g,'')}" style="color:var(--blue);text-decoration:none">📞 ${e.tel}</a>`
+      :'<span style="color:var(--red);font-weight:700">⚠️ 連絡先未入力</span>';
+    html+=`<div class="ci-item">
+      <div style="flex:1"><strong>${displayNo(e)} ${e.name||''}</strong>　${fmtCI(e.ci)}
+      <div style="font-size:11px;color:var(--ink2)">${e.route||''} / ${e.pax||'?'}名${e.plan?' / '+e.plan:''}　${telHtml}</div></div>
+      <button class="icon-btn" onclick="openEdit(${e.id})" title="編集">✏️</button>
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+function toggleUpcomingPanel(){
+  upcomingPanelOpen=!upcomingPanelOpen;
+  const el=document.getElementById('upcomingPanel');
+  if(upcomingPanelOpen){renderUpcomingPanel();el.classList.add('on');}
+  else{el.classList.remove('on');}
+}
+
 function clearFilter(){document.getElementById('filterStatus').value='';renderTable();}
 function setFilter(v){document.getElementById('filterStatus').value=v;renderTable();}
 
@@ -613,6 +681,7 @@ function openAdd(){
   document.getElementById('fNo').value='';
   document.getElementById('fRecv').value=todayStr();
   document.getElementById('fName').value='';
+  document.getElementById('fTel').value='';
   document.getElementById('fRoute').value='電話';
   document.getElementById('fStatus').value='pending';
   document.getElementById('fCI').value='';
@@ -632,6 +701,7 @@ function openEdit(id){
   document.getElementById('fNo').value=e.no!==undefined?e.no:'';
   document.getElementById('fRecv').value=e.recv||todayStr();
   document.getElementById('fName').value=e.name||'';
+  document.getElementById('fTel').value=e.tel||'';
   document.getElementById('fRoute').value=e.route||'電話';
   document.getElementById('fStatus').value=normStatus(e.status);
   document.getElementById('fCI').value=e.ci||'';
@@ -653,6 +723,7 @@ async function saveEntry(){
     no:noVal!==''?noVal:undefined,
     recv:document.getElementById('fRecv').value,
     name:document.getElementById('fName').value.trim(),
+    tel:document.getElementById('fTel').value.trim(),
     route:document.getElementById('fRoute').value,
     status:document.getElementById('fStatus').value,
     ci:document.getElementById('fCI').value,
@@ -786,7 +857,7 @@ async function doJsonImport(){
   pendingImport.forEach((e,i)=>{
     const cb=document.getElementById('jimp-'+i);
     if(!cb||!cb.checked||cb.disabled)return;
-    entries.push({id:nextId++,name:e.name||'',recv:e.recv||todayStr(),route:e.route||'',
+    entries.push({id:nextId++,name:e.name||'',tel:e.tel||'',recv:e.recv||todayStr(),route:e.route||'',
       ci:e.ci||'',co:e.co||'',pax:String(e.pax||''),plan:e.plan||'',
       price:String(e.price||''),status:e.cancelled?'cancel':'pending',memo:e.memo||''});
     count++;

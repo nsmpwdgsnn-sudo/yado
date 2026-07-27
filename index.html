@@ -445,6 +445,7 @@ td.c.bk:hover{filter:brightness(1.08)}
       <button class="btn btn-gold btn-sm" onclick="window.print()" style="margin-left:auto">🖨️ 印刷</button>
     </div>
     <div id="coMonthlySummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px"></div>
+    <div id="coMonthlyKirishima" style="margin-bottom:14px"></div>
     <div id="coMonthlyContent"></div>
   </div>
   <textarea id="checkoutCopyText" style="position:fixed;left:-9999px;opacity:0"></textarea>
@@ -675,7 +676,37 @@ td.c.bk:hover{filter:brightness(1.08)}
     </div>
     <div class="fg">
       <label class="fl">住所</label>
-      <input class="fi" id="fAddr" placeholder="〒000-0000 ○○県...">
+      <input class="fi" id="fAddr" placeholder="〒000-0000 ○○県..." onblur="autoDetectPrefCountry()">
+    </div>
+    <!-- 観光課報告用：宿泊者区分・都道府県・国 -->
+    <div class="fg">
+      <label class="fl">宿泊者区分（観光課報告用）</label>
+      <div style="display:flex;gap:16px;font-size:12px;align-items:center">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="fGuestType" id="fGuestTypeDomestic" value="domestic" checked onchange="onGuestTypeChange()"> 国内</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="fGuestType" id="fGuestTypeInbound" value="inbound" onchange="onGuestTypeChange()"> インバウンド（海外）</label>
+        <button type="button" class="btn btn-out btn-sm" style="margin-left:auto" onclick="autoDetectPrefCountry(true)">📍住所から判定</button>
+      </div>
+    </div>
+    <div class="fg" id="fPrefGroup">
+      <label class="fl">都道府県</label>
+      <select class="fsel" id="fPref">
+        <option value="">-- 不明・未選択 --</option>
+      </select>
+      <div style="font-size:10px;color:var(--ink3);margin-top:3px" id="fPrefHint"></div>
+    </div>
+    <div class="fg" id="fCountryGroup" style="display:none">
+      <label class="fl">国・地域</label>
+      <select class="fsel" id="fCountry" onchange="onCountrySelectChange()">
+        <option value="">-- 不明・未選択 --</option>
+      </select>
+      <input class="fi" id="fCountryOther" placeholder="国・地域名を入力" style="margin-top:6px;display:none">
+    </div>
+    <div class="fg">
+      <label class="fl">送迎（実績記録用）</label>
+      <select class="fsel" id="fTransport">
+        <option value="0">なし</option>
+        <option value="1">あり</option>
+      </select>
     </div>
     <div class="fg">
       <label class="fl">OTA予約番号 / 直接予約番号</label>
@@ -848,6 +879,72 @@ const DIRECT_NO_START = 6400;
 const SUPABASE_URL = 'https://kcwskxxseypxprnpgbog.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtjd3NreHhzZXlweHBybnBnYm9nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNDMwNjEsImV4cCI6MjA5MDYxOTA2MX0.5ecX39PrkDnVKezTuP0n0_DkMgfz7Xiyzq0jlZHGiHQ';
 const SUPABASE_TABLE = 'yado_data'; // 直接予約通し番号の開始値
+
+// ===== 都道府県・国（観光課報告用） =====
+const PREFS = ['北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県','茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県','新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県','徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県'];
+// 霧島市様式の「国内」区分（16列）に対応する都道府県→区分マッピング
+const PREF_TO_KIRISHIMA = {
+  '鹿児島県':'鹿児島','福岡県':'福岡','宮崎県':'宮崎','熊本県':'熊本','大分県':'大分','佐賀県':'佐賀','長崎県':'長崎','沖縄県':'沖縄','北海道':'北海道',
+  '徳島県':'四国','香川県':'四国','愛媛県':'四国','高知県':'四国',
+  '鳥取県':'中国','島根県':'中国','岡山県':'中国','広島県':'中国','山口県':'中国',
+  '三重県':'近畿','滋賀県':'近畿','京都府':'近畿','大阪府':'近畿','兵庫県':'近畿','奈良県':'近畿','和歌山県':'近畿',
+  '山梨県':'中部','長野県':'中部','岐阜県':'中部','静岡県':'中部','愛知県':'中部',
+  '茨城県':'関東','栃木県':'関東','群馬県':'関東','埼玉県':'関東','千葉県':'関東','東京都':'関東','神奈川県':'関東',
+  '新潟県':'北陸','富山県':'北陸','石川県':'北陸','福井県':'北陸',
+  '青森県':'東北','岩手県':'東北','宮城県':'東北','秋田県':'東北','山形県':'東北','福島県':'東北'
+};
+// 霧島市様式の列順（国内16 + 海外8）
+const KIRISHIMA_DOMESTIC_ORDER = ['鹿児島','福岡','宮崎','熊本','大分','佐賀','長崎','沖縄','四国','中国','近畿','中部','関東','北陸','東北','北海道'];
+const KIRISHIMA_OVERSEAS_ORDER = ['台湾','中国','韓国','香港','ベトナム','その他東南アジア','欧米・オセアニア','その他'];
+// 国・地域の選択肢と霧島市区分へのマッピング
+const COUNTRIES = ['台湾','中国','韓国','香港','ベトナム','タイ','シンガポール','マレーシア','インドネシア','フィリピン','カンボジア','ミャンマー','アメリカ','カナダ','オーストラリア','ニュージーランド','イギリス','フランス','ドイツ','イタリア','スペイン'];
+const COUNTRY_TO_KIRISHIMA = {
+  '台湾':'台湾','中国':'中国','韓国':'韓国','香港':'香港','ベトナム':'ベトナム',
+  'タイ':'その他東南アジア','シンガポール':'その他東南アジア','マレーシア':'その他東南アジア','インドネシア':'その他東南アジア','フィリピン':'その他東南アジア','カンボジア':'その他東南アジア','ミャンマー':'その他東南アジア','ラオス':'その他東南アジア',
+  'アメリカ':'欧米・オセアニア','カナダ':'欧米・オセアニア','オーストラリア':'欧米・オセアニア','ニュージーランド':'欧米・オセアニア','イギリス':'欧米・オセアニア','フランス':'欧米・オセアニア','ドイツ':'欧米・オセアニア','イタリア':'欧米・オセアニア','スペイン':'欧米・オセアニア'
+};
+function kirishimaCategoryForPref(pref){ return pref?(PREF_TO_KIRISHIMA[pref]||null):null; }
+function kirishimaCategoryForCountry(country){ if(!country)return null; return COUNTRY_TO_KIRISHIMA[country]||'その他'; }
+// 住所文字列から都道府県を推定（パーサーで拾えなかった場合の自動判定用。あくまで初期値の提案）
+function extractPrefFromAddr(addr){
+  if(!addr)return '';
+  for(const p of PREFS){ if(addr.includes(p))return p; }
+  return '';
+}
+// 住所文字列から国名を推定（ローマ字・日本語表記の両方を軽く判定）
+const COUNTRY_ALIASES = {
+  '台湾':'台湾','taiwan':'台湾',
+  '中国':'中国','china':'中国','ｐ.r.china':'中国','prchina':'中国',
+  '韓国':'韓国','korea':'韓国',
+  '香港':'香港','hongkong':'香港','hong kong':'香港',
+  'ベトナム':'ベトナム','vietnam':'ベトナム',
+  'タイ':'タイ','thailand':'タイ',
+  'シンガポール':'シンガポール','singapore':'シンガポール',
+  'マレーシア':'マレーシア','malaysia':'マレーシア',
+  'インドネシア':'インドネシア','indonesia':'インドネシア',
+  'フィリピン':'フィリピン','philippines':'フィリピン',
+  'アメリカ':'アメリカ','usa':'アメリカ','u.s.a':'アメリカ','united states':'アメリカ',
+  'カナダ':'カナダ','canada':'カナダ',
+  'オーストラリア':'オーストラリア','australia':'オーストラリア',
+  'ニュージーランド':'ニュージーランド','new zealand':'ニュージーランド',
+  'イギリス':'イギリス','uk':'イギリス','united kingdom':'イギリス',
+  'フランス':'フランス','france':'フランス',
+  'ドイツ':'ドイツ','germany':'ドイツ'
+};
+function extractCountryFromAddr(addr){
+  if(!addr)return '';
+  const low=addr.toLowerCase();
+  for(const key in COUNTRY_ALIASES){ if(low.includes(key))return COUNTRY_ALIASES[key]; }
+  return '';
+}
+// 住所からいったん国内/インバウンドを推定し、bk風オブジェクトにpref/country/guestTypeを提案として付与
+function guessPrefCountry(addr){
+  const pref=extractPrefFromAddr(addr);
+  if(pref)return {guestType:'domestic',pref,country:''};
+  const country=extractCountryFromAddr(addr);
+  if(country)return {guestType:'inbound',pref:'',country};
+  return {guestType:'domestic',pref:'',country:''};
+}
 
 // ===== 状態 =====
 let cy, cm, bks={}, unassigned=[], cancelledBks=[], editKey=null, currentOta='rakuten', parsedData=null, assigningIdx=null;
@@ -1316,6 +1413,8 @@ function openManual(room,ds){
   document.getElementById('fDiscount').value='0';
   document.getElementById('fSubsidy').value='';
   updateDiscountVisibility();
+  setPrefCountryForm(null);
+  document.getElementById('fPrefHint').textContent='';
   document.getElementById('manualMod').classList.add('on');
   setTimeout(()=>document.getElementById('fName').focus(),100);
 }
@@ -1327,6 +1426,86 @@ function updateDiscountVisibility(){
   document.getElementById('fSubsidyGroup').style.display='block';
   document.getElementById('fDiscountGroup').querySelector('.fl').textContent=
     isOta?'OTAポイント割引（円）':'補助金・割引額（円）';
+}
+
+// ===== 都道府県・国 セレクト初期化／区分切替／自動判定 =====
+function initPrefCountrySelects(){
+  const prefSel=document.getElementById('fPref');
+  if(prefSel&&prefSel.options.length<=1){
+    PREFS.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;prefSel.appendChild(o);});
+  }
+  const countrySel=document.getElementById('fCountry');
+  if(countrySel&&countrySel.options.length<=1){
+    COUNTRIES.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;countrySel.appendChild(o);});
+    const other=document.createElement('option');other.value='__other';other.textContent='その他（自由入力）';countrySel.appendChild(other);
+  }
+}
+function onGuestTypeChange(){
+  const isInbound=document.getElementById('fGuestTypeInbound').checked;
+  document.getElementById('fPrefGroup').style.display=isInbound?'none':'block';
+  document.getElementById('fCountryGroup').style.display=isInbound?'block':'none';
+}
+function onCountrySelectChange(){
+  const v=document.getElementById('fCountry').value;
+  document.getElementById('fCountryOther').style.display=(v==='__other')?'block':'none';
+}
+// 住所欄からその場で都道府県／国を推定してフォームに反映する（あくまで提案。既に選択済みの場合、forceでなければ上書きしない）
+function autoDetectPrefCountry(force){
+  const addr=document.getElementById('fAddr').value.trim();
+  const hint=document.getElementById('fPrefHint');
+  if(!addr)return;
+  const prefAlready=document.getElementById('fPref').value;
+  const countryAlready=document.getElementById('fCountry').value;
+  if(!force&&(prefAlready||countryAlready))return;
+  const g=guessPrefCountry(addr);
+  if(g.guestType==='domestic'&&g.pref){
+    document.getElementById('fGuestTypeDomestic').checked=true;
+    onGuestTypeChange();
+    document.getElementById('fPref').value=g.pref;
+    if(hint)hint.textContent='📍住所から自動判定：'+g.pref;
+  }else if(g.guestType==='inbound'&&g.country){
+    document.getElementById('fGuestTypeInbound').checked=true;
+    onGuestTypeChange();
+    document.getElementById('fCountry').value=g.country;
+    onCountrySelectChange();
+    if(hint)hint.textContent='📍住所から自動判定：'+g.country+'（インバウンド）';
+  }else if(hint&&force){
+    hint.textContent='📍住所から判定できませんでした。手動で選択してください。';
+  }
+}
+// 予約データ(bk)から都道府県／国・地域／送迎フォームへ反映する
+function setPrefCountryForm(bk){
+  const guestType=bk&&bk.guestType==='inbound'?'inbound':'domestic';
+  document.getElementById('fGuestTypeDomestic').checked=(guestType==='domestic');
+  document.getElementById('fGuestTypeInbound').checked=(guestType==='inbound');
+  document.getElementById('fPref').value=(bk&&bk.pref)||'';
+  const country=(bk&&bk.country)||'';
+  const countrySel=document.getElementById('fCountry');
+  if(country&&!COUNTRIES.includes(country)){
+    countrySel.value='__other';
+    document.getElementById('fCountryOther').style.display='block';
+    document.getElementById('fCountryOther').value=country;
+  }else{
+    countrySel.value=country;
+    document.getElementById('fCountryOther').style.display='none';
+    document.getElementById('fCountryOther').value='';
+  }
+  onGuestTypeChange();
+  const hint=document.getElementById('fPrefHint');if(hint)hint.textContent='';
+  document.getElementById('fTransport').value=(bk&&bk.transport)?'1':'0';
+}
+// フォームから都道府県／国・地域／送迎の値を取得する
+function getPrefCountryFromForm(){
+  const isInbound=document.getElementById('fGuestTypeInbound').checked;
+  const transport=document.getElementById('fTransport').value==='1';
+  if(isInbound){
+    let country=document.getElementById('fCountry').value;
+    if(country==='__other')country=document.getElementById('fCountryOther').value.trim();
+    return {guestType:'inbound',pref:'',country,transport};
+  }else{
+    const pref=document.getElementById('fPref').value;
+    return {guestType:'domestic',pref,country:'',transport};
+  }
 }
 
 function openDirectInput(){openManual(null,null);}
@@ -1371,6 +1550,7 @@ function editBk(room,ds){
   document.getElementById('fDiscount').value=bk.discount||'0';
   document.getElementById('fSubsidy').value=bk.subsidy||'';
   updateDiscountVisibility();
+  setPrefCountryForm(bk);
   document.getElementById('manualMod').classList.add('on');
 }
 
@@ -1392,6 +1572,7 @@ function saveBk(){
   const uindex=document.getElementById('manualMod').getAttribute('data-uindex')||'';
 
   const srcVal=document.getElementById('fSrc').value;
+  const prefCountry=getPrefCountryFromForm();
   const data={
     name, src:srcVal,
     nights, ci:document.getElementById('fCITime').value, co:document.getElementById('fCOTime').value,
@@ -1407,6 +1588,10 @@ function saveBk(){
     pet:document.getElementById('fPet').value,
     tel:document.getElementById('fTel').value.trim(),
     addr:document.getElementById('fAddr').value.trim(),
+    guestType:prefCountry.guestType,
+    pref:prefCountry.pref,
+    country:prefCountry.country,
+    transport:prefCountry.transport,
     otaNo:document.getElementById('fOtaNo').value.trim(),
     memo:document.getElementById('fMemo').value.trim(),
     bookDate:document.getElementById('fBookDate').value,
@@ -1591,6 +1776,7 @@ function editUnassigned(i){
   document.getElementById('fOtaNo').value=u.otaNo||'';
   document.getElementById('fMemo').value=u.memo||'';
   document.getElementById('btnDel').style.display='none';
+  setPrefCountryForm(u);
   document.getElementById('manualMod').setAttribute('data-uindex',String(i));
   document.querySelectorAll('.src-btn').forEach(b=>b.classList.remove('on'));
   const sb=document.querySelector(`.src-btn[onclick*="'${u.src||'tel'}'"]`);
@@ -1836,6 +2022,9 @@ function parseOta(){
     m=text.match(/ペットの有無\s*\n?([^\n]+)/)||text.match(/\[ペットの有無\]\s*(.+)/);if(m&&!m[1].match(/ではありません/))d.pet=m[1].trim();
     m=text.match(/備考[　\s]*ご希望など\s*\n([^\n]*)/);if(m&&m[1].trim())d.memo=m[1].trim();
   }
+  // 住所から都道府県／国・地域を自動推定（あくまで提案。取込後に編集画面で修正可能）
+  const _pc=guessPrefCountry(d.addr||'');
+  d.guestType=_pc.guestType;d.pref=_pc.pref;d.country=_pc.country;d.transport=false;
   parsedData=d;
   const body=document.getElementById('parseBody');
   const isMulti=d._multiRoom&&d._multiRoom.count>1;
@@ -1855,6 +2044,7 @@ function parseOta(){
     ${d.pet?`<div class="pr-row"><span class="pr-label">ペット</span><span class="pr-val">${esc(d.pet)}</span></div>`:''}
     ${d.otaNo?`<div class="pr-row"><span class="pr-label">OTA予約番号</span><span class="pr-val">${esc(d.otaNo)}</span></div>`:''}
     ${d.addr?`<div class="pr-row"><span class="pr-label">住所</span><span class="pr-val">${esc(d.addr.substring(0,40))}</span></div>`:''}
+    <div class="pr-row"><span class="pr-label">都道府県/国（観光課用）</span><span class="pr-val ${(d.pref||d.country)?'':'pr-err'}">${d.pref||d.country||'不明（後で編集画面から入力できます）'}</span></div>
     ${d.memo?`<div class="pr-row"><span class="pr-label">備考</span><span class="pr-val">${esc(d.memo.substring(0,80))}</span></div>`:''}
     <div style="margin-top:6px;font-size:10px;color:var(--ink3)">※読み取れなかった項目は追加後に編集できます</div>`;
   document.getElementById('parseResult').classList.add('show');
@@ -2022,7 +2212,8 @@ function importCsvSelected(){
   csvRows.forEach(r=>{
     if(!r.selected||r.ku==='キャンセル')return;
     if(skipDup&&r.otaNo&&existingOtaNos.has(r.otaNo))return;
-    unassigned.push({name:r.name,src:r.src,nights:r.nights,ci:r.ci,co:r.co,paxAdult:r.paxAdult,price:r.price,tel:r.tel,addr:r.addr,memo:r.memo,otaNo:r.otaNo,ciDate:r.ciDate,isStart:true,no:genReceiptNo(),id:Date.now()+count,futon:'',pet:''});
+    const _pc=guessPrefCountry(r.addr||'');
+    unassigned.push({name:r.name,src:r.src,nights:r.nights,ci:r.ci,co:r.co,paxAdult:r.paxAdult,price:r.price,tel:r.tel,addr:r.addr,memo:r.memo,otaNo:r.otaNo,ciDate:r.ciDate,isStart:true,no:genReceiptNo(),id:Date.now()+count,futon:'',pet:'',guestType:_pc.guestType,pref:_pc.pref,country:_pc.country,transport:false});
     count++;
   });
   if(!count){alert('取込対象がありません');return;}
@@ -2428,6 +2619,36 @@ function renderMonthlyCheckout(){
   // 楽天ペイ振込カード：直接rakuten_pay + OTA現地（yahoo_local・yukoyuko_local）を集約
   const totRakutenPay=(totals.rakuten_pay||0)+(totals.yahoo_local||0)+(totals.yukoyuko_local||0);
 
+  // ===== 宿泊人数・送迎実績・都道府県/国別集計（霧島市観光課 報告用） =====
+  let totPax=0,transportCount=0,inboundPax=0;
+  const domesticPax={};KIRISHIMA_DOMESTIC_ORDER.forEach(k=>domesticPax[k]=0);
+  const overseasPax={};KIRISHIMA_OVERSEAS_ORDER.forEach(k=>overseasPax[k]=0);
+  let unclassifiedCnt=0,unclassifiedPax=0;
+  rows.forEach(r=>{
+    const bk=r.bk;
+    const pax=totalPax(bk)||0;
+    totPax+=pax;
+    if(bk.transport)transportCount++;
+    let guestType=bk.guestType,pref=bk.pref,country=bk.country;
+    if(!guestType){
+      // このデータが作られた時点でまだ機能追加前だった場合：住所からその場で推定（保存はしない、表示のみ）
+      const g=guessPrefCountry(bk.addr||'');
+      guestType=g.guestType;pref=pref||g.pref;country=country||g.country;
+    }
+    if(guestType==='inbound'){
+      const cat=kirishimaCategoryForCountry(country);
+      if(cat){overseasPax[cat]+=pax;inboundPax+=pax;}
+      else{unclassifiedCnt++;unclassifiedPax+=pax;}
+    }else{
+      const cat=kirishimaCategoryForPref(pref);
+      if(cat){domesticPax[cat]+=pax;}
+      else{unclassifiedCnt++;unclassifiedPax+=pax;}
+    }
+  });
+  const transportPct=rows.length?Math.round(transportCount/rows.length*1000)/10:0;
+  const inboundPct=totPax?Math.round(inboundPax/totPax*1000)/10:0;
+  window._kirishimaReport={y:coMonthlyY,m:coMonthlyM,domesticPax,overseasPax,totPax,unclassifiedCnt};
+
   function scard(label,val,color,sub){
     if(!val&&val!==0)return '';
     return `<div style="background:var(--paper);border-radius:8px;padding:10px;border:1.5px solid var(--border);box-shadow:0 2px 6px var(--shadow)">
@@ -2439,6 +2660,9 @@ function renderMonthlyCheckout(){
 
   document.getElementById('coMonthlySummary').innerHTML=`
     ${scard('宿泊件数',rows.length+'件','')}
+    ${scard('宿泊人数合計（延べ）',totPax+'名','#2a5fa8')}
+    ${scard('送迎あり',transportCount+'件（'+transportPct+'%）','#2a7a4b','全'+rows.length+'件中')}
+    ${scard('うちインバウンド',inboundPax+'名（'+inboundPct+'%）','#c00060')}
     ${scard('宿泊料金合計',totBasePrice,'#888','定価（参考）')}
     ${scard('現金',totals.cash,'#2a7a4b')}
     ${totRakutenPay?scard('楽天ペイ振込',totRakutenPay,'#cc0000','OTA現地＋直接予約カード'):scard('楽天ペイ振込',0)}
@@ -2453,6 +2677,8 @@ function renderMonthlyCheckout(){
     ${scard('精算済み',totPaid,'var(--green)')}
     ${scard('未精算',totUnpaid,'var(--red)')}
   `;
+
+  renderKirishimaReport(domesticPax,overseasPax,unclassifiedCnt,unclassifiedPax);
 
   if(!rows.length){document.getElementById('coMonthlyContent').innerHTML='<div class="empty-msg">この月の予約はありません</div>';return;}
 
@@ -2491,6 +2717,54 @@ function renderMonthlyCheckout(){
         <tbody>${tableRows}</tbody>
       </table>
     </div>`;
+}
+
+// ===== 霧島市観光課 報告用集計（都道府県別・国別） =====
+function renderKirishimaReport(domesticPax,overseasPax,unclassifiedCnt,unclassifiedPax){
+  const el=document.getElementById('coMonthlyKirishima');
+  if(!el)return;
+  const domTh=KIRISHIMA_DOMESTIC_ORDER.map(k=>`<th style="padding:5px 6px;text-align:center;font-size:10px;white-space:nowrap">${k}</th>`).join('');
+  const domTd=KIRISHIMA_DOMESTIC_ORDER.map(k=>`<td style="padding:5px 6px;text-align:center;font-family:'DM Mono',monospace">${domesticPax[k]||0}</td>`).join('');
+  const ovTh=KIRISHIMA_OVERSEAS_ORDER.map(k=>`<th style="padding:5px 6px;text-align:center;font-size:10px;white-space:nowrap">${k.replace('・','<br>')}</th>`).join('');
+  const ovTd=KIRISHIMA_OVERSEAS_ORDER.map(k=>`<td style="padding:5px 6px;text-align:center;font-family:'DM Mono',monospace">${overseasPax[k]||0}</td>`).join('');
+  el.innerHTML=`
+    <div style="background:var(--paper);border-radius:8px;padding:12px;box-shadow:0 2px 8px var(--shadow)">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+        <div style="font-family:'Shippori Mincho',serif;font-size:13px;font-weight:700">🏛️ 霧島市観光課 報告用集計（${coMonthlyM}月・延べ宿泊人数）</div>
+        <button class="btn btn-out btn-sm" onclick="copyKirishimaReport()">📋 コピー（様式に貼付用）</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="border-collapse:collapse;font-size:11px;background:var(--paper)">
+          <thead>
+            <tr><th style="background:var(--hd);color:var(--gold);padding:4px 6px;font-size:9px" colspan="${KIRISHIMA_DOMESTIC_ORDER.length}">国内</th><th style="background:var(--hd);color:var(--gold);padding:4px 6px;font-size:9px" colspan="${KIRISHIMA_OVERSEAS_ORDER.length}">海外</th></tr>
+            <tr style="background:var(--bg)">${domTh}${ovTh}</tr>
+          </thead>
+          <tbody><tr>${domTd}${ovTd}</tr></tbody>
+        </table>
+      </div>
+      <div style="font-size:10px;color:${unclassifiedCnt?'var(--red)':'var(--ink3)'};margin-top:8px">
+        ${unclassifiedCnt?`⚠️ 区分不明：${unclassifiedCnt}件（延べ${unclassifiedPax}名）— 都道府県／国が未入力・未判定の予約です。提出前に編集画面から確認してください。`:'✅ 区分不明の予約はありません'}
+      </div>
+      <textarea id="kirishimaCopyText" style="position:fixed;left:-9999px;opacity:0"></textarea>
+    </div>`;
+}
+function copyKirishimaReport(){
+  const rep=window._kirishimaReport;
+  if(!rep){showToast('❌ 集計データがありません');return;}
+  const domVals=KIRISHIMA_DOMESTIC_ORDER.map(k=>rep.domesticPax[k]||0);
+  const ovVals=KIRISHIMA_OVERSEAS_ORDER.map(k=>rep.overseasPax[k]||0);
+  const line=[...domVals,...ovVals].join('\t');
+  const ta=document.getElementById('kirishimaCopyText');
+  ta.value=line;
+  ta.style.position='fixed';ta.style.left='0';ta.style.top='0';
+  ta.focus();ta.select();
+  try{
+    document.execCommand('copy');
+    showToast('📋 コピーしました。様式の'+rep.m+'月の行に貼り付けてください');
+  }catch(e){
+    navigator.clipboard?.writeText(line).then(()=>showToast('📋 コピーしました')).catch(()=>alert('コピーに失敗しました。手動で選択してコピーしてください。'));
+  }
+  ta.style.position='fixed';ta.style.left='-9999px';
 }
 
 function renderCheckout(){
@@ -3001,6 +3275,7 @@ function syncBannerDismiss(){/* 廃止 - 自動同期に変更 */}
 // ===== 初期化 =====
 function init(){
   const n=new Date();cy=n.getFullYear();cm=n.getMonth();
+  initPrefCountrySelects();
   load();kinmuLoad();
   render();renderUnassigned();renderLedger();
   const _kn=new Date();kinmuCy=_kn.getFullYear();kinmuCm=_kn.getMonth()+1;

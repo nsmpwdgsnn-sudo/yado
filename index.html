@@ -1988,6 +1988,13 @@ function parseOta(){
     // 予約番号：IY〜など
     m=text.match(/予約番号\s*[：:]\s*([A-Z0-9\-]{6,})/);if(m)d.otaNo=m[1];
     // OTA番号がなければ通知連番を使わない（誤認識防止）
+    // 宿泊代表者都道府県：Yahooトラベルは住所ではなく都道府県が直接明記されている
+    m=text.match(/宿泊代表者都道府県\s*[：:]\s*(\S+)/);
+    if(m){
+      const p=m[1].trim();
+      if(PREFS.includes(p)){d.pref=p;d.guestType='domestic';}
+      else{d.addr=p;} // 都道府県名でない場合（海外住所等）はaddrに保持して後段の自動判定に回す
+    }
   }else if(currentOta==='yukoyuko'){
     m=text.match(/宿泊者氏名\s*[：:]\s*(.+?)(?:[（(]|$)/m);if(m)d.name=cleanName(m[1]);
     m=text.match(/チェックイン\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);if(m){d.ciDate=normDate(m[1]);const tm=text.match(/チェックイン.*?(\d{1,2}時\d{0,2}分?)/);if(tm)d.ci=normTime(tm[1]);}
@@ -2023,8 +2030,14 @@ function parseOta(){
     m=text.match(/備考[　\s]*ご希望など\s*\n([^\n]*)/);if(m&&m[1].trim())d.memo=m[1].trim();
   }
   // 住所から都道府県／国・地域を自動推定（あくまで提案。取込後に編集画面で修正可能）
-  const _pc=guessPrefCountry(d.addr||'');
-  d.guestType=_pc.guestType;d.pref=_pc.pref;d.country=_pc.country;d.transport=false;
+  // ただしYahoo等ですでに都道府県が直接判明している場合はそれを優先し、上書きしない
+  if(!d.pref){
+    const _pc=guessPrefCountry(d.addr||'');
+    d.guestType=_pc.guestType;d.pref=_pc.pref;d.country=_pc.country;
+  }else if(!d.guestType){
+    d.guestType='domestic';d.country=d.country||'';
+  }
+  d.transport=false;
   parsedData=d;
   const body=document.getElementById('parseBody');
   const isMulti=d._multiRoom&&d._multiRoom.count>1;

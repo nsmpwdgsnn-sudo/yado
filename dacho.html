@@ -382,8 +382,12 @@ function setSyncStatus(state,msg){
 // 新しく取り込まれた予約が消えたり、同じ予約が重複して残ったりしない。
 function mergeEntriesState(cloudEntries,cloudMeta,cloudTomb){
   cloudEntries=cloudEntries||[];cloudMeta=cloudMeta||{};cloudTomb=cloudTomb||{};
-  entries.forEach(e=>{if(!e._uid)e._uid=newUid();});
-  cloudEntries.forEach(e=>{if(!e._uid)e._uid=newUid();});
+  // 既存データ（_uid未発行）は、id・氏名・CI日から決定的に計算する。
+  // ランダム値にすると、同じ予約でも端末ごとに別IDになってしまい、マージの際に
+  // 別々の予約として扱われて重複が増える事故になるため。
+  const legacyUid=e=>'legacy_'+e.id+'_'+(e.name||'')+'_'+(e.ci||'');
+  entries.forEach(e=>{if(!e._uid)e._uid=legacyUid(e);});
+  cloudEntries.forEach(e=>{if(!e._uid)e._uid=legacyUid(e);});
   const localByUid={};entries.forEach(e=>{localByUid[e._uid]=e;});
   const cloudByUid={};cloudEntries.forEach(e=>{cloudByUid[e._uid]=e;});
   const lMeta=entryMeta||{},lTomb=entryTomb||{};
@@ -573,6 +577,39 @@ async function restoreSnapshot(ts){
   showToast('✅ 復元しました（'+dt+'の状態）');
 }
 
+// 同じ氏名・チェックイン日の予約が複数ある場合に自動整理する（今回の不具合で生まれた重複対策）。
+// 消すのではなく「復元」できる形で退避するので、万一違う予約が同名同日で重なっていても後から戻せる。
+function entryScore(e){
+  let s=0;
+  if(e.tel)s+=2; if(e.price)s+=1; if(e.memo)s+=1; if(e.co)s+=1; if(e.route)s+=1; if(e.plan)s+=1;
+  return s;
+}
+function dedupeEntries(){
+  const groups={};
+  entries.forEach(e=>{
+    const key=(e.name||'').trim()+'|'+(e.ci||'').trim();
+    if(key==='|')return;
+    (groups[key]=groups[key]||[]).push(e);
+  });
+  let removed=0;
+  Object.values(groups).forEach(group=>{
+    if(group.length<2)return;
+    group.sort((a,b)=>entryScore(b)-entryScore(a));
+    group.slice(1).forEach(dup=>{
+      deletedEntries.push({...dup,deletedAt:new Date().toISOString(),cancelReason:'重複整理により自動退避（同姓名・同チェックイン日）'});
+      if(dup._uid)tombEntry(dup._uid);
+      removed++;
+    });
+  });
+  if(removed>0){
+    const removedUids=new Set();
+    Object.values(groups).forEach(group=>{if(group.length>1)group.slice(1).forEach(d=>removedUids.add(d._uid||d.id));});
+    entries=entries.filter(e=>!removedUids.has(e._uid||e.id));
+    saveDeletedLocal();saveLocal();
+  }
+  return removed;
+}
+
 async function init(){
   // まずローカルで即表示
   const hasLocal=loadLocal();
@@ -584,6 +621,13 @@ async function init(){
     renderAll();
   } else if(!hasLocal){
     renderAll();
+  }
+  // 重複予約の自動整理（初回のみ。復元ポイントから戻せます）
+  const removedCount=dedupeEntries();
+  if(removedCount>0){
+    renderAll();
+    showToast('🧹 重複していた予約を'+removedCount+'件、自動整理しました（削除済み一覧から復元できます）');
+    await saveToSupabase();
   }
   // 起動時の復元ポイント（前回から6時間以上経っていれば記録）
   const lastSnap=snapshotHistory.length?snapshotHistory[snapshotHistory.length-1].ts:0;

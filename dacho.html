@@ -324,11 +324,6 @@ const SB_TABLE='dacho_data';
 let entries=[];
 let nextId=1;
 let editingId=null;
-// 予約を安全にマージ同期するための「予約ごとの一意ID」と「最終更新／削除タイムスタンプ」
-let entryMeta={}, entryTomb={};
-function newUid(){ return Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8); }
-function touchEntry(uid){ if(!uid)return; entryMeta[uid]=Date.now(); delete entryTomb[uid]; }
-function tombEntry(uid){ if(!uid)return; entryTomb[uid]=Date.now(); delete entryMeta[uid]; }
 let parsedEntry=null;
 let pendingImport=[];
 let ciPanelOpen=false;
@@ -377,68 +372,10 @@ function setSyncStatus(state,msg){
 }
 
 // ===== Supabase =====
-// 予約(entries)を「予約ごとの一意ID(_uid)」と「最終更新／削除タイムスタンプ」で安全にマージする。
-// 全体を丸ごと上書きしないので、他のタブ・他の端末が古いデータを持ったまま保存しても、
-// 新しく取り込まれた予約が消えたり、同じ予約が重複して残ったりしない。
-function mergeEntriesState(cloudEntries,cloudMeta,cloudTomb){
-  cloudEntries=cloudEntries||[];cloudMeta=cloudMeta||{};cloudTomb=cloudTomb||{};
-  // 既存データ（_uid未発行）は、id・氏名・CI日から決定的に計算する。
-  // ランダム値にすると、同じ予約でも端末ごとに別IDになってしまい、マージの際に
-  // 別々の予約として扱われて重複が増える事故になるため。
-  const legacyUid=e=>'legacy_'+e.id+'_'+(e.name||'')+'_'+(e.ci||'');
-  entries.forEach(e=>{if(!e._uid)e._uid=legacyUid(e);});
-  cloudEntries.forEach(e=>{if(!e._uid)e._uid=legacyUid(e);});
-  const localByUid={};entries.forEach(e=>{localByUid[e._uid]=e;});
-  const cloudByUid={};cloudEntries.forEach(e=>{cloudByUid[e._uid]=e;});
-  const lMeta=entryMeta||{},lTomb=entryTomb||{};
-  const keys=new Set([
-    ...Object.keys(localByUid),...Object.keys(cloudByUid),
-    ...Object.keys(lMeta),...Object.keys(lTomb),
-    ...Object.keys(cloudMeta),...Object.keys(cloudTomb)
-  ]);
-  const mergedList=[],mergedMeta={},mergedTomb={};
-  keys.forEach(uid=>{
-    const lUpd=lMeta[uid]||0,lDel=lTomb[uid]||0;
-    const cUpd=cloudMeta[uid]||0,cDel=cloudTomb[uid]||0;
-    const lHas=!!localByUid[uid],cHas=!!cloudByUid[uid];
-    // タイムスタンプ記録のない古いデータ（この機能導入前）は「存在すれば最古扱い」にして温存する
-    const lTs=Math.max(lUpd,lDel)||(lHas?1:0);
-    const cTs=Math.max(cUpd,cDel)||(cHas?1:0);
-    if(lTs===0&&cTs===0)return;
-    const useLocal=lTs>=cTs;
-    if(useLocal){
-      if(lDel>0&&lDel>=lUpd){mergedTomb[uid]=lDel;}
-      else if(lHas){mergedList.push(localByUid[uid]);mergedMeta[uid]=lUpd||1;}
-    }else{
-      if(cDel>0&&cDel>=cUpd){mergedTomb[uid]=cDel;}
-      else if(cHas){mergedList.push(cloudByUid[uid]);mergedMeta[uid]=cUpd||1;}
-    }
-  });
-  return {mergedList,mergedMeta,mergedTomb};
-}
 async function saveToSupabase(){
   setSyncStatus('saving');
-  // 保存の前に、まずクラウドの最新状態を取得し、予約ごとに安全マージしておく
-  try{
-    const r0=await fetch(SB_URL+'/rest/v1/'+SB_TABLE+'?id=eq.1&select=payload',{
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
-    });
-    if(r0.ok){
-      const rows=await r0.json();
-      if(rows&&rows.length&&rows[0].payload){
-        const cloud=JSON.parse(rows[0].payload);
-        const m=mergeEntriesState(cloud.entries,cloud.entryMeta,cloud.entryTomb);
-        entries=m.mergedList.map(e=>({...e,status:normStatus(e.status)}));
-        entryMeta=m.mergedMeta;entryTomb=m.mergedTomb;
-        nextId=Math.max(nextId||1,cloud.nextId||0,entries.length+1);
-        if(cloud.deletedEntries)mergeDeletedFromCloud(cloud.deletedEntries);
-        mergeHistoryFromCloud(cloud.history);
-        renderAll();
-      }
-    }
-  }catch(e){console.error('保存前のマージ取得に失敗（オフライン等。ローカルの内容のみで保存を続行）',e);}
   const ts=Date.now();
-  const payload=JSON.stringify({entries,entryMeta,entryTomb,nextId,deletedEntries,history:snapshotHistory,ts});
+  const payload=JSON.stringify({entries,nextId,deletedEntries,history:snapshotHistory,ts});
   try{
     const r=await fetch(SB_URL+'/rest/v1/'+SB_TABLE,{
       method:'POST',
@@ -453,7 +390,6 @@ async function saveToSupabase(){
     if(r.ok){setSyncStatus('ok');localStorage.setItem('dacho_ts',String(ts));}
     else{const t=await r.text();console.error('save error:',r.status,t);setSyncStatus('error');}
   }catch(e){console.error('save exception:',e);setSyncStatus('offline');}
-  saveLocal();
 }
 
 async function loadFromSupabase(){
@@ -468,12 +404,17 @@ async function loadFromSupabase(){
       return false;
     }
     const d=JSON.parse(rows[0].payload);
+    // ローカルの方が新しい（＝まだクラウドに送れていない編集がある）場合は上書きしない
+    const localTs=parseInt(localStorage.getItem('dacho_local_ts')||'0');
+    const cloudTs=parseInt(d.ts||0);
+    if(localTs>cloudTs){
+      setSyncStatus('unsent','📵 未送信のローカル編集あり');
+      return false;
+    }
     // 上書きされる前の状態を復元ポイントとして退避（データ消失防止）
     pushSnapshot('クラウド反映前のローカル状態');
-    const m=mergeEntriesState(d.entries,d.entryMeta,d.entryTomb);
-    entries=m.mergedList.map(e=>({...e,status:normStatus(e.status)}));
-    entryMeta=m.mergedMeta;entryTomb=m.mergedTomb;
-    nextId=Math.max(nextId||1,d.nextId||0,entries.length+1);
+    entries=(d.entries||[]).map(e=>({...e,status:normStatus(e.status)}));
+    nextId=d.nextId||(entries.length+1);
     if(d.deletedEntries)mergeDeletedFromCloud(d.deletedEntries);
     mergeHistoryFromCloud(d.history);
     localStorage.setItem('dacho_ts',String(d.ts||0));
@@ -492,8 +433,6 @@ function loadLocal(){
       const d=JSON.parse(s);
       entries=(d.entries||[]).map(e=>({...e,status:normStatus(e.status)}));
       nextId=d.nextId||(entries.length+1);
-      try{const m=localStorage.getItem('dacho_entry_meta');if(m)entryMeta=JSON.parse(m);}catch(e){}
-      try{const t=localStorage.getItem('dacho_entry_tomb');if(t)entryTomb=JSON.parse(t);}catch(e){}
       loadDeletedLocal();
       loadHistoryLocal();
       return true;
@@ -503,8 +442,6 @@ function loadLocal(){
 }
 function saveLocal(){
   try{localStorage.setItem('dacho_entries',JSON.stringify({entries,nextId}));}catch(e){}
-  try{localStorage.setItem('dacho_entry_meta',JSON.stringify(entryMeta));}catch(e){}
-  try{localStorage.setItem('dacho_entry_tomb',JSON.stringify(entryTomb));}catch(e){}
   try{localStorage.setItem('dacho_local_ts',String(Date.now()));}catch(e){}
 }
 
@@ -577,39 +514,6 @@ async function restoreSnapshot(ts){
   showToast('✅ 復元しました（'+dt+'の状態）');
 }
 
-// 同じ氏名・チェックイン日の予約が複数ある場合に自動整理する（今回の不具合で生まれた重複対策）。
-// 消すのではなく「復元」できる形で退避するので、万一違う予約が同名同日で重なっていても後から戻せる。
-function entryScore(e){
-  let s=0;
-  if(e.tel)s+=2; if(e.price)s+=1; if(e.memo)s+=1; if(e.co)s+=1; if(e.route)s+=1; if(e.plan)s+=1;
-  return s;
-}
-function dedupeEntries(){
-  const groups={};
-  entries.forEach(e=>{
-    const key=(e.name||'').trim()+'|'+(e.ci||'').trim();
-    if(key==='|')return;
-    (groups[key]=groups[key]||[]).push(e);
-  });
-  let removed=0;
-  Object.values(groups).forEach(group=>{
-    if(group.length<2)return;
-    group.sort((a,b)=>entryScore(b)-entryScore(a));
-    group.slice(1).forEach(dup=>{
-      deletedEntries.push({...dup,deletedAt:new Date().toISOString(),cancelReason:'重複整理により自動退避（同姓名・同チェックイン日）'});
-      if(dup._uid)tombEntry(dup._uid);
-      removed++;
-    });
-  });
-  if(removed>0){
-    const removedUids=new Set();
-    Object.values(groups).forEach(group=>{if(group.length>1)group.slice(1).forEach(d=>removedUids.add(d._uid||d.id));});
-    entries=entries.filter(e=>!removedUids.has(e._uid||e.id));
-    saveDeletedLocal();saveLocal();
-  }
-  return removed;
-}
-
 async function init(){
   // まずローカルで即表示
   const hasLocal=loadLocal();
@@ -621,13 +525,6 @@ async function init(){
     renderAll();
   } else if(!hasLocal){
     renderAll();
-  }
-  // 重複予約の自動整理（初回のみ。復元ポイントから戻せます）
-  const removedCount=dedupeEntries();
-  if(removedCount>0){
-    renderAll();
-    showToast('🧹 重複していた予約を'+removedCount+'件、自動整理しました（削除済み一覧から復元できます）');
-    await saveToSupabase();
   }
   // 起動時の復元ポイント（前回から6時間以上経っていれば記録）
   const lastSnap=snapshotHistory.length?snapshotHistory[snapshotHistory.length-1].ts:0;
@@ -838,10 +735,8 @@ function closeEntry(){document.getElementById('entryMod').classList.remove('on')
 
 async function saveEntry(){
   const noVal=document.getElementById('fNo').value.trim();
-  const existing=editingId?entries.find(x=>x.id===editingId):null;
   const entry={
     id:editingId||nextId,
-    _uid:existing&&existing._uid?existing._uid:newUid(),
     no:noVal!==''?noVal:undefined,
     recv:document.getElementById('fRecv').value,
     name:document.getElementById('fName').value.trim(),
@@ -859,7 +754,6 @@ async function saveEntry(){
   if(!entry.ci){alert('チェックイン日を入力してください');return;}
   if(editingId){pushSnapshot('編集前：'+(entries.find(x=>x.id===editingId)||{}).name);const i=entries.findIndex(x=>x.id===editingId);if(i>=0)entries[i]=entry;}
   else{entries.push(entry);nextId++;}
-  touchEntry(entry._uid);
   saveLocal();
   closeEntry();
   renderAll();
@@ -875,7 +769,6 @@ async function deleteEntry(){
   if(removed)deletedEntries.push({...removed,deletedAt:new Date().toISOString()});
   saveDeletedLocal();
   entries=entries.filter(x=>x.id!==editingId);
-  if(removed&&removed._uid)tombEntry(removed._uid);
   saveLocal();closeEntry();renderAll();
   await saveToSupabase();
   showToast('🗑️ 削除しました（復元ポイントあり）');
@@ -929,9 +822,7 @@ async function parseMail(){
 
 async function importParsed(){
   if(!parsedEntry||!parsedEntry.name){alert('氏名が読み取れませんでした');return;}
-  const uid=newUid();
-  entries.push({...parsedEntry,id:nextId++,_uid:uid});
-  touchEntry(uid);
+  entries.push({...parsedEntry,id:nextId++});
   saveLocal();closeImport();renderAll();
   await saveToSupabase();
   showToast('✅ 登録しました');
@@ -983,11 +874,9 @@ async function doJsonImport(){
   pendingImport.forEach((e,i)=>{
     const cb=document.getElementById('jimp-'+i);
     if(!cb||!cb.checked||cb.disabled)return;
-    const uid=newUid();
-    entries.push({id:nextId++,_uid:uid,name:e.name||'',tel:e.tel||'',recv:e.recv||todayStr(),route:e.route||'',
+    entries.push({id:nextId++,name:e.name||'',tel:e.tel||'',recv:e.recv||todayStr(),route:e.route||'',
       ci:e.ci||'',co:e.co||'',pax:String(e.pax||''),plan:e.plan||'',
       price:String(e.price||''),status:e.cancelled?'cancel':'pending',memo:e.memo||''});
-    touchEntry(uid);
     count++;
   });
   saveLocal();closeImport();renderAll();
@@ -997,10 +886,10 @@ async function doJsonImport(){
 
 // ===== 起動 =====
 document.getElementById('ciSearchPicker').value='';
-// 予約管理アプリからのデータの自動取込は、クラウド同期(init)が完了してから行う。
-// 同期前の古い entries と比較すると「重複」を正しく判定できず、同じ予約が二重に
-// 取り込まれてしまうことがあったための修正。
-init().then(function(){
+init();
+
+// 予約管理アプリからのデータを自動取込
+(function(){
   const raw=localStorage.getItem('dacho_import_data');
   if(!raw)return;
   localStorage.removeItem('dacho_import_data');
@@ -1027,7 +916,7 @@ init().then(function(){
   document.getElementById('importMod').classList.add('on');
   if(newCnt>0)showToast('📥 予約管理から'+newCnt+'件の直接予約が見つかりました');
   else showToast('ℹ️ 新規の直接予約はありません（'+dupCnt+'件は重複）');
-});
+})();
 </script>
 </body>
 </html>

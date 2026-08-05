@@ -1,6 +1,24 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+<script>
+// 過去のバージョンで登録された可能性のあるService Worker／キャッシュを自動的に解除する（恒久対策）。
+// これが残っていると、一部のページ（dacho.html等）へのアクセスが古い内容にすり替わってしまうことがある。
+(function(){
+  try{
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        regs.forEach(function(reg){ reg.unregister(); });
+      }).catch(function(){});
+    }
+    if('caches' in window){
+      caches.keys().then(function(names){
+        names.forEach(function(name){ caches.delete(name); });
+      }).catch(function(){});
+    }
+  }catch(e){}
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">

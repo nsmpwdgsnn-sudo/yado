@@ -1942,13 +1942,17 @@ function parseOta(){
   let d={src:currentOta,name:'',ciDate:'',nights:1,paxAdult:'',price:'',ci:'15:00',co:'10:00',memo:'',tel:'',pet:''};
   let m;
   if(currentOta==='rakuten'){
-    m=text.match(/宿泊者氏名\s*[：:]\s*(.+)/)||text.match(/お名前\s*[：:]\s*(.+)/);if(m)d.name=cleanName(m[1]);
-    m=text.match(/チェックイン日時\s*[：:]\s*(\d{4}-\d{2}-\d{2})\s*(\d{1,2}:\d{2})?/)||text.match(/チェックイン\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);
+    // 通常の楽天トラベル予約と、提携販売先（Trip.com等の海外OTA経由）予約の両方に対応
+    m=text.match(/宿泊者氏名\s*[：:]\s*(.+)/)||text.match(/宿泊代表者氏名\s*[：:]\s*(.+)/)||text.match(/お名前\s*[：:]\s*(.+)/);if(m)d.name=cleanName(m[1]);
+    m=text.match(/チェックイン日時\s*[：:]\s*(\d{4}-\d{2}-\d{2})\s*(\d{1,2}:\d{2})?/)
+      ||text.match(/チェックイン日時\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/)
+      ||text.match(/チェックイン\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);
     if(m){d.ciDate=normDate(m[1])||m[1];if(m[2])d.ci=m[2];}
-    m=text.match(/泊数\s*[：:]\s*(\d+)/)||text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
-    m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/)||text.match(/大人(\d+)人/);if(m)d.paxAdult=m[1];
+    m=text.match(/泊数\s*[：:]\s*(\d+)/)||text.match(/宿泊日数\s*[：:]\s*(\d+)\s*泊/)||text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
+    m=text.match(/人数（大人）\s*[：:]\s*(\d+)/)||text.match(/大人\s*[：:]?\s*(\d+)\s*名?/)||text.match(/大人(\d+)人/);if(m)d.paxAdult=m[1];
     // 料金：合計(A)を定価として優先（現地徴収額は0円になる場合があるので使わない）
-    m=text.match(/合計\(A\)\s*[：:]\s*([\d,]+)円/)||text.match(/合計[：:]\s*([\d,]+)円/);
+    // 提携販売先メールは「合計  :   25,520 円」のように数字と円の間にスペースが入ることがあるため\sを許容
+    m=text.match(/合計\(A\)\s*[：:]\s*([\d,]+)\s*円/)||text.match(/合計\s*[：:]\s*([\d,]+)\s*円/);
     if(m)d.price=m[1].replace(/,/g,'');
     // クーポン・ポイント割引：サービスクーポン(C)や楽天ポイント(B)を合算
     let totalDisc=0;
@@ -1956,14 +1960,28 @@ function parseOta(){
     const cpM=text.match(/サービスクーポン\(C\)\s*[：:]\s*([\d,]+)円/);if(cpM)totalDisc+=parseInt(cpM[1].replace(/,/g,''));
     const ycM=text.match(/宿クーポン\(D\)\s*[：:]\s*([\d,]+)円/);if(ycM)totalDisc+=parseInt(ycM[1].replace(/,/g,''));
     if(totalDisc>0)d.discount=String(totalDisc);
-    // 事前カード決済 or 現地決済の検出
-    if(text.match(/事前カード決済|決済方法\s*[：:]\s*事前/)){
+    // 事前カード決済／現地決済／法人決済（提携販売先＝Trip.com経由等で現地徴収額0円）の検出
+    if(text.match(/事前カード決済|決済方法\s*[：:]\s*事前|支払方法\s*[：:]\s*法人決済/)){
       d.prepaid=true;d.payMethod='ota_rakuten_pre';
     }else if(text.match(/現地決済|現地精算/)){
       d.payMethod='ota_rakuten_local';
     }
-    m=text.match(/宿泊者連絡先\s*[：:]\s*([\d\-]{10,})/)||text.match(/(0\d[\d\-]{8,12})(?!\d)/);if(m)d.tel=m[1];
+    m=text.match(/宿泊者連絡先\s*[：:]\s*([\d\-]{10,})/)
+      ||text.match(/予約者連絡先\s*[：:]\s*([+\d()\-]{7,})/)
+      ||text.match(/(0\d[\d\-]{8,12})(?!\d)/);
+    if(m)d.tel=m[1];
     m=text.match(/予約番号\s*[：:]\s*(\S+)/);if(m)d.otaNo=m[1];
+    // 提携販売先（Trip.com経由等）：ゲスト連絡方法・希望言語などのリクエスト内容を備考に転記
+    m=text.match(/リクエスト内容\s*[：:]\s*([\s\S]+?)(?:\n▼|\n■|$)/);
+    if(m){
+      const reqText=m[1].replace(/\n/g,' ').trim();
+      const langM=reqText.match(/preferred language\s*[：:]?\s*[\(（]([^)）]+)[\)）]/i);
+      const mailM=reqText.match(/([\w.+-]+@guest\.trip\.com)/i);
+      let noteParts=[];
+      if(mailM)noteParts.push('連絡先: '+mailM[1]);
+      if(langM)noteParts.push('希望言語: '+langM[1]);
+      d.memo=noteParts.length?noteParts.join(' / '):reqText;
+    }
   }else if(currentOta==='jalan'){
     m=text.match(/宿泊代表者氏名\s*[：:]\s*(.+?)(?:　様|　$|\n)/)||text.match(/宿泊代表者氏名\s*[：:]\s*(.+)/);if(m)d.name=cleanName(m[1]);
     m=text.match(/宿泊日時\s*[：:]\s*(\d{4}年\d{1,2}月\d{1,2}日)/);

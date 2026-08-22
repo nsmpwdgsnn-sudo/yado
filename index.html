@@ -446,7 +446,7 @@ td.c.bk:hover{filter:brightness(1.08)}
   <!-- 日次精算 -->
   <div id="coSectionDaily">
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
-      <input type="date" id="checkoutDate" class="fi" style="width:auto;font-size:12px;padding:6px 10px" onchange="renderCheckout()">
+      <input type="date" id="checkoutDate" class="fi" style="width:auto;font-size:12px;padding:6px 10px" onchange="this.blur();setTimeout(renderCheckout,50)">
       <button class="btn btn-gold btn-sm" onclick="window.print()">🖨️ 印刷</button>
       <button class="btn btn-out btn-sm" onclick="copyCheckoutMsg()">📋 LINE</button>
     </div>

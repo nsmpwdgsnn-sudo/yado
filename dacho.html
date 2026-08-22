@@ -467,9 +467,9 @@ function saveHistoryLocal(){
   try{localStorage.setItem('dacho_history',JSON.stringify(snapshotHistory));}catch(e){}
 }
 function pruneHistory(){
-  const cutoff=Date.now()-30*24*60*60*1000;
+  const cutoff=Date.now()-14*24*60*60*1000;
   snapshotHistory=snapshotHistory.filter(h=>h.ts>=cutoff);
-  if(snapshotHistory.length>60)snapshotHistory=snapshotHistory.slice(snapshotHistory.length-60);
+  if(snapshotHistory.length>20)snapshotHistory=snapshotHistory.slice(snapshotHistory.length-20);
 }
 function pushSnapshot(label){
   try{

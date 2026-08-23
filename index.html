@@ -281,8 +281,6 @@ td.c.bk:hover{filter:brightness(1.08)}
   <div class="tab" onclick="showTab('unassigned')">📥 未割当 <span id="ubadge" style="background:var(--unassigned);color:#fff;border-radius:8px;padding:1px 6px;font-size:10px;margin-left:2px">0</span></div>
   <div class="tab" onclick="showTab('import')">📋 予約取込</div>
   <div class="tab" onclick="showTab('ledger')">📒 予約台帳</div>
-  <div class="tab" onclick="showTab('rooms')">🏠 部屋状態</div>
-  <div class="tab" onclick="showTab('cleaning')">🧹 清掃指示</div>
   <div class="tab" onclick="showTab('checkout')">🧾 精算</div>
   <div class="tab" onclick="showTab('settings')">⚙️ 設定</div>
 </div>
@@ -401,36 +399,6 @@ td.c.bk:hover{filter:brightness(1.08)}
   <div class="ledger-wrap" style="max-height:calc(100vh - 220px);overflow:auto">
     <table class="ledger-table" id="ledgerTable"></table>
   </div>
-</div>
-
-<!-- 部屋状態 -->
-<div class="sec" id="sec-rooms">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-    <div style="font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700">🏠 部屋状態管理</div>
-    <div style="font-size:11px;color:var(--ink2)">カードをタップして状態を変更</div>
-  </div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;font-size:10px">
-    <span style="background:#eae4d8;border-radius:4px;padding:3px 8px">空室</span>
-    <span style="background:#fff8e1;border-radius:4px;padding:3px 8px">🧹 清掃中</span>
-    <span style="background:#e8f5e9;border-radius:4px;padding:3px 8px">✅ 清掃済み</span>
-    <span style="background:#e3f2fd;border-radius:4px;padding:3px 8px">🛌 宿泊中</span>
-    <span style="background:#fce4ec;border-radius:4px;padding:3px 8px">🚫 使用不可</span>
-  </div>
-
-  <div class="room-grid" id="rg-room"></div>
-</div>
-
-<!-- 清掃指示書 -->
-<div class="sec" id="sec-cleaning">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-    <div style="font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700">🧹 清掃指示書</div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input type="date" id="cleanDate" class="fi" style="width:auto;font-size:12px;padding:6px 10px" onchange="renderCleaning()">
-      <button class="btn btn-gold" onclick="copyCleaningMsg()">📋 LINEコピー</button>
-    </div>
-  </div>
-  <div id="cleaningContent"></div>
-  <textarea id="cleaningCopyText" style="position:fixed;left:-9999px;opacity:0"></textarea>
 </div>
 
 <!-- 精算・伝票 -->
@@ -904,7 +872,7 @@ function guessPrefCountry(addr){
 
 // ===== 状態 =====
 let cy, cm, bks={}, unassigned=[], cancelledBks=[], editKey=null, currentOta='rakuten', parsedData=null, assigningIdx=null;
-let roomStatus={}, checkoutData={}, csvRows=[];
+let checkoutData={}, csvRows=[];
 // 予約(bks)を安全にマージ同期するための「予約ごとの最終更新／削除タイムスタンプ」
 // 全体を丸ごと上書きするのではなく、この記録をもとに「予約ごとに新しい方を残す」方式にする
 let bksMeta={}, bksTomb={};
@@ -967,7 +935,6 @@ function save(){
   try{localStorage.setItem('yado_bks_tomb',JSON.stringify(bksTomb));}catch(e){}
   try{localStorage.setItem('yado_ua',JSON.stringify(unassigned));}catch(e){console.error('save ua',e);}
   try{localStorage.setItem('yado_co',JSON.stringify(checkoutData));}catch(e){console.error('save co',e);}
-  try{localStorage.setItem('yado_rs',JSON.stringify(roomStatus));}catch(e){console.error('save rs',e);}
   try{localStorage.setItem('yado_cancelled',JSON.stringify(cancelledBks));}catch(e){}
   try{localStorage.setItem('yado_ts',String(ts));}catch(e){}
   saveToSupabase(ts);
@@ -991,7 +958,7 @@ function updateSyncStatus(state){
 function manualSaveToGAS(){
   showToast('📤 クラウドに保存中...');
   const ts=Date.now();
-  const data={action:'save',bks,unassigned,roomStatus,checkoutData,cancelledBks,ts};
+  const data={action:'save',bks,unassigned,checkoutData,cancelledBks,ts};
   fetch(getGasUrl(),{method:'POST',body:JSON.stringify(data)})
     .then(r=>r.json())
     .then(d=>{
@@ -1065,7 +1032,7 @@ async function saveToSupabase(ts){
     }
   }catch(e){console.error('保存前のマージ取得に失敗（オフライン等。ローカルの内容のみで保存を続行）',e);}
   localStorage.setItem('yado_ts',String(ts));
-  const payload={bks,bksMeta,bksTomb,unassigned,roomStatus,checkoutData,cancelledBks,ts};
+  const payload={bks,bksMeta,bksTomb,unassigned,checkoutData,cancelledBks,ts};
   fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.1',{
     method:'PATCH',
     headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
@@ -1094,17 +1061,14 @@ function loadFromSupabase(){
     const d=JSON.parse(rows[0].payload);
     applyMergedBks(mergeBksState(d.bks,d.bksMeta,d.bksTomb));
     if(d.unassigned)unassigned=d.unassigned;
-    if(d.roomStatus)roomStatus=d.roomStatus;
     if(d.checkoutData)checkoutData=d.checkoutData;
     if(d.cancelledBks)cancelledBks=d.cancelledBks;
     normalizeDates();
     try{localStorage.setItem('yado_bks',JSON.stringify(bks));}catch(e){}
     try{localStorage.setItem('yado_ua',JSON.stringify(unassigned));}catch(e){}
-    try{localStorage.setItem('yado_rs',JSON.stringify(roomStatus));}catch(e){}
     try{localStorage.setItem('yado_co',JSON.stringify(checkoutData));}catch(e){}
     try{localStorage.setItem('yado_cancelled',JSON.stringify(cancelledBks));}catch(e){}
     if(d.ts)localStorage.setItem('yado_ts',String(d.ts));
-    ROOMS.forEach(r=>{if(!roomStatus[r.no])roomStatus[r.no]='empty';});
     rebuildAllSpans();
     render();renderUnassigned();renderLedger();renderSettings();
     document.getElementById('syncBanner').classList.remove('on');
@@ -1125,17 +1089,14 @@ function loadFromGAS(){
       }
       if(d.bks)bks=d.bks;
       if(d.unassigned)unassigned=d.unassigned;
-      if(d.roomStatus)roomStatus=d.roomStatus;
       if(d.checkoutData)checkoutData=d.checkoutData;
       if(d.cancelledBks)cancelledBks=d.cancelledBks;
       normalizeDates();
       try{localStorage.setItem('yado_bks',JSON.stringify(bks));}catch(e){}
       try{localStorage.setItem('yado_ua',JSON.stringify(unassigned));}catch(e){}
-      try{localStorage.setItem('yado_rs',JSON.stringify(roomStatus));}catch(e){}
       try{localStorage.setItem('yado_co',JSON.stringify(checkoutData));}catch(e){}
       try{localStorage.setItem('yado_cancelled',JSON.stringify(cancelledBks));}catch(e){}
       if(d.ts)localStorage.setItem('yado_ts',String(d.ts));
-      ROOMS.forEach(r=>{if(!roomStatus[r.no])roomStatus[r.no]='empty';});
       render();renderUnassigned();renderLedger();renderSettings();
       updateSyncStatus('ok');
       showToast('✅ クラウドから読み込みました！');
@@ -1159,13 +1120,11 @@ function load(){
   try{const bt=localStorage.getItem('yado_bks_tomb');if(bt)bksTomb=JSON.parse(bt);}catch(e){}
   try{const u=localStorage.getItem('yado_ua');if(u)unassigned=JSON.parse(u);}catch(e){console.error('load ua',e);}
   try{const c=localStorage.getItem('yado_co');if(c)checkoutData=JSON.parse(c);}catch(e){console.error('load co',e);}
-  try{const s=localStorage.getItem('yado_rs');if(s)roomStatus=JSON.parse(s);}catch(e){console.error('load rs',e);}
   try{const x=localStorage.getItem('yado_cancelled');if(x)cancelledBks=JSON.parse(x);}catch(e){}
-  ROOMS.forEach(r=>{if(!roomStatus[r.no])roomStatus[r.no]='empty';});
   rebuildAllSpans();
 }
 function exportData(){
-  const data={bks,unassigned,roomStatus,checkoutData,cancelledBks,exportedAt:new Date().toISOString()};
+  const data={bks,unassigned,checkoutData,cancelledBks,exportedAt:new Date().toISOString()};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;
@@ -1182,7 +1141,6 @@ function importData(e){
       if(!confirm('データをインポートします。現在のデータは上書きされます。よろしいですか？'))return;
       if(data.bks)bks=data.bks;
       if(data.unassigned)unassigned=data.unassigned;
-      if(data.roomStatus)roomStatus=data.roomStatus;
       if(data.checkoutData)checkoutData=data.checkoutData;
       if(data.cancelledBks)cancelledBks=data.cancelledBks;
       normalizeDates();
@@ -1201,13 +1159,11 @@ function showToast(msg){
 // ===== タブ =====
 function showTab(id){
   document.querySelectorAll('.tab').forEach((t,i)=>{
-    t.classList.toggle('on',['assign','unassigned','import','ledger','rooms','cleaning','checkout','settings'][i]===id);
+    t.classList.toggle('on',['assign','unassigned','import','ledger','checkout','settings'][i]===id);
   });
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
   document.getElementById('sec-'+id).classList.add('on');
   if(id==='ledger')renderLedger();
-  if(id==='rooms')renderRooms();
-  if(id==='cleaning')renderCleaning();
   if(id==='checkout'){renderCheckout();const n=new Date();if(!coMonthlyY){coMonthlyY=n.getFullYear();coMonthlyM=n.getMonth()+1;}}
   if(id==='settings')renderSettings();
 }
@@ -1326,23 +1282,7 @@ function openDayPopup(ds){
       const pk=bk.parentKey;const pb=bks[pk];
       status='🛌 宿泊中';detail=pb?esc(pb.name):'';color='#b0c4de';
     }else{
-      // 使用不可は最優先
-      if(roomStatus[room.no]==='closed'){status='🚫 使用不可';color='#f8bbd0';}
-      else{
-        let isCoDay=false;
-        Object.entries(bks).forEach(([k,v])=>{
-          if(v.isStart===false)return;
-          const i=k.indexOf('_');const r=k.substring(0,i);if(r!==room.no)return;
-          const coD=localDate(k.substring(i+1));coD.setDate(coD.getDate()+(v.nights||1));
-          if(fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate())===ds)isCoDay=true;
-        });
-        if(isCoDay){
-          if(roomStatus[room.no]==='cleaned'){status='✅ 清掃済み空室';color='#c8e6c9';}
-          else{status='🧹 未清掃（要清掃）';color='#fff3cd';}
-        }else if(roomStatus[room.no]==='cleaning'){status='🧹 清掃中（持ち越し）';color='#ffe082';}
-        else if(roomStatus[room.no]==='cleaned'){status='✅ 清掃済み空室';color='#c8e6c9';}
-        else{status='✓ 空室';color='#eae4d8';}
-      }
+      status='✓ 空室';color='#eae4d8';
     }
     html+=`<div class="day-room-row">
       <span class="day-room-no">${room.no}</span>
@@ -2369,232 +2309,6 @@ function openCancelledDetail(b){
   }
 }
 
-// ===== 部屋状態 =====
-const STATUS_LIST=['empty','cleaning','cleaned','occupied','closed'];
-const STATUS_INFO={empty:{label:'空室',emoji:'',cls:'s-empty'},cleaning:{label:'清掃中',emoji:'🧹',cls:'s-cleaning'},cleaned:{label:'清掃済み',emoji:'✅',cls:'s-cleaned'},occupied:{label:'宿泊中',emoji:'🛌',cls:'s-occupied'},closed:{label:'使用不可',emoji:'🚫',cls:'s-closed'}};
-
-function loadRoomStatus(){/* roomStatus is now loaded in load() */}
-function saveRoomStatus(){
-  try{localStorage.setItem('yado_rs',JSON.stringify(roomStatus));}catch(e){console.error('saveRoomStatus error',e);}
-}
-
-function getAutoStatus(roomNo){
-  const today=new Date();const todayStr=fmt(today.getFullYear(),today.getMonth()+1,today.getDate());
-  const todayEntry=bks[roomNo+'_'+todayStr];
-  const yesterday=new Date(today);yesterday.setDate(today.getDate()-1);
-  const yStr=fmt(yesterday.getFullYear(),yesterday.getMonth()+1,yesterday.getDate());
-  const ybk=bks[roomNo+'_'+yStr];
-  if(todayEntry&&todayEntry.isStart===false)return 'occupied';
-  const isCoToday=ybk&&ybk.isStart!==false&&!todayEntry;
-  const isCiToday=todayEntry&&todayEntry.isStart!==false;
-  if(isCoToday)return 'cleaning';
-  if(isCiToday)return 'empty';
-  for(const [key,bk] of Object.entries(bks)){
-    if(bk.isStart===false)continue;
-    const idx=key.indexOf('_');const room=key.substring(0,idx);if(room!==roomNo)continue;
-    const ds=key.substring(idx+1);
-    const coD=localDate(ds);coD.setDate(coD.getDate()+(bk.nights||1));
-    const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
-    if(ds<=todayStr&&todayStr<coStr)return 'occupied';
-  }
-  return null;
-}
-
-function renderRooms(){
-  loadRoomStatus();
-  const today=new Date();const todayStr=fmt(today.getFullYear(),today.getMonth()+1,today.getDate());
-  const grid=document.getElementById('rg-room');if(!grid)return;
-  grid.innerHTML=ROOMS.map(r=>{
-      const autoSt=getAutoStatus(r.no);
-      const manualSt=roomStatus[r.no]||'empty';
-      const st=(manualSt==='cleaned'||manualSt==='closed')?manualSt:(autoSt||manualSt);
-      const si=STATUS_INFO[st]||STATUS_INFO['empty'];
-      const todayBk=bks[r.no+'_'+todayStr];
-      let nextInfo='',coInfo='';
-      if((st==='cleaning'||st==='empty')&&todayBk&&todayBk.isStart!==false){
-        nextInfo=`CI: ${todayBk.ci||'15:00'}　布団: ${todayBk.futon?todayBk.futon+'枚':'未設定'}`;
-      }
-      if(st==='occupied'){
-        for(const [key,bk] of Object.entries(bks)){
-          if(bk.isStart===false)continue;
-          const idx=key.indexOf('_');if(key.substring(0,idx)!==r.no)continue;
-          const ds=key.substring(idx+1);
-          const coD=localDate(ds);coD.setDate(coD.getDate()+(bk.nights||1));
-          const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
-          if(ds<=todayStr&&todayStr<coStr){coInfo=`CO: ${coStr}　${(bk.name||'').substring(0,6)}`;break;}
-        }
-      }
-      // 布団枚数（清掃後に設定された枚数）
-      const futonSet=roomStatus['futon_'+r.no]||'';
-      const displayInfo=coInfo||nextInfo;
-      return `<div class="room-card ${si.cls}" onclick="cycleStatusManual('${r.no}','${st}')">
-        <div class="room-card-no">${r.no}</div>
-        <div class="room-card-status">${si.emoji} ${si.label}</div>
-        ${displayInfo?`<div class="room-card-info">${esc(displayInfo)}</div>`:''}
-        ${futonSet?`<div class="room-card-futon">🛏 布団 ${futonSet}枚</div>`:''}
-        ${st==='empty'&&todayBk?`<div class="room-card-info" style="color:#2a5fa8;font-weight:600">CI待ち</div>`:''}
-      </div>`;
-    }).join('');
-}
-function cycleStatusManual(roomNo,currentSt){
-  const flow={'occupied':'empty','cleaning':'cleaned','cleaned':'occupied','empty':'closed','closed':'empty'};
-  roomStatus[roomNo]=flow[currentSt]||'empty';
-  saveRoomStatus();renderRooms();
-}
-
-// ===== 清掃指示書 =====
-function initCleanDate(){const el=document.getElementById('cleanDate');if(el&&!el.value){const n=new Date();el.value=fmt(n.getFullYear(),n.getMonth()+1,n.getDate());}}
-
-function renderCleaning(){
-  initCleanDate();
-  const dateStr=document.getElementById('cleanDate').value;if(!dateStr)return;
-  const coRooms=[];
-  // 本日COの部屋
-  Object.entries(bks).forEach(([key,bk])=>{
-    if(bk.isStart===false)return;
-    const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
-    const coD=localDate(ds);coD.setDate(coD.getDate()+(bk.nights||1));
-    const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
-    if(coStr===dateStr)coRooms.push({room,bk,ds,carry:false});
-  });
-  // 持ち越し清掃部屋（過去にCOして未清掃のもの、かつ本日新たなCIがない部屋）
-  const coRoomNos=new Set(coRooms.map(r=>r.room));
-  ROOMS.forEach(r=>{
-    if(coRoomNos.has(r.no))return; // 本日COと重複しない
-    if(roomStatus[r.no]==='closed')return; // 使用不可は除外
-    if(roomStatus[r.no]==='cleaning'||
-       (roomStatus[r.no]!=='cleaned'&&roomStatus[r.no]!=='closed'&&roomStatus[r.no]!=='occupied')){
-      // 過去のCOで未清掃かどうか確認
-      let lastCoBk=null,lastCoDs=null;
-      Object.entries(bks).forEach(([key,bk])=>{
-        if(bk.isStart===false)return;
-        const i=key.indexOf('_');if(key.substring(0,i)!==r.no)return;
-        const ds=key.substring(i+1);
-        const coD=localDate(ds);coD.setDate(coD.getDate()+(bk.nights||1));
-        const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
-        if(coStr<dateStr&&coStr>(lastCoDs||'0000-00-00')){lastCoBk=bk;lastCoDs=coStr;}
-      });
-      if(lastCoBk&&roomStatus[r.no]!=='cleaned'){
-        coRooms.push({room:r.no,bk:lastCoBk,ds:lastCoDs,carry:true});
-      }
-    }
-  });
-  const ciRooms={};
-  Object.entries(bks).forEach(([key,bk])=>{
-    if(bk.isStart===false)return;
-    const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
-    if(ds===dateStr)ciRooms[room]=bk;
-  });
-  const content=document.getElementById('cleaningContent');
-  if(!coRooms.length){content.innerHTML='<div class="empty-msg">この日のチェックアウトはありません</div>';return;}
-  coRooms.sort((a,b)=>a.room.localeCompare(b.room));
-  content.innerHTML=coRooms.map(({room,bk,carry})=>{
-    const nextBk=ciRooms[room];
-    const grpLabel='';
-    const safeRoom=room.replace(/[^a-zA-Z0-9]/g,'_');
-    // 既存の布団設定を取得
-    const savedFuton=roomStatus['futon_'+room]||'';
-    const savedNote=roomStatus['futonNote_'+room]||'';
-    return `<div class="clean-card" id="cc_${safeRoom}" style="${carry?'border-color:#ff9800;':''}">
-      <div class="clean-card-hd">
-        <span class="clean-room-no">${room}</span>
-        <div style="flex:1">
-          <div style="font-size:12px;font-weight:700">${grpLabel}${carry?'<span style="background:#ff9800;color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;margin-left:6px">持ち越し清掃</span>':''}</div>
-          <div class="clean-type">CO: ${bk.co||'10:00'}　前泊: ${bk.name||''}様</div>
-        </div>
-        <button onclick="skipCleaning('${room}')" style="background:#eee;border:1px solid #ccc;border-radius:6px;padding:4px 8px;font-size:10px;cursor:pointer;flex-shrink:0;font-family:inherit">今日は掃除しない</button>
-      </div>
-      <div class="clean-rows">
-        ${nextBk?`
-          <div class="clean-row">
-            <span class="clean-label">次のCI</span>
-            <span class="clean-val">${nextBk.ci||'15:00'}　${esc(nextBk.name||'')}様</span>
-          </div>
-          <div class="clean-row">
-            <span class="clean-label">布団枚数</span>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <select class="futon-select" id="futon_${safeRoom}" onchange="saveFutonSetting('${room}',this.value,null)">
-                <option value="">選択</option>
-                <option value="0" ${savedFuton==='0'?'selected':''}>0枚</option>
-                <option value="1" ${savedFuton==='1'?'selected':''}>1枚</option>
-                <option value="2" ${savedFuton==='2'?'selected':''}>2枚</option>
-                <option value="3" ${savedFuton==='3'?'selected':''}>3枚</option>
-                <option value="4" ${savedFuton==='4'?'selected':''}>4枚</option>
-                <option value="5" ${savedFuton==='5'?'selected':''}>5枚</option>
-                <option value="6" ${savedFuton==='6'?'selected':''}>6枚</option>
-              </select>
-              <input class="futon-note" id="futonNote_${safeRoom}" value="${esc(savedNote)}" placeholder="ベッド追加・その他メモ" onchange="saveFutonSetting('${room}',null,this.value)">
-            </div>
-          </div>
-          ${nextBk.pet?`<div class="clean-row"><span class="clean-label">ペット</span><span class="clean-val">🐾 ${esc(nextBk.pet)}</span></div>`:''}`
-        :`<div style="font-size:11px;color:var(--ink3);margin-top:4px">次の予約なし（空室準備）</div>`}
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function skipCleaning(room){
-  // 「今日は掃除しない」→ 清掃済みに設定してリフレッシュ
-  roomStatus[room]='cleaned';
-  saveRoomStatus();
-  renderCleaning();
-  showToast('✅ '+room+'号室を清掃済みにしました');
-}
-function saveFutonSetting(room,futon,note){
-  if(futon!==null){
-    roomStatus['futon_'+room]=futon;
-    // 部屋状態にも反映
-  }
-  if(note!==null)roomStatus['futonNote_'+room]=note;
-  saveRoomStatus();
-  showToast('💾 布団設定を保存しました');
-}
-
-function copyCleaningMsg(){
-  initCleanDate();
-  const dateStr=document.getElementById('cleanDate').value;if(!dateStr){alert('日付を選択してください');return;}
-  const coRooms=[];
-  Object.entries(bks).forEach(([key,bk])=>{
-    if(bk.isStart===false)return;
-    const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
-    const coD=localDate(ds);coD.setDate(coD.getDate()+(bk.nights||1));
-    const coStr=fmt(coD.getFullYear(),coD.getMonth()+1,coD.getDate());
-    if(coStr===dateStr)coRooms.push({room,bk});
-  });
-  const ciRooms={};
-  Object.entries(bks).forEach(([key,bk])=>{
-    if(bk.isStart===false)return;
-    const idx=key.indexOf('_');const room=key.substring(0,idx);const ds=key.substring(idx+1);
-    if(ds===dateStr)ciRooms[room]=bk;
-  });
-  coRooms.sort((a,b)=>a.room.localeCompare(b.room));
-  const [y,mo,d]=dateStr.split('-');
-  let msg=`🧹 清掃指示書 ${y}年${parseInt(mo)}月${parseInt(d)}日\n━━━━━━━━━━━━━━━\n`;
-  if(!coRooms.length){msg+='この日のチェックアウトはありません\n';}
-  else{
-    coRooms.forEach(({room,bk})=>{
-      const next=ciRooms[room];
-      const safeRoom=room.replace(/[^a-zA-Z0-9]/g,'_');
-      const futonEl=document.getElementById('futon_'+safeRoom);
-      const noteEl=document.getElementById('futonNote_'+safeRoom);
-      const futon=futonEl?futonEl.value:(roomStatus['futon_'+room]||'');
-      const note=noteEl?noteEl.value:(roomStatus['futonNote_'+room]||'');
-      msg+=`\n【${room}号室】\nCO時刻: ${bk.co||'10:00'}\n`;
-      if(next){
-        msg+=`CI時刻: ${next.ci||'15:00'}\n`;
-        msg+=`布団枚数: ${futon?futon+'枚':'要確認'}${note?' ('+note+')':''}\n`;
-        if(next.pet)msg+=`ペット: ${next.pet}\n`;
-      }else{msg+=`次の予約なし（空室準備）\n`;}
-    });
-  }
-  msg+='\nよろしくお願いします🙏';
-  try{
-    const ta=document.getElementById('cleaningCopyText');ta.value=msg;ta.select();document.execCommand('copy');
-    alert('📋 コピーしました！LINEに貼り付けてください。');
-  }catch(e){
-    if(navigator.clipboard)navigator.clipboard.writeText(msg).then(()=>alert('📋 コピーしました！'));
-  }
-}
 
 // ===== 精算・伝票 =====
 function saveCheckoutData(){localStorage.setItem('yado_co',JSON.stringify(checkoutData));}
@@ -3084,8 +2798,8 @@ function resetAll(){
       }
     }catch(e){console.error('reset: クラウド取得失敗',e);}
     Object.keys(bks).forEach(k=>{if(bks[k]&&bks[k].isStart!==false)tombBk(k);});
-    ['yado_bks','yado_bks_meta','yado_bks_tomb','yado_ua','yado_rs','yado_co'].forEach(k=>localStorage.removeItem(k));
-    bks={};unassigned=[];roomStatus={};checkoutData={};cancelledBks=[];
+    ['yado_bks','yado_bks_meta','yado_bks_tomb','yado_ua','yado_co'].forEach(k=>localStorage.removeItem(k));
+    bks={};unassigned=[];checkoutData={};cancelledBks=[];
     save();render();renderUnassigned();renderLedger();renderSettings();
     showToast('✅ リセットしました');
   };
@@ -3125,7 +2839,7 @@ function init(){
       const cloudTs=parseInt(d.ts||'0');
       let otherChanged=false;
       if(cloudTs>localTs+5000){
-        if(d.unassigned)unassigned=d.unassigned;if(d.roomStatus)roomStatus=d.roomStatus;
+        if(d.unassigned)unassigned=d.unassigned;
         if(d.checkoutData)checkoutData=d.checkoutData;if(d.cancelledBks)cancelledBks=d.cancelledBks;
         localStorage.setItem('yado_ts',String(d.ts));
         clearUnsent();
@@ -3134,10 +2848,8 @@ function init(){
       if(!bksChanged&&!otherChanged)return;
       normalizeDates();
       try{localStorage.setItem('yado_ua',JSON.stringify(unassigned));}catch(e){}
-      try{localStorage.setItem('yado_rs',JSON.stringify(roomStatus));}catch(e){}
       try{localStorage.setItem('yado_co',JSON.stringify(checkoutData));}catch(e){}
       try{localStorage.setItem('yado_cancelled',JSON.stringify(cancelledBks));}catch(e){}
-      ROOMS.forEach(r=>{if(!roomStatus[r.no])roomStatus[r.no]='empty';});
       rebuildAllSpans();render();renderUnassigned();renderLedger();
       updateSyncStatus('synced');
     }).catch(e=>console.error('sync check error',e));

@@ -886,10 +886,10 @@ async function doJsonImport(){
 
 // ===== 起動 =====
 document.getElementById('ciSearchPicker').value='';
-init();
+(async function(){
+  await init(); // クラウドからの読み込みが完了してから、重複チェックを行う（先に判定してしまうと他端末の予約を見落とす）
 
-// 予約管理アプリからのデータを自動取込
-(function(){
+  // 予約管理アプリからのデータを自動取込
   const raw=localStorage.getItem('dacho_import_data');
   if(!raw)return;
   localStorage.removeItem('dacho_import_data');

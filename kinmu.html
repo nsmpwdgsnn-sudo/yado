@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<script>
+(function(){
+  try{
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.getRegistrations().then(regs=>regs.forEach(r=>r.unregister())).catch(()=>{});
+    }
+    if('caches' in window){
+      caches.keys().then(names=>names.forEach(n=>caches.delete(n))).catch(()=>{});
+    }
+  }catch(e){}
+})();
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="勤怠管理">
+<title>勤怠管理 — 妙見楽園荘</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Shippori+Mincho:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f0e8;--paper:#fffdf8;--ink:#1a1510;--ink2:#7a6a58;--ink3:#b0a090;
+  --border:#ddd5c5;--border2:#c8bca8;--hd:#1e1810;
+  --gold:#c8a060;--green:#2a7a4b;--red:#d64b3a;--blue:#2a5fa8;
+  --shadow:rgba(20,15,8,.12);
+}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;font-size:14px;padding-bottom:40px}
+.hdr{background:var(--hd);color:#f5f0e8;padding:10px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+.logo{font-family:'Shippori Mincho',serif;font-size:17px;font-weight:700;letter-spacing:.08em}
+.logo-sub{font-size:10px;color:#a09078;margin-top:1px}
+.hdr-r{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.tabs{display:flex;background:var(--hd);border-top:1px solid #2e2418;padding:0 4px}
+.tab{flex:1;text-align:center;padding:10px 6px;font-size:12px;font-weight:500;color:#a09078;cursor:pointer;border-bottom:2px solid transparent}
+.tab.on{color:#f5f0e8;border-bottom-color:var(--gold)}
+.btn{border:none;border-radius:6px;padding:7px 13px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.btn:active{opacity:.85}
+.btn-gold{background:var(--gold);color:#1e1810}
+.btn-red{background:var(--red);color:#fff}
+.btn-green{background:var(--green);color:#fff}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-out{background:transparent;border:1.5px solid var(--border2);color:var(--ink2)}
+.btn-sm{padding:5px 10px;font-size:11px}
+.sec{display:none;padding:12px 14px;max-width:900px;margin:0 auto}
+.sec.on{display:block}
+.card{background:var(--paper);border-radius:10px;box-shadow:0 2px 14px var(--shadow);padding:14px;margin-bottom:12px}
+.ttl{font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700;margin-bottom:10px}
+
+/* カレンダー */
+.cnav{display:flex;align-items:center;gap:10px;margin-bottom:12px;justify-content:center}
+.mlabel{font-family:'Shippori Mincho',serif;font-size:18px;font-weight:700;min-width:130px;text-align:center}
+.cwd{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px}
+.cwd div{text-align:center;font-size:10px;color:var(--ink2);font-weight:700;padding:2px 0}
+.cgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cday{background:var(--paper);border:1.5px solid var(--border);border-radius:7px;min-height:74px;padding:4px;cursor:pointer;position:relative;transition:background .1s}
+.cday:hover{background:#fffbe8}
+.cday.out{background:transparent;border-color:transparent;cursor:default}
+.cday.tod{border-color:var(--gold);border-width:2px}
+.cday .dn{font-size:11px;font-weight:700;color:var(--ink2);font-family:'DM Mono',monospace}
+.cday.sun .dn{color:var(--red)}
+.cday.sat .dn{color:var(--blue)}
+.chip{display:block;font-size:9px;border-radius:4px;padding:1px 4px;margin-top:2px;color:#fff;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'DM Mono',monospace}
+.cadd{position:absolute;bottom:2px;right:3px;font-size:13px;color:var(--ink3);opacity:.6}
+
+/* サマリー */
+.sumgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:12px}
+.sumcard{background:var(--bg);border-radius:8px;padding:10px;text-align:center}
+.sumcard .nm{font-size:11px;color:var(--ink2);margin-bottom:4px}
+.sumcard .val{font-size:16px;font-weight:700;font-family:'DM Mono',monospace}
+.sumcard .val2{font-size:11px;color:var(--ink2)}
+
+/* モーダル */
+.ov{display:none;position:fixed;inset:0;background:rgba(20,15,8,.55);z-index:500;align-items:center;justify-content:center;padding:16px}
+.ov.on{display:flex}
+.modal{background:var(--paper);border-radius:12px;padding:18px 20px;width:100%;max-width:440px;box-shadow:0 16px 48px rgba(0,0,0,.3);max-height:92vh;overflow-y:auto}
+.mttl{font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+.fg{margin-bottom:10px}
+.fl{display:block;font-size:10px;font-weight:700;color:var(--ink2);margin-bottom:3px;letter-spacing:.06em;text-transform:uppercase}
+.fi,.fsel{width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:14px;background:#fffef9;color:var(--ink);outline:none}
+.fi:focus,.fsel:focus{border-color:var(--gold)}
+.fr2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mact{display:flex;gap:8px;margin-top:14px;justify-content:flex-end;flex-wrap:wrap}
+.preview{background:#f8f5ef;border-radius:6px;padding:10px;font-size:12px;margin-bottom:4px;line-height:1.8}
+
+/* 給与明細 */
+.payslip-card{background:var(--paper);border-radius:10px;box-shadow:0 2px 14px var(--shadow);padding:16px;margin-bottom:14px}
+.ps-hd{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+.ps-name{font-family:'Shippori Mincho',serif;font-size:16px;font-weight:700}
+.ps-period{font-size:11px;color:var(--ink2)}
+.ps-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}
+.ps-table th{background:var(--bg);padding:5px 6px;text-align:left;font-size:10px;color:var(--ink2)}
+.ps-table td{padding:5px 6px;border-bottom:1px solid var(--border)}
+.ps-total{display:flex;justify-content:flex-end;gap:18px;font-size:12px;padding-top:6px;flex-wrap:wrap}
+.ps-total b{font-size:15px;color:var(--red)}
+.ps-empty{font-size:12px;color:var(--ink3);padding:12px 0;text-align:center}
+
+/* スタッフ設定 */
+.stf-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.stf-row input{flex:1}
+.stf-dot{width:14px;height:14px;border-radius:4px;flex-shrink:0}
+
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e1810;color:#f5f0e8;padding:10px 20px;border-radius:20px;font-size:12px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+#syncStatus{font-size:11px;padding:3px 9px;border-radius:12px}
+.s-ok{background:#1a2e1a;color:#66bb6a}.s-saving{background:#3a2e18;color:#ffc107}
+.s-err{background:#2e1a1a;color:#ef9a9a}.s-offline{background:#2e1a1a;color:#ef9a9a}
+
+.force-hide-print{}
+@media print{
+  body *{visibility:hidden}
+  .print-area,.print-area *{visibility:visible}
+  .print-area{position:absolute;left:0;top:0;width:100%}
+  .payslip-card{box-shadow:none;page-break-inside:avoid;page-break-after:always;border:none}
+  .payslip-card:last-child{page-break-after:auto}
+  .force-hide-print{display:none!important}
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <div class="logo">👷 勤怠管理</div>
+    <div class="logo-sub">妙見楽園荘</div>
+  </div>
+  <div class="hdr-r">
+    <span id="syncStatus" class="s-offline">--</span>
+  </div>
+</div>
+<div class="tabs">
+  <div class="tab on" data-tab="cal" onclick="showTab('cal')">📅 カレンダー</div>
+  <div class="tab" data-tab="pay" onclick="showTab('pay')">💴 給与明細</div>
+  <div class="tab" data-tab="set" onclick="showTab('set')">⚙️ 設定</div>
+</div>
+
+<!-- カレンダー -->
+<div class="sec on" id="sec-cal">
+  <div class="card">
+    <div class="cnav">
+      <button class="btn btn-out btn-sm" onclick="mv(-1)">◀</button>
+      <div class="mlabel" id="mLabel"></div>
+      <button class="btn btn-out btn-sm" onclick="mv(1)">▶</button>
+      <button class="btn btn-gold btn-sm" onclick="goToday()">今月</button>
+    </div>
+    <div class="cwd"><div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div></div>
+    <div class="cgrid" id="cGrid"></div>
+    <div class="sumgrid" id="sumGrid"></div>
+  </div>
+</div>
+
+<!-- 給与明細 -->
+<div class="sec" id="sec-pay">
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <button class="btn btn-out btn-sm" onclick="mv(-1)">◀</button>
+      <div class="mlabel" id="mLabel2"></div>
+      <button class="btn btn-out btn-sm" onclick="mv(1)">▶</button>
+      <button class="btn btn-blue btn-sm" style="margin-left:auto" onclick="printOne(null)">🖨️ 全員印刷</button>
+    </div>
+    <div style="font-size:11px;color:var(--ink2)">スタッフごとに自動でページが分かれて印刷されます（切り分け不要）。1人だけ印刷したい場合は各明細の「この人だけ印刷」ボタンを使ってください。</div>
+  </div>
+  <div class="print-area" id="paySlips"></div>
+</div>
+
+<!-- 設定 -->
+<div class="sec" id="sec-set">
+  <div class="card">
+    <div class="ttl">☁️ クラウド同期</div>
+    <div style="font-size:11px;color:var(--ink2);margin-bottom:10px;line-height:1.7">記録のたびに自動でクラウドに保存されます。他の端末で使う場合は下のボタンで読み込んでください。</div>
+    <button class="btn btn-gold" onclick="loadFromCloud(true)" style="width:100%;justify-content:center;margin-bottom:8px">☁️ クラウドから読み込む</button>
+    <button class="btn btn-out" onclick="saveToCloud();showToast('📤 保存中...')" style="width:100%;justify-content:center;margin-bottom:8px">📤 今すぐ保存</button>
+    <button class="btn btn-out btn-sm" onclick="openHistoryModal()" style="width:100%;justify-content:center">🕐 復元ポイントを見る</button>
+  </div>
+
+  <div class="card">
+    <div class="ttl">👤 スタッフ設定</div>
+    <div id="stfList"></div>
+    <button class="btn btn-out btn-sm" onclick="addStaff()" style="margin-top:4px">＋ スタッフを追加</button>
+    <button class="btn btn-gold btn-sm" onclick="saveStaff()" style="width:100%;justify-content:center;margin-top:10px">💾 スタッフ設定を保存</button>
+  </div>
+
+  <div class="card">
+    <div class="ttl">📋 手当・入力初期値</div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">交通費（1日あたり）</label><input class="fi" id="setTransport" type="number"></div>
+      <div class="fg"><label class="fl">お風呂掃除手当（1回）</label><input class="fi" id="setBath" type="number"></div>
+      <div class="fg"><label class="fl">締め日</label><select class="fsel" id="setCloseDay"><option value="end">月末</option><option value="20">20日</option><option value="15">15日</option></select></div>
+      <div class="fg"><label class="fl">支払日</label><input class="fi" id="setPayDay"></div>
+      <div class="fg"><label class="fl">タップ時の開始時刻（初期値）</label><input class="fi" id="setDefStart" type="time"></div>
+      <div class="fg"><label class="fl">タップ時の終了時刻（初期値）</label><input class="fi" id="setDefEnd" type="time"></div>
+    </div>
+    <button class="btn btn-gold" onclick="saveSettings()" style="width:100%;justify-content:center;margin-top:6px">💾 保存</button>
+  </div>
+
+  <div class="card">
+    <div class="ttl">📤 バックアップ</div>
+    <button class="btn btn-out" onclick="downloadBackup()" style="width:100%;justify-content:center;margin-bottom:8px">📤 JSONダウンロード</button>
+    <input type="file" id="restoreFile" accept=".json" style="display:none" onchange="restoreFromFile(event)">
+    <button class="btn btn-out" onclick="document.getElementById('restoreFile').click()" style="width:100%;justify-content:center">📥 バックアップから復元</button>
+  </div>
+</div>
+
+<!-- クイック入力モーダル -->
+<div class="ov" id="quickMod">
+  <div class="modal">
+    <div class="mttl" id="quickTtl">勤務記録</div>
+    <div class="fg"><label class="fl">スタッフ</label><select class="fsel" id="qStaff" onchange="updatePreview()"></select></div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">開始時刻</label><input class="fi" id="qStart" type="time" oninput="updatePreview()"></div>
+      <div class="fg"><label class="fl">終了時刻</label><input class="fi" id="qEnd" type="time" oninput="updatePreview()"></div>
+    </div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">交通費</label><select class="fsel" id="qTransport" onchange="updatePreview()"><option value="1">あり</option><option value="0">なし</option></select></div>
+      <div class="fg"><label class="fl">お風呂掃除</label><select class="fsel" id="qBath" onchange="updatePreview()"><option value="0">なし</option><option value="1">あり（+手当）</option></select></div>
+    </div>
+    <div class="fg"><label class="fl">備考</label><input class="fi" id="qMemo" placeholder="任意"></div>
+    <div class="preview" id="qPreview"></div>
+    <div class="mact">
+      <button class="btn btn-red btn-sm" id="qDelBtn" onclick="deleteRecord()" style="display:none;margin-right:auto">削除</button>
+      <button class="btn btn-out" onclick="closeQuick()">キャンセル</button>
+      <button class="btn btn-gold" onclick="saveRecord()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 復元ポイントモーダル -->
+<div class="ov" id="histMod">
+  <div class="modal">
+    <div class="mttl">🕐 復元ポイント</div>
+    <div id="histList" style="max-height:60vh;overflow-y:auto"></div>
+    <div class="mact"><button class="btn btn-out" onclick="document.getElementById('histMod').classList.remove('on')">閉じる</button></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const SUPABASE_URL='https://kcwskxxseypxprnpgbog.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtjd3NreHhzZXlweHBybnBnYm9nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNDMwNjEsImV4cCI6MjA5MDYxOTA2MX0.5ecX39PrkDnVKezTuP0n0_DkMgfz7Xiyzq0jlZHGiHQ';
+const SUPABASE_TABLE='kinmu2_data';
+const STAFF_COLORS=['#c8a060','#6b9e78','#6b8cae','#b4708a','#a88a5a','#7a8b99','#a06b6b','#6ba0a0'];
+
+let staffList=[{id:'A',name:'スタッフA',hourlyWage:1050},{id:'B',name:'スタッフB',hourlyWage:1050}];
+let settings={transportFee:500,bathFee:1000,closeDay:'end',payDay:'翌月初勤務日',defStart:'08:00',defEnd:'12:00'};
+let records=[];
+let deletedRecords=[];
+let history=[];
+let cy,cm; // 表示中の年月（cm:1-12）
+let editingId=null,quickDate=null;
+let lastStaffId=null;
+
+// ===== ユーティリティ =====
+function pad(n){return String(n).padStart(2,'0');}
+function dstr(y,m,d){return y+'-'+pad(m)+'-'+pad(d);}
+function showToast(msg){const el=document.getElementById('toast');el.textContent=msg;el.style.opacity='1';setTimeout(()=>el.style.opacity='0',2200);}
+function calcHours(start,end){
+  if(!start||!end)return 0;
+  const [sh,sm]=start.split(':').map(Number),[eh,em]=end.split(':').map(Number);
+  let mins=(eh*60+em)-(sh*60+sm);
+  if(mins<0)mins+=24*60;
+  return mins/60;
+}
+function fmtHours(h){
+  const hh=Math.floor(h),mm=Math.round((h-hh)*60);
+  return mm?`${hh}時間${mm}分`:`${hh}時間`;
+}
+function getStaff(id){return staffList.find(s=>s.id===id)||{id,name:'(不明)',hourlyWage:0};}
+function staffColor(id){const i=staffList.findIndex(s=>s.id===id);return STAFF_COLORS[(i<0?0:i)%STAFF_COLORS.length];}
+function calcRecord(r){
+  const st=getStaff(r.staffId);
+  const hours=calcHours(r.start,r.end);
+  const wage=Math.round(hours*(st.hourlyWage||0));
+  const transportFee=r.transport?settings.transportFee:0;
+  const bathFee=r.bath?settings.bathFee:0;
+  return {hours,wage,transportFee,bathFee,total:wage+transportFee+bathFee};
+}
+
+// ===== タブ =====
+function showTab(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===id));
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
+  document.getElementById('sec-'+id).classList.add('on');
+  if(id==='pay')renderPayslip();
+  if(id==='set')renderSettingsUI();
+}
+
+// ===== カレンダー =====
+function mv(d){
+  cm+=d;
+  if(cm<1){cm=12;cy--;} if(cm>12){cm=1;cy++;}
+  renderCalendar();
+  if(document.getElementById('sec-pay').classList.contains('on'))renderPayslip();
+}
+function goToday(){const n=new Date();cy=n.getFullYear();cm=n.getMonth()+1;renderCalendar();}
+function renderCalendar(){
+  const label=cy+'年 '+cm+'月';
+  document.getElementById('mLabel').textContent=label;
+  document.getElementById('mLabel2').textContent=label;
+  const grid=document.getElementById('cGrid');
+  const first=new Date(cy,cm-1,1);
+  const startWd=first.getDay();
+  const days=new Date(cy,cm,0).getDate();
+  const todayStr=dstr(new Date().getFullYear(),new Date().getMonth()+1,new Date().getDate());
+  let html='';
+  for(let i=0;i<startWd;i++)html+='<div class="cday out"></div>';
+  for(let d=1;d<=days;d++){
+    const ds=dstr(cy,cm,d);
+    const wd=new Date(cy,cm-1,d).getDay();
+    const recs=records.filter(r=>r.date===ds);
+    let cls='cday'+(wd===0?' sun':wd===6?' sat':'')+(ds===todayStr?' tod':'');
+    let chips=recs.map(r=>`<span class="chip" style="background:${staffColor(r.staffId)}" onclick="event.stopPropagation();openEdit('${r.id}')">${getStaff(r.staffId).name.slice(0,4)} ${fmtHours(calcHours(r.start,r.end)).replace('時間','h').replace('分','m')}</span>`).join('');
+    html+=`<div class="${cls}" onclick="openQuickAdd('${ds}')"><div class="dn">${d}</div>${chips}<span class="cadd">＋</span></div>`;
+  }
+  grid.innerHTML=html;
+  renderMonthSummary();
+}
+function renderMonthSummary(){
+  const ym=cy+'-'+pad(cm);
+  const monthRecs=records.filter(r=>r.date.startsWith(ym));
+  const el=document.getElementById('sumGrid');
+  if(!monthRecs.length){el.innerHTML='';return;}
+  let html='';
+  staffList.forEach(s=>{
+    const rs=monthRecs.filter(r=>r.staffId===s.id);
+    if(!rs.length)return;
+    let hours=0,total=0;
+    rs.forEach(r=>{const c=calcRecord(r);hours+=c.hours;total+=c.total;});
+    html+=`<div class="sumcard"><div class="nm">${s.name}</div><div class="val">${fmtHours(hours)}</div><div class="val2">${total.toLocaleString()}円（${rs.length}日）</div></div>`;
+  });
+  el.innerHTML=html;
+}
+
+// ===== クイック入力 =====
+function openQuickAdd(ds){
+  editingId=null;quickDate=ds;
+  document.getElementById('quickTtl').textContent=ds+' の勤務記録を追加';
+  document.getElementById('qDelBtn').style.display='none';
+  const opts=staffList.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  document.getElementById('qStaff').innerHTML=opts;
+  if(lastStaffId&&staffList.some(s=>s.id===lastStaffId))document.getElementById('qStaff').value=lastStaffId;
+  document.getElementById('qStart').value=settings.defStart||'08:00';
+  document.getElementById('qEnd').value=settings.defEnd||'12:00';
+  document.getElementById('qTransport').value='1';
+  document.getElementById('qBath').value='0';
+  document.getElementById('qMemo').value='';
+  updatePreview();
+  document.getElementById('quickMod').classList.add('on');
+}
+function openEdit(id){
+  const r=records.find(x=>x.id===id);if(!r)return;
+  editingId=id;quickDate=r.date;
+  document.getElementById('quickTtl').textContent=r.date+' の勤務記録を編集';
+  document.getElementById('qDelBtn').style.display='inline-flex';
+  const opts=staffList.map(s=>`<option value="${s.id}" ${s.id===r.staffId?'selected':''}>${s.name}</option>`).join('');
+  document.getElementById('qStaff').innerHTML=opts;
+  document.getElementById('qStart').value=r.start;
+  document.getElementById('qEnd').value=r.end;
+  document.getElementById('qTransport').value=r.transport?'1':'0';
+  document.getElementById('qBath').value=r.bath?'1':'0';
+  document.getElementById('qMemo').value=r.memo||'';
+  updatePreview();
+  document.getElementById('quickMod').classList.add('on');
+}
+function closeQuick(){document.getElementById('quickMod').classList.remove('on');editingId=null;}
+function updatePreview(){
+  const staffId=document.getElementById('qStaff').value;
+  const start=document.getElementById('qStart').value,end=document.getElementById('qEnd').value;
+  const transport=document.getElementById('qTransport').value==='1',bath=document.getElementById('qBath').value==='1';
+  const c=calcRecord({staffId,start,end,transport,bath});
+  document.getElementById('qPreview').innerHTML=
+    `勤務時間: <strong>${fmtHours(c.hours)}</strong>　時給計: <strong>${c.wage.toLocaleString()}円</strong><br>`+
+    `交通費: ${c.transportFee.toLocaleString()}円　お風呂: ${c.bathFee.toLocaleString()}円　`+
+    `合計: <strong style="color:var(--red)">${c.total.toLocaleString()}円</strong>`;
+}
+function saveRecord(){
+  const staffId=document.getElementById('qStaff').value;
+  if(!staffId){alert('スタッフを選択してください');return;}
+  lastStaffId=staffId;
+  const rec={
+    id:editingId||('r'+Date.now()+Math.floor(Math.random()*1000)),
+    staffId,date:quickDate,
+    start:document.getElementById('qStart').value,
+    end:document.getElementById('qEnd').value,
+    transport:document.getElementById('qTransport').value==='1',
+    bath:document.getElementById('qBath').value==='1',
+    memo:document.getElementById('qMemo').value.trim()
+  };
+  if(editingId){
+    pushSnapshot('編集前：'+quickDate);
+    const i=records.findIndex(r=>r.id===editingId);if(i>=0)records[i]=rec;
+  }else{
+    records.push(rec);
+  }
+  persistAndSync();
+  closeQuick();renderCalendar();
+  showToast('✅ 保存しました');
+}
+function deleteRecord(){
+  if(!editingId)return;
+  if(!confirm('この記録を削除しますか？（復元ポイントから元に戻せます）'))return;
+  pushSnapshot('削除前：'+quickDate);
+  const rec=records.find(r=>r.id===editingId);
+  if(rec)deletedRecords.push({...rec,deletedAt:new Date().toISOString()});
+  records=records.filter(r=>r.id!==editingId);
+  persistAndSync();
+  closeQuick();renderCalendar();
+  showToast('🗑️ 削除しました');
+}
+
+// ===== 給与明細 =====
+function renderPayslip(){
+  const ym=cy+'-'+pad(cm);
+  const el=document.getElementById('paySlips');
+  let html='';
+  staffList.forEach(s=>{
+    const rs=records.filter(r=>r.staffId===s.id&&r.date.startsWith(ym)).sort((a,b)=>a.date.localeCompare(b.date));
+    let hours=0,wage=0,transportFee=0,bathFee=0,total=0;
+    let rows='';
+    rs.forEach(r=>{
+      const c=calcRecord(r);
+      hours+=c.hours;wage+=c.wage;transportFee+=c.transportFee;bathFee+=c.bathFee;total+=c.total;
+      rows+=`<tr><td>${r.date.slice(5).replace('-','/')}</td><td>${r.start}〜${r.end}</td><td>${fmtHours(c.hours)}</td><td>${r.transport?'○':''}</td><td>${r.bath?'○':''}</td><td style="text-align:right">${c.total.toLocaleString()}円</td></tr>`;
+    });
+    html+=`<div class="payslip-card" data-staff-id="${s.id}">
+      <div class="ps-hd">
+        <div class="stf-dot" style="background:${staffColor(s.id)}"></div>
+        <div><div class="ps-name">${s.name}</div><div class="ps-period">${cy}年${cm}月分　時給${(s.hourlyWage||0).toLocaleString()}円　支払日：${settings.payDay||''}</div></div>
+        <button class="btn btn-blue btn-sm force-hide-print" style="margin-left:auto" onclick="printOne('${s.id}')">🖨️ この人だけ印刷</button>
+      </div>
+      ${rs.length?`<table class="ps-table"><thead><tr><th>日付</th><th>時間</th><th>勤務</th><th>交通費</th><th>風呂</th><th style="text-align:right">小計</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="ps-total">
+        <span>勤務時間 ${fmtHours(hours)}</span>
+        <span>時給計 ${wage.toLocaleString()}円</span>
+        <span>交通費 ${transportFee.toLocaleString()}円</span>
+        <span>風呂 ${bathFee.toLocaleString()}円</span>
+        <span>合計 <b>${total.toLocaleString()}円</b></span>
+      </div>`:'<div class="ps-empty">この月の記録はありません</div>'}
+    </div>`;
+  });
+  el.innerHTML=html||'<div class="ps-empty">スタッフが登録されていません</div>';
+}
+function printOne(staffId){
+  if(staffId){
+    document.querySelectorAll('.payslip-card').forEach(el=>{
+      el.classList.toggle('force-hide-print', el.dataset.staffId!==staffId);
+    });
+  }
+  window.print();
+}
+window.addEventListener('afterprint',()=>{
+  document.querySelectorAll('.payslip-card').forEach(el=>el.classList.remove('force-hide-print'));
+});
+
+// ===== スタッフ・設定 =====
+function renderSettingsUI(){
+  document.getElementById('setTransport').value=settings.transportFee;
+  document.getElementById('setBath').value=settings.bathFee;
+  document.getElementById('setCloseDay').value=settings.closeDay;
+  document.getElementById('setPayDay').value=settings.payDay;
+  document.getElementById('setDefStart').value=settings.defStart||'08:00';
+  document.getElementById('setDefEnd').value=settings.defEnd||'12:00';
+  document.getElementById('stfList').innerHTML=staffList.map((s,i)=>`
+    <div class="stf-row">
+      <div class="stf-dot" style="background:${staffColor(s.id)}"></div>
+      <input class="fi" data-i="${i}" data-f="name" value="${s.name}" placeholder="名前">
+      <input class="fi" data-i="${i}" data-f="wage" type="number" value="${s.hourlyWage}" placeholder="時給" style="max-width:100px">
+      <button class="btn btn-red btn-sm" onclick="removeStaff(${i})">削除</button>
+    </div>`).join('');
+}
+function addStaff(){
+  const id='s'+Date.now();
+  staffList.push({id,name:'新しいスタッフ',hourlyWage:1050});
+  renderSettingsUI();
+}
+function removeStaff(i){
+  if(!confirm('このスタッフを削除しますか？（過去の勤務記録は残りますが、表示名は「不明」になります）'))return;
+  staffList.splice(i,1);
+  renderSettingsUI();
+}
+function saveStaff(){
+  document.querySelectorAll('#stfList input[data-f="name"]').forEach(el=>{staffList[+el.dataset.i].name=el.value.trim()||staffList[+el.dataset.i].name;});
+  document.querySelectorAll('#stfList input[data-f="wage"]').forEach(el=>{staffList[+el.dataset.i].hourlyWage=parseInt(el.value)||0;});
+  persistAndSync();
+  renderSettingsUI();renderCalendar();
+  showToast('✅ スタッフ設定を保存しました');
+}
+function saveSettings(){
+  settings.transportFee=parseInt(document.getElementById('setTransport').value)||0;
+  settings.bathFee=parseInt(document.getElementById('setBath').value)||0;
+  settings.closeDay=document.getElementById('setCloseDay').value;
+  settings.payDay=document.getElementById('setPayDay').value;
+  settings.defStart=document.getElementById('setDefStart').value||'08:00';
+  settings.defEnd=document.getElementById('setDefEnd').value||'12:00';
+  persistAndSync();
+  showToast('✅ 設定を保存しました');
+}
+
+// ===== 復元ポイント =====
+function pushSnapshot(label){
+  try{
+    history.push({ts:Date.now(),label:label||'自動保存',records:JSON.parse(JSON.stringify(records))});
+    const cutoff=Date.now()-30*24*60*60*1000;
+    history=history.filter(h=>h.ts>=cutoff);
+    if(history.length>60)history=history.slice(history.length-60);
+  }catch(e){}
+}
+function openHistoryModal(){
+  const el=document.getElementById('histList');
+  if(!history.length){el.innerHTML='<div style="font-size:12px;color:var(--ink3);padding:12px 0">まだ復元ポイントがありません</div>';}
+  else{
+    const rows=[...history].sort((a,b)=>b.ts-a.ts).slice(0,30);
+    el.innerHTML=rows.map(h=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <div><strong>${new Date(h.ts).toLocaleString('ja-JP')}</strong><br><span style="color:var(--ink2)">${(h.label||'').replace(/</g,'&lt;')}（${(h.records||[]).length}件）</span></div>
+      <button class="btn btn-out btn-sm" onclick="restoreSnapshot(${h.ts})">この時点に戻す</button>
+    </div>`).join('');
+  }
+  document.getElementById('histMod').classList.add('on');
+}
+function restoreSnapshot(ts){
+  const snap=history.find(h=>h.ts===ts);if(!snap)return;
+  if(!confirm('この時点の状態に戻します。現在の内容は上書きされますが、戻す前の状態も復元ポイントとして残ります。よろしいですか？'))return;
+  pushSnapshot('復元操作の前の状態');
+  records=JSON.parse(JSON.stringify(snap.records));
+  persistAndSync();
+  document.getElementById('histMod').classList.remove('on');
+  renderCalendar();
+  showToast('✅ 復元しました');
+}
+
+// ===== 保存・同期 =====
+function persistLocal(){
+  try{localStorage.setItem('kinmu2_staff',JSON.stringify(staffList));}catch(e){}
+  try{localStorage.setItem('kinmu2_settings',JSON.stringify(settings));}catch(e){}
+  try{localStorage.setItem('kinmu2_records',JSON.stringify(records));}catch(e){}
+  try{localStorage.setItem('kinmu2_deleted',JSON.stringify(deletedRecords));}catch(e){}
+  try{localStorage.setItem('kinmu2_history',JSON.stringify(history));}catch(e){}
+}
+function loadLocal(){
+  try{const s=localStorage.getItem('kinmu2_staff');if(s)staffList=JSON.parse(s);}catch(e){}
+  try{const g=localStorage.getItem('kinmu2_settings');if(g)settings=Object.assign(settings,JSON.parse(g));}catch(e){}
+  try{const r=localStorage.getItem('kinmu2_records');if(r)records=JSON.parse(r);}catch(e){}
+  try{const d=localStorage.getItem('kinmu2_deleted');if(d)deletedRecords=JSON.parse(d);}catch(e){}
+  try{const h=localStorage.getItem('kinmu2_history');if(h)history=JSON.parse(h);}catch(e){}
+}
+function setSync(state){
+  const el=document.getElementById('syncStatus');
+  const map={ok:['✅ 同期済み','s-ok'],saving:['⏳ 保存中...','s-saving'],err:['❌ 保存失敗','s-err'],offline:['📴 オフライン','s-offline']};
+  const m=map[state]||map.offline;
+  el.textContent=m[0];el.className=m[1];
+}
+async function saveToCloud(){
+  setSync('saving');
+  const ts=Date.now();
+  persistLocal();
+  try{localStorage.setItem('kinmu2_ts',String(ts));}catch(e){}
+  const payload=JSON.stringify({staffList,settings,records,deletedRecords,history,ts});
+  try{
+    const r=await fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify({id:1,payload})
+    });
+    if(r.ok)setSync('ok');else setSync('err');
+  }catch(e){console.error('save error',e);setSync('offline');}
+}
+function persistAndSync(){persistLocal();saveToCloud();}
+async function loadFromCloud(manual){
+  if(manual)showToast('☁️ 読み込み中...');
+  setSync('saving');
+  try{
+    const r=await fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.1&select=payload',{
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    });
+    const rows=await r.json();
+    if(!rows||!rows.length||!rows[0].payload){setSync('ok');if(manual)showToast('クラウドにデータがありません');return;}
+    const d=JSON.parse(rows[0].payload);
+    const localTs=parseInt(localStorage.getItem('kinmu2_ts')||'0');
+    const cloudTs=parseInt(d.ts||'0');
+    if(!manual&&localTs>cloudTs){setSync('ok');return;} // ローカルの方が新しければ何もしない（自動同期時のみ）
+    const modal=document.querySelector('.ov.on');
+    if(modal&&!manual)return; // 入力中は自動同期をスキップ
+    if(d.staffList)staffList=d.staffList;
+    if(d.settings)settings=Object.assign(settings,d.settings);
+    if(d.records)records=d.records;
+    if(d.deletedRecords)deletedRecords=d.deletedRecords;
+    if(d.history)history=d.history;
+    persistLocal();
+    try{localStorage.setItem('kinmu2_ts',String(d.ts||Date.now()));}catch(e){}
+    renderCalendar();
+    if(document.getElementById('sec-pay').classList.contains('on'))renderPayslip();
+    if(document.getElementById('sec-set').classList.contains('on'))renderSettingsUI();
+    setSync('ok');
+    if(manual)showToast('✅ クラウドから読み込みました');
+  }catch(e){console.error('load error',e);setSync('offline');if(manual)showToast('❌ 読み込み失敗（オフライン？）');}
+}
+
+// ===== バックアップ =====
+function downloadBackup(){
+  const data={staffList,settings,records,deletedRecords,history,exportedAt:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='勤怠バックアップ_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+}
+function restoreFromFile(ev){
+  const file=ev.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=function(e){
+    try{
+      const d=JSON.parse(e.target.result);
+      if(!confirm('データを復元します。現在の内容は上書きされます。よろしいですか？'))return;
+      pushSnapshot('バックアップ復元前');
+      if(d.staffList)staffList=d.staffList;
+      if(d.settings)settings=Object.assign(settings,d.settings);
+      if(d.records)records=d.records;
+      if(d.deletedRecords)deletedRecords=d.deletedRecords;
+      persistAndSync();
+      renderCalendar();renderSettingsUI();
+      showToast('✅ 復元しました');
+    }catch(err){alert('復元に失敗しました: '+err.message);}
+  };
+  r.readAsText(file);ev.target.value='';
+}
+
+// ===== 初期化 =====
+function init(){
+  loadLocal();
+  const n=new Date();cy=n.getFullYear();cm=n.getMonth()+1;
+  renderCalendar();
+  setSync(localStorage.getItem('kinmu2_ts')?'ok':'offline');
+  loadFromCloud(false);
+  setInterval(()=>loadFromCloud(false),30000);
+}
+init();
+</script>
+</body>
+</html>

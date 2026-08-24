@@ -879,6 +879,10 @@ let bksMeta={}, bksTomb={};
 function touchBk(key){ bksMeta[key]=Date.now(); delete bksTomb[key]; }
 function tombBk(key){ bksTomb[key]=Date.now(); delete bksMeta[key]; }
 let _gasSaving=false, _gasSaveQueued=false;
+// このタブが最後に把握しているクラウド側のタイムスタンプ。
+// 保存直前にこれより明らかに新しいデータがクラウドにあれば「他端末が先に保存済み」と判断し、
+// unassigned/checkoutData/cancelledBks（予約ごとマージの対象外のデータ）を無言で上書きしないための安全装置。
+let lastKnownCloudTs=0;
 
 // ===== 受付番号 =====
 function genReceiptNo(src){
@@ -1012,12 +1016,13 @@ function applyMergedBks(m){
   try{localStorage.setItem('yado_bks_meta',JSON.stringify(bksMeta));}catch(e){}
   try{localStorage.setItem('yado_bks_tomb',JSON.stringify(bksTomb));}catch(e){}
 }
-async function saveToSupabase(ts){
+async function saveToSupabase(ts,forceOverwrite){
   ts=ts||Date.now();
   markUnsent();
   updateSyncStatus('saving');
+  const prevKnownCloudTs=lastKnownCloudTs; // 上書き判定のため、フェッチ前の値を退避
   // 保存の前に、まずクラウドの最新状態を取得し、予約ごとに安全マージしておく。
-  // これにより「このタブが古いデータを持ったまま保存」しても、他の予約を巻き込んで消さない。
+  // これにより「このタブが古いデータを持ったまま保存」しても、予約(bks)については他の予約を巻き込んで消さない。
   try{
     const r0=await fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.1&select=payload',{
       headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
@@ -1028,6 +1033,33 @@ async function saveToSupabase(ts){
         const cloud=JSON.parse(rows[0].payload);
         applyMergedBks(mergeBksState(cloud.bks,cloud.bksMeta,cloud.bksTomb));
         render();renderUnassigned();renderLedger();
+        const cloudTs=parseInt(cloud.ts||'0');
+        // ===== 競合検知 =====
+        // unassigned/checkoutData/cancelledBksはbksと違い「予約ごとの安全マージ」の対象外（丸ごと上書き）。
+        // 自分がまだ知らない新しいクラウドの状態（＝他端末が先に保存済み）が見つかった場合、
+        // 無言でこのタブの古い内容を被せてしまわないよう、確認を挟む。
+        if(!forceOverwrite&&cloudTs>prevKnownCloudTs+2000){
+          lastKnownCloudTs=cloudTs;
+          const cloudTime=new Date(cloudTs).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+          const ok=confirm('⚠️ 別の端末が先に新しいデータを保存しています（'+cloudTime+'時点）。\n\nこのまま今の内容で保存を続けますか？\n（予約の割当自体は自動で安全に統合されますが、未割当リストや精算情報などは、このタブの内容でクラウドを上書きします。\nキャンセルすると、代わりに最新のクラウド内容をこのタブに反映して終わります。）');
+          if(!ok){
+            if(cloud.unassigned)unassigned=cloud.unassigned;
+            if(cloud.checkoutData)checkoutData=cloud.checkoutData;
+            if(cloud.cancelledBks)cancelledBks=cloud.cancelledBks;
+            normalizeDates();
+            try{localStorage.setItem('yado_ua',JSON.stringify(unassigned));}catch(e){}
+            try{localStorage.setItem('yado_co',JSON.stringify(checkoutData));}catch(e){}
+            try{localStorage.setItem('yado_cancelled',JSON.stringify(cancelledBks));}catch(e){}
+            localStorage.setItem('yado_ts',String(cloudTs));
+            clearUnsent();
+            render();renderUnassigned();renderLedger();
+            updateSyncStatus('synced');
+            showToast('☁️ 別端末の最新データを取り込みました（保存はキャンセルされました）');
+            return;
+          }
+        }else{
+          lastKnownCloudTs=Math.max(lastKnownCloudTs,cloudTs);
+        }
       }
     }
   }catch(e){console.error('保存前のマージ取得に失敗（オフライン等。ローカルの内容のみで保存を続行）',e);}
@@ -1043,10 +1075,10 @@ async function saveToSupabase(ts){
         method:'POST',
         headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
         body:JSON.stringify({id:1,payload:JSON.stringify(payload)})
-      }).then(r2=>{if(r2.ok){clearUnsent();updateSyncStatus('ok');}else updateSyncStatus('error');})
+      }).then(r2=>{if(r2.ok){clearUnsent();lastKnownCloudTs=ts;updateSyncStatus('ok');}else updateSyncStatus('error');})
         .catch(e=>{console.error('Supabase insert error',e);updateSyncStatus('unsent');});
     } else if(r.ok){
-      clearUnsent();updateSyncStatus('ok');
+      clearUnsent();lastKnownCloudTs=ts;updateSyncStatus('ok');
     } else {
       updateSyncStatus('unsent');
     }
@@ -1068,7 +1100,7 @@ function loadFromSupabase(){
     try{localStorage.setItem('yado_ua',JSON.stringify(unassigned));}catch(e){}
     try{localStorage.setItem('yado_co',JSON.stringify(checkoutData));}catch(e){}
     try{localStorage.setItem('yado_cancelled',JSON.stringify(cancelledBks));}catch(e){}
-    if(d.ts)localStorage.setItem('yado_ts',String(d.ts));
+    if(d.ts){localStorage.setItem('yado_ts',String(d.ts));lastKnownCloudTs=parseInt(d.ts);}
     rebuildAllSpans();
     render();renderUnassigned();renderLedger();renderSettings();
     document.getElementById('syncBanner').classList.remove('on');
@@ -2767,7 +2799,7 @@ function openDacho(){
     });
   });
   localStorage.setItem('dacho_import_data', JSON.stringify(directBks));
-  location.href='dacho.html';
+  window.open('dacho.html','_blank');
 }
 
 function resetAll(){
@@ -2837,6 +2869,7 @@ function init(){
       // 予約以外のデータ（部屋状況・未割当リスト等）は従来通り、クラウドが明確に新しい場合のみ反映
       const localTs=parseInt(localStorage.getItem('yado_ts')||'0');
       const cloudTs=parseInt(d.ts||'0');
+      lastKnownCloudTs=Math.max(lastKnownCloudTs,cloudTs); // 保存時の競合誤検知を防ぐ
       let otherChanged=false;
       if(cloudTs>localTs+5000){
         if(d.unassigned)unassigned=d.unassigned;

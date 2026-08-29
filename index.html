@@ -574,6 +574,17 @@ td.c.bk:hover{filter:brightness(1.08)}
         </select>
       </div>
     </div>
+    <!-- 支払い方法・精算状況（現地払い⇔事前精算などの変更をここから反映できる） -->
+    <div class="fg" id="fPayMethodGroup">
+      <label class="fl">支払い方法（精算・伝票用）</label>
+      <select class="fsel" id="fPayMethod">
+        <option value="">-- 未設定（経路から自動判定） --</option>
+      </select>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="fPaidStatus"> 精算済みにする</label>
+      </div>
+      <div style="font-size:10px;color:var(--ink3);margin-top:3px" id="fPayMethodHint">現地払い→事前精算への変更など、支払い方法が変わった場合はここで変更できます（「精算・伝票」画面に反映されます）。部屋が割り当てられていない予約では保存されません。</div>
+    </div>
     <div class="fr2">
       <div class="fg">
         <label class="fl">CI時刻</label>
@@ -1360,6 +1371,7 @@ function setSrc(src,el){
   document.querySelectorAll('.src-btn').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
   updateDiscountVisibility();
+  refreshPayMethodOptions(document.getElementById('fPayMethod')?document.getElementById('fPayMethod').value:'');
   // 直接予約の場合、次の受付番号をプレビュー表示
   const OTA_SRCS=['rakuten','jalan','yahoo','yukoyuko'];
   const prev=document.getElementById('directNoPreview');
@@ -1408,6 +1420,8 @@ function openManual(room,ds){
   updateDiscountVisibility();
   setPrefCountryForm(null);
   document.getElementById('fPrefHint').textContent='';
+  refreshPayMethodOptions('');
+  document.getElementById('fPaidStatus').checked=false;
   document.getElementById('manualMod').classList.add('on');
   setTimeout(()=>document.getElementById('fName').focus(),100);
 }
@@ -1544,10 +1558,19 @@ function editBk(room,ds){
   document.getElementById('fSubsidy').value=bk.subsidy||'';
   updateDiscountVisibility();
   setPrefCountryForm(bk);
+  setPayMethodFormFromBk(room,ds,bk);
   document.getElementById('manualMod').classList.add('on');
 }
 
 function closeManual(){document.getElementById('manualMod').classList.remove('on');}
+
+// 予約保存後、現在「精算・伝票」画面を表示中であれば、その一覧も最新の内容に更新する
+function refreshCheckoutViewIfVisible(){
+  const sec=document.getElementById('sec-checkout');
+  if(!sec||!sec.classList.contains('on'))return;
+  if(coCurrentTab==='monthly')renderMonthlyCheckout();
+  else renderCheckout();
+}
 
 function saveBk(){
   const name=document.getElementById('fName').value.trim();
@@ -1618,6 +1641,12 @@ function saveBk(){
     bks[newKey]=data;
     touchBk(newKey);
     markSpan(targetRoom,ds,nights,newKey);
+    // 精算データ（支払い方法・精算済みフラグ）：部屋・日付が変わった場合は新しいキーへ引き継ぐ
+    if(newKey!==editKey&&checkoutData[editKey]){
+      checkoutData[newKey]=checkoutData[editKey];
+      delete checkoutData[editKey];
+    }
+    applyPayMethodFromForm(newKey);
   }else if(room){
     // 新規 部屋あり
     data.no=genReceiptNo(srcVal);
@@ -1635,6 +1664,7 @@ function saveBk(){
     bks[key]=data;
     touchBk(key);
     markSpan(room,ds,nights,key);
+    applyPayMethodFromForm(key);
   }else{
     // 未割当 - ciDateをハイフン形式に正規化
     data.ciDate=ds; // saveBkで既にfmt()処理済みのdsを使う
@@ -1651,6 +1681,7 @@ function saveBk(){
     return;
   }
   save();closeManual();render();renderUnassigned();renderLedger();
+  refreshCheckoutViewIfVisible();
 }
 
 // 上書きで消える予約を必ずキャンセル台帳へ退避する（データ消失防止）
@@ -1698,6 +1729,7 @@ function delBk(){
   delete bks[editKey];
   tombBk(editKey);
   save();closeManual();render();renderUnassigned();renderLedger();
+  refreshCheckoutViewIfVisible();
   showToast(keep?'🚫 キャンセルとして台帳に保存しました':'🗑️ 予約を削除しました');
 }
 
@@ -1775,6 +1807,8 @@ function editUnassigned(i){
   document.getElementById('fMemo').value=u.memo||'';
   document.getElementById('btnDel').style.display='none';
   setPrefCountryForm(u);
+  refreshPayMethodOptions('');
+  document.getElementById('fPaidStatus').checked=false;
   document.getElementById('manualMod').setAttribute('data-uindex',String(i));
   document.querySelectorAll('.src-btn').forEach(b=>b.classList.remove('on'));
   const sb=document.querySelector(`.src-btn[onclick*="'${u.src||'tel'}'"]`);
@@ -2596,6 +2630,59 @@ function copyKirishimaReport(){
   ta.style.position='fixed';ta.style.left='-9999px';
 }
 
+// 経路（OTA/直接）ごとに選択可能な支払い方法を返す（精算画面・予約編集モーダル共通で使用）
+const ALL_PAY_METHODS=['cash','rakuten_pay','paypay','dpay','subsidy','ota_rakuten_pre','ota_rakuten_local','ota_jalan_pre','ota_jalan_local','ota_yahoo_pre','ota_yahoo_local','ota_yukoyuko'];
+function getPayMethodsForSrc(src, currentPayMethod){
+  if(src==='rakuten'){
+    if(currentPayMethod==='ota_rakuten_pre') return ['ota_rakuten_pre'];
+    return ['ota_rakuten_pre','ota_rakuten_local_cash','ota_rakuten_local_rakuten','ota_rakuten_local_paypay','ota_rakuten_local_dpay'];
+  }
+  if(src==='jalan'){
+    if(currentPayMethod==='ota_jalan_pre') return ['ota_jalan_pre'];
+    // 事前決済ボタンも常に表示（メール取込以外の方法で登録した場合も選択できるように）
+    return ['ota_jalan_pre','ota_jalan_local','ota_jalan_local_rakuten','ota_jalan_local_paypay','ota_jalan_local_dpay'];
+  }
+  if(src==='yahoo')   return ['ota_yahoo_pre','ota_yahoo_local','cash','rakuten_pay'];
+  if(src==='yukoyuko')return ['cash','rakuten_pay','paypay','dpay'];
+  if(src==='line') return ['cash','rakuten_pay','paypay','dpay','bank_transfer'];
+  // 直接予約：補助金は予約時に自動セットされるのでボタン不要
+  return ['cash','rakuten_pay','paypay','dpay','bank_transfer'];
+}
+
+// ===== 予約編集モーダル：支払い方法（精算・伝票用）欄 =====
+// 経路（fSrc）に応じて選択肢を作り直す。selectedValueが選べる場合はそれを選択状態にする。
+function refreshPayMethodOptions(selectedValue){
+  const sel=document.getElementById('fPayMethod');
+  if(!sel)return;
+  const src=document.getElementById('fSrc').value;
+  const methods=getPayMethodsForSrc(src, selectedValue||'');
+  const keep=selectedValue&&methods.includes(selectedValue)?selectedValue:'';
+  sel.innerHTML='<option value="">-- 未設定（経路から自動判定） --</option>'
+    +methods.map(m=>`<option value="${m}">${PAY_LABELS_GLOBAL[m]||m}</option>`).join('');
+  sel.value=keep;
+}
+// 予約に紐づく精算データ（checkoutData）から、現在の支払い方法・精算状況をフォームへ反映
+function setPayMethodFormFromBk(room,ds,bk){
+  const key=room?`${room}_${ds}`:'';
+  const cd=(key&&checkoutData[key])?checkoutData[key]:{};
+  let payMethod=cd.payMethod||'';
+  if(!payMethod&&bk&&SRC_TO_PAY[bk.src])payMethod=SRC_TO_PAY[bk.src];
+  refreshPayMethodOptions(payMethod);
+  document.getElementById('fPaidStatus').checked=!!cd.paid;
+}
+// 保存時：フォームの支払い方法・精算状況を、指定キーのcheckoutDataへ反映
+function applyPayMethodFromForm(key){
+  if(!key)return;
+  const payVal=document.getElementById('fPayMethod').value;
+  const paidVal=document.getElementById('fPaidStatus').checked;
+  if(!checkoutData[key])checkoutData[key]={extraItems:[],paid:false};
+  if(!checkoutData[key].extraItems)checkoutData[key].extraItems=[];
+  if(payVal)checkoutData[key].payMethod=payVal;
+  checkoutData[key].paid=paidVal;
+  saveCheckoutData();
+}
+
+
 function renderCheckout(){
   initCheckoutDate();
   const dateStr=document.getElementById('checkoutDate').value;if(!dateStr)return;
@@ -2609,25 +2696,6 @@ function renderCheckout(){
   const content=document.getElementById('checkoutContent');
   const summary=document.getElementById('checkoutSummary');
   if(!ciRooms.length){content.innerHTML='<div class="empty-msg">この日のチェックインはありません</div>';summary.innerHTML='';return;}
-
-  // 支払方法ボタン定義（OTAごとに適切なものを表示）
-  const ALL_PAY_METHODS=['cash','rakuten_pay','paypay','dpay','subsidy','ota_rakuten_pre','ota_rakuten_local','ota_jalan_pre','ota_jalan_local','ota_yahoo_pre','ota_yahoo_local','ota_yukoyuko'];
-  function getPayMethodsForSrc(src, currentPayMethod){
-    if(src==='rakuten'){
-      if(currentPayMethod==='ota_rakuten_pre') return ['ota_rakuten_pre'];
-      return ['ota_rakuten_pre','ota_rakuten_local_cash','ota_rakuten_local_rakuten','ota_rakuten_local_paypay','ota_rakuten_local_dpay'];
-    }
-    if(src==='jalan'){
-      if(currentPayMethod==='ota_jalan_pre') return ['ota_jalan_pre'];
-      // 事前決済ボタンも常に表示（メール取込以外の方法で登録した場合も選択できるように）
-      return ['ota_jalan_pre','ota_jalan_local','ota_jalan_local_rakuten','ota_jalan_local_paypay','ota_jalan_local_dpay'];
-    }
-    if(src==='yahoo')   return ['ota_yahoo_pre','ota_yahoo_local','cash','rakuten_pay'];
-    if(src==='yukoyuko')return ['cash','rakuten_pay','paypay','dpay'];
-    if(src==='line') return ['cash','rakuten_pay','paypay','dpay','bank_transfer'];
-    // 直接予約：補助金は予約時に自動セットされるのでボタン不要
-    return ['cash','rakuten_pay','paypay','dpay','bank_transfer'];
-  }
 
   // 集計バケット
   let totals={cash:0,rakuten_pay:0,paypay:0,dpay:0,bank_transfer:0,subsidy:0,tr_rakuten:0,tr_jalan:0,jalan_point:0,tr_yahoo:0,yahoo_local:0,yukoyuko_local:0,unpaid:0};

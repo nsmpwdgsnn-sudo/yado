@@ -141,6 +141,14 @@ td.c.bk:hover{filter:brightness(1.08)}
 .ledger-table tr.unassigned-row td{background:#fffdf0}
 .no-badge{font-family:'DM Mono',monospace;font-size:10px;background:var(--hd);color:var(--gold);border-radius:4px;padding:1px 6px}
 .cancel-row td{background:#fff5f5!important;color:#999}
+
+/* ===== 精算・伝票 月次一覧（クリックで編集） ===== */
+.co-table tr.co-row{cursor:pointer}
+.co-table tr.co-row:hover td{background:#fffbe8}
+.co-table tr.co-unclassified td{background:#fff8e1}
+.co-table tr.co-unclassified:hover td{background:#ffefc0}
+.co-loc-badge{font-size:10px;color:var(--ink3)}
+.co-loc-badge.co-loc-unknown{color:var(--red);font-weight:700}
 .search-bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
 .search-input{flex:1;min-width:160px;padding:7px 11px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;background:var(--paper);outline:none}
 .search-input:focus{border-color:var(--gold)}
@@ -2353,6 +2361,7 @@ function initCheckoutDate(){
 // 日次/月次タブ切り替え
 let coCurrentTab='daily';
 let coMonthlyY, coMonthlyM;
+let coFilterUnclassified=false; // 都道府県／国が未入力・未判定の予約だけ表示する絞り込み
 function switchCoTab(tab){
   coCurrentTab=tab;
   document.getElementById('coSectionDaily').style.display=tab==='daily'?'':'none';
@@ -2431,14 +2440,16 @@ function renderMonthlyCheckout(){
       const g=guessPrefCountry(bk.addr||'');
       guestType=g.guestType;pref=pref||g.pref;country=country||g.country;
     }
+    // 一覧表示・絞り込み用に、この予約が区分不明かどうかと地域ラベルを行データに保持しておく
+    r.unclassified=false;
     if(guestType==='inbound'){
       const cat=kirishimaCategoryForCountry(country);
-      if(cat){overseasPax[cat]+=pax;inboundPax+=pax;}
-      else{unclassifiedCnt++;unclassifiedPax+=pax;}
+      if(cat){overseasPax[cat]+=pax;inboundPax+=pax;r.locLabel='🌏'+(country||cat);}
+      else{unclassifiedCnt++;unclassifiedPax+=pax;r.unclassified=true;r.locLabel='⚠️不明';}
     }else{
       const cat=kirishimaCategoryForPref(pref);
-      if(cat){domesticPax[cat]+=pax;}
-      else{unclassifiedCnt++;unclassifiedPax+=pax;}
+      if(cat){domesticPax[cat]+=pax;r.locLabel=pref;}
+      else{unclassifiedCnt++;unclassifiedPax+=pax;r.unclassified=true;r.locLabel='⚠️不明';}
     }
   });
   const transportPct=rows.length?Math.round(transportCount/rows.length*1000)/10:0;
@@ -2478,11 +2489,26 @@ function renderMonthlyCheckout(){
 
   if(!rows.length){document.getElementById('coMonthlyContent').innerHTML='<div class="empty-msg">この月の予約はありません</div>';return;}
 
+  // 「区分不明のみ表示」絞り込み（一覧表示のみに影響。上の集計カード・報告表は月全体のまま）
+  const displayRows=coFilterUnclassified?rows.filter(r=>r.unclassified):rows;
+  const filterBar=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+      <button class="btn btn-sm ${coFilterUnclassified?'':'btn-out'}" onclick="toggleCoUnclassifiedFilter()">
+        ${coFilterUnclassified?'✅ 区分不明のみ表示中（解除する）':'⚠️ 都道府県／国が不明な予約だけ表示'}
+      </button>
+      <span style="font-size:11px;color:var(--ink3)">行をクリックすると編集画面が開きます</span>
+    </div>`;
+
+  if(!displayRows.length){
+    document.getElementById('coMonthlyContent').innerHTML=filterBar+'<div class="empty-msg">✅ 区分不明の予約はありません</div>';
+    return;
+  }
+
   const SRC_LABEL_MAP={rakuten:'楽天',jalan:'じゃらん',yahoo:'Yahoo',yukoyuko:'ゆこゆこ',tel:'電話',sms:'SMS',insta:'インスタ',kuchi:'口頭',hp:'HP',line:'LINE'};
-  const tableRows=rows.map(r=>{
+  const tableRows=displayRows.map(r=>{
     const payLbl=PAY_LABELS_GLOBAL[r.cd.payMethod]||'未設定';
     const statusLbl=r.cd.paid?'<span style="color:var(--green)">✅精算済</span>':'<span style="color:var(--red)">⏳未精算</span>';
-    return `<tr>
+    const locLbl=`<span class="co-loc-badge${r.unclassified?' co-loc-unknown':''}">${r.locLabel||''}</span>`;
+    return `<tr class="co-row${r.unclassified?' co-unclassified':''}" data-room="${esc(r.room)}" data-ds="${esc(r.ds)}" onclick="editBkEl(this)" title="クリックして予約を編集">
       <td>${r.ds.substring(5)}</td>
       <td>${r.room}</td>
       <td>${esc(r.bk.name||'')}</td>
@@ -2493,10 +2519,11 @@ function renderMonthlyCheckout(){
       <td>${SRC_LABEL_MAP[r.bk.src]||r.bk.src||''}</td>
       <td style="font-size:11px">${payLbl}</td>
       <td>${statusLbl}</td>
+      <td>${locLbl}</td>
     </tr>`;
   }).join('');
-  document.getElementById('coMonthlyContent').innerHTML=`
-    <div style="overflow:auto;border-radius:10px;box-shadow:0 2px 8px var(--shadow)">
+  document.getElementById('coMonthlyContent').innerHTML=filterBar+`
+    <div class="ledger-wrap co-table" style="overflow:auto;border-radius:10px;box-shadow:0 2px 8px var(--shadow)">
       <table style="width:100%;border-collapse:collapse;background:var(--paper);font-size:12px">
         <thead><tr>
           <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:left;font-size:10px">CI日</th>
@@ -2509,10 +2536,15 @@ function renderMonthlyCheckout(){
           <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:left;font-size:10px">経路</th>
           <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:left;font-size:10px">支払</th>
           <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:left;font-size:10px">状態</th>
+          <th style="background:var(--hd);color:#f5f0e8;padding:7px 6px;text-align:left;font-size:10px">都道府県／国</th>
         </tr></thead>
         <tbody>${tableRows}</tbody>
       </table>
     </div>`;
+}
+function toggleCoUnclassifiedFilter(){
+  coFilterUnclassified=!coFilterUnclassified;
+  renderMonthlyCheckout();
 }
 
 // ===== 霧島市観光課 報告用集計（都道府県別・国別） =====
@@ -2538,8 +2570,9 @@ function renderKirishimaReport(domesticPax,overseasPax,unclassifiedCnt,unclassif
           <tbody><tr>${domTd}${ovTd}</tr></tbody>
         </table>
       </div>
-      <div style="font-size:10px;color:${unclassifiedCnt?'var(--red)':'var(--ink3)'};margin-top:8px">
-        ${unclassifiedCnt?`⚠️ 区分不明：${unclassifiedCnt}件（延べ${unclassifiedPax}名）— 都道府県／国が未入力・未判定の予約です。提出前に編集画面から確認してください。`:'✅ 区分不明の予約はありません'}
+      <div style="font-size:10px;color:${unclassifiedCnt?'var(--red)':'var(--ink3)'};margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span>${unclassifiedCnt?`⚠️ 区分不明：${unclassifiedCnt}件（延べ${unclassifiedPax}名）— 都道府県／国が未入力・未判定の予約です。`:'✅ 区分不明の予約はありません'}</span>
+        ${unclassifiedCnt?`<button class="btn btn-out btn-sm" style="font-size:10px;padding:3px 8px" onclick="coFilterUnclassified=true;renderMonthlyCheckout();document.getElementById('coMonthlyContent').scrollIntoView({behavior:'smooth',block:'start'})">👉 この${unclassifiedCnt}件を一覧に絞り込む</button>`:''}
       </div>
       <textarea id="kirishimaCopyText" style="position:fixed;left:-9999px;opacity:0"></textarea>
     </div>`;

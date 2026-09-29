@@ -1319,6 +1319,7 @@ function selImportTab(name,el){
 
 // ===== アサイン帳 =====
 function rebuildAllSpans(){
+  _spanOverlaps=[];
   // 通常予約（isStart!==false）のキーを先に全収集
   const realKeys=new Set(Object.keys(bks).filter(k=>{
     const v=bks[k];
@@ -1344,7 +1345,19 @@ function rebuildAllSpans(){
     if(parts.length!==3||isNaN(parts[0])||isNaN(parts[1])||isNaN(parts[2]))return;
     markSpan(room,ds,bk.nights,key);
   });
+  if(_spanOverlaps.length){
+    _spanOverlaps.forEach(o=>{
+      const sig=o.a+'|'+o.b;
+      if(_overlapWarned.has(sig))return;
+      _overlapWarned.add(sig);
+      const na=(bks[o.a]&&bks[o.a].name)||'?',nb=(bks[o.b]&&bks[o.b].name)||'?';
+      console.warn('予約の重なり',o);
+      setTimeout(()=>showToast('⚠️ '+o.room+'号室 '+o.ds+'：「'+na+'」様の連泊と「'+nb+'」様が重なっています。どちらかを移動してください'),300);
+    });
+    _spanOverlaps=[];
+  }
 }
+var _overlapWarned=new Set();
 function render(){
   rebuildAllSpans();
   const y=cy,mo=cm,days=new Date(y,mo+1,0).getDate();
@@ -1373,7 +1386,14 @@ function render(){
       // isStartがfalse/0/"false"のいずれでもなければ通常予約として描画
       const isGhost=(bk&&(bk.isStart===false||bk.isStart===0||bk.isStart==='false'));
       if(bk&&!isGhost){
-        const span=Math.min(bk.nights||1,days-d+1);
+        // 連泊バーは、途中に別の予約が重なっていたらそこで止める（重なった予約を隠さない）
+        const maxSpan=Math.min(bk.nights||1,days-d+1);
+        let span=1;
+        while(span<maxSpan){
+          const nb=bks[room.no+'_'+fmt(y,mo+1,d+span)];
+          if(!(nb&&!isRealBk(nb)&&nb.parentKey===key))break;
+          span++;
+        }
         const hex=SRC_HEX[bk.src]||'#888';
         const lbl=SRC_LABEL[bk.src]||bk.src||'';
         const paxStr=paxSummary(bk);
@@ -1439,12 +1459,40 @@ function openDayPopup(ds){
 function closeDayPopup(){document.getElementById('dayPopup').classList.remove('on');}
 
 // ===== スパン管理 =====
+function isRealBk(v){return !!(v&&v.isStart!==false&&v.isStart!==0&&v.isStart!=='false');}
+// 連泊の2泊目以降のセルに「宿泊中」マーク（ゴースト）を付ける。
+// ★重要：そのセルに別の本物の予約が入っている場合は、絶対に上書きしない（上書きすると、
+//   その予約がキャンセル台帳にも残らず無言で消えてしまう不具合の原因だった）。
+var _spanOverlaps=[];
 function markSpan(room,ds,nights,pk){
   const [y,mo,d]=ds.split('-').map(Number);
   for(let i=1;i<nights;i++){
     const nd=new Date(y,mo-1,d+i);
-    bks[`${room}_${fmt(nd.getFullYear(),nd.getMonth()+1,nd.getDate())}`]={isStart:false,parentKey:pk};
+    const k=`${room}_${fmt(nd.getFullYear(),nd.getMonth()+1,nd.getDate())}`;
+    if(k!==pk&&isRealBk(bks[k])){_spanOverlaps.push({room,ds:k.substring(k.indexOf('_')+1),a:pk,b:k});continue;}
+    bks[k]={isStart:false,parentKey:pk};
   }
+}
+// 指定の部屋・期間（nights泊）に重なる既存予約をすべて返す（自分自身selfKeyは除く）
+function spanConflicts(room,ds,nights,selfKey){
+  const [y,mo,d]=ds.split('-').map(Number);
+  const out=[],seen=new Set();
+  for(let i=0;i<(parseInt(nights)||1);i++){
+    const nd=new Date(y,mo-1,d+i);
+    const c=resolveConflict(`${room}_${fmt(nd.getFullYear(),nd.getMonth()+1,nd.getDate())}`);
+    if(c&&c.key!==selfKey&&!seen.has(c.key)){
+      seen.add(c.key);
+      const ix=c.key.indexOf('_');
+      out.push({key:c.key,bk:c.bk,room:c.key.substring(0,ix),ds:c.key.substring(ix+1)});
+    }
+  }
+  return out;
+}
+function confirmOverwriteAll(conflicts){
+  return conflicts.every(c=>confirmOverwrite(c.bk,c.room,c.ds));
+}
+function removeConflicts(conflicts){
+  conflicts.forEach(c=>{archiveOverwritten(c.bk,c.room);clearSpan(c.key);delete bks[c.key];tombBk(c.key);});
 }
 function clearSpan(key){
   const bk=bks[key];if(!bk)return;
@@ -1452,7 +1500,13 @@ function clearSpan(key){
   const [y,mo,d]=ds.split('-').map(Number);
   for(let i=1;i<(bk.nights||1);i++){
     const nd=new Date(y,mo-1,d+i);
-    delete bks[`${room}_${fmt(nd.getFullYear(),nd.getMonth()+1,nd.getDate())}`];
+    const k=`${room}_${fmt(nd.getFullYear(),nd.getMonth()+1,nd.getDate())}`;
+    // ★その日のセルが「この予約の宿泊中マーク」の場合だけ消す。
+    //   別のお客様の本物の予約が入っている場合は絶対に消さない
+    //   （以前は無条件に消していたため、連泊予約をキャンセル・移動・編集した際に
+    //    翌日以降の別の予約が無言で消える不具合があった）
+    const v=bks[k];
+    if(v&&!isRealBk(v)&&(!v.parentKey||v.parentKey===key))delete bks[k];
   }
 }
 
@@ -1716,20 +1770,18 @@ function saveBk(){
     const targetRoom=room||oldRoom; // 部屋が空欄の場合は元の部屋を引き継ぐ
     const newKey=targetRoom+'_'+ds;
     // 移動先に別の予約があれば警告して確認（連泊中の途中日＝ゴーストセルの場合は、その本体予約を衝突相手とする）
-    const conflict=(newKey!==editKey)?resolveConflict(newKey):null;
-    if(conflict&&conflict.key!==editKey){
-      const existing=conflict.bk;
-      const cRoom=conflict.key.substring(0,conflict.key.indexOf('_'));
-      if(!confirmOverwrite(existing,targetRoom,ds)){
+    // 宿泊期間すべて（泊数を増やした場合の2泊目以降も含む）について、他の予約と重ならないか確認
+    const conflicts=spanConflicts(targetRoom,ds,nights,editKey);
+    if(conflicts.length){
+      if(!confirmOverwriteAll(conflicts)){
         // キャンセルされたら元の予約を復元
         bks[editKey]=oldBk;
         touchBk(editKey);
         markSpan(oldRoom,editKey.substring(editKey.indexOf("_")+1),oldBk.nights,editKey);
         return;
       }
-      archiveOverwritten(existing,cRoom);
-      clearSpan(conflict.key);delete bks[conflict.key];tombBk(conflict.key);
-    }else if(bks[newKey])delete bks[newKey];
+      removeConflicts(conflicts);
+    }else if(bks[newKey]&&!isRealBk(bks[newKey]))delete bks[newKey];
     data.room=targetRoom;
     bks[newKey]=data;
     touchBk(newKey);
@@ -1747,15 +1799,10 @@ function saveBk(){
     const key=room+"_"+ds;
     // 重複チェック：既存予約がある場合は警告（連泊中の途中日＝ゴーストセルの場合は、その本体予約を衝突相手とする）
     {
-      const conflict=resolveConflict(key);
-      if(conflict){
-        const existing=conflict.bk;
-        const cRoom=conflict.key.substring(0,conflict.key.indexOf('_'));
-        if(!confirmOverwrite(existing,room,ds)){
-          return;
-        }
-        archiveOverwritten(existing,cRoom);
-        clearSpan(conflict.key);delete bks[conflict.key];tombBk(conflict.key);
+      const conflicts=spanConflicts(room,ds,nights,null);
+      if(conflicts.length){
+        if(!confirmOverwriteAll(conflicts))return;
+        removeConflicts(conflicts);
       }
     }
     data.room=room;
@@ -1960,15 +2007,10 @@ function doAssign(){
     const key=room+'_'+ds;
     // 既存予約との重複チェック（連泊中の途中日＝ゴーストセルの場合は、その本体予約を衝突相手とする）
     {
-      const conflict=resolveConflict(key);
-      if(conflict){
-        const existing=conflict.bk;
-        const cRoom=conflict.key.substring(0,conflict.key.indexOf('_'));
-        if(!confirmOverwrite(existing,room,ds)){
-          return;
-        }
-        archiveOverwritten(existing,cRoom);
-        clearSpan(conflict.key);delete bks[conflict.key];tombBk(conflict.key);
+      const conflicts=spanConflicts(room,ds,parseInt(u.nights)||1,null);
+      if(conflicts.length){
+        if(!confirmOverwriteAll(conflicts))return;
+        removeConflicts(conflicts);
       }
     }
     const data=JSON.parse(JSON.stringify(u));

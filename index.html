@@ -262,6 +262,105 @@ td.c.bk:hover{filter:brightness(1.08)}
 #syncBanner{display:none}
 #syncTs{display:none}
 #syncIndicator{font-size:10px;padding:2px 8px;border-radius:10px;font-family:'DM Mono',monospace;transition:all .3s;white-space:nowrap}
+
+/* ===== 鹿児島ふっこう応援割：予約画面 ===== */
+.fk-box{border:1.5px solid #d9c9a8;background:#fffaf0;border-radius:8px;padding:10px 12px;margin-bottom:10px}
+.fk-head{font-size:12px;font-weight:700;color:#7a4a10;margin-bottom:4px}
+.rl-row{display:grid;grid-template-columns:1.3fr 1.2fr .7fr .7fr auto;gap:5px;align-items:center;margin-bottom:5px}
+.rl-row input{padding:6px 7px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;background:#fff;outline:none;width:100%;min-width:0}
+.rl-row input:focus{border-color:var(--gold)}
+.rl-hd{font-size:9px;color:var(--ink3);font-weight:700}
+.rl-sub{grid-column:1/-1;font-size:10px;color:var(--ink2);text-align:right;margin-top:-3px}
+.rl-del{background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:5px 8px;cursor:pointer;font-size:11px}
+.fk-chk{display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0;cursor:pointer}
+.fk-chk input{width:16px;height:16px}
+.fk-main{font-weight:700;font-size:13px;color:#7a4a10}
+.fk-msg{font-size:11px;line-height:1.6}
+.fk-msg .ng{color:var(--red)}
+.fk-msg .ok{color:var(--green);font-weight:700}
+.fk-calc{font-size:12px;margin-top:6px}
+.fk-calc table{width:100%;border-collapse:collapse}
+.fk-calc td{padding:2px 4px;border-bottom:1px dotted var(--border)}
+.fk-calc td:last-child{text-align:right;font-family:'DM Mono',monospace;white-space:nowrap}
+.fk-calc tr.b td{font-weight:700}
+.fk-calc tr.t td{font-weight:700;color:var(--red);font-size:14px;border-bottom:none}
+/* ===== 応援割タブ ===== */
+.fk-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px}
+.fk-card{background:var(--paper);border-radius:8px;padding:10px;border:1.5px solid var(--border);box-shadow:0 2px 6px var(--shadow)}
+.fk-card .l{font-size:10px;color:var(--ink2);margin-bottom:3px}
+.fk-card .v{font-family:'DM Mono',monospace;font-size:16px;font-weight:700}
+.fk-card .s{font-size:10px;color:var(--ink3);margin-top:2px}
+.fk-panel{background:var(--paper);border-radius:10px;padding:12px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow)}
+.fk-panel-ttl{font-size:13px;font-weight:700;margin-bottom:8px}
+.fk-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;flex-wrap:wrap}
+.fk-row:last-child{border-bottom:none}
+.fk-row .nm{font-weight:700}
+.fk-row .sub{font-size:11px;color:var(--ink2)}
+.fk-row .amt{font-family:'DM Mono',monospace;font-size:11px;margin-left:auto;text-align:right}
+.fk-tag{font-size:10px;font-weight:700;border-radius:10px;padding:2px 8px;white-space:nowrap}
+.fk-tag.late{background:#fce4ec;color:#c62828}
+.fk-tag.due{background:#fff3e0;color:#e65100}
+.fk-tag.done{background:#e8f5e9;color:#2a7a4b}
+.fk-tag.iss{background:#f0f4ff;color:#2a5fa8}
+.fk-rep{display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;white-space:nowrap}
+.fk-mark{font-size:9px;background:#7a4a10;color:#fff;border-radius:3px;padding:1px 4px;margin-left:3px;vertical-align:1px}
+/* ===== 領収書ビューア ===== */
+.rv-ov{display:none;position:fixed;inset:0;background:#3a342c;z-index:800;flex-direction:column}
+.rv-ov.on{display:flex}
+.rv-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--hd);color:#f5f0e8;flex-wrap:wrap}
+.rv-ttl{font-size:13px;font-weight:700;flex:1;min-width:120px}
+.rv-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.rv-reissue{font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer;color:#e8d8b8}
+.rv-info{background:#2e2820;color:#e8d8b8;font-size:11px;padding:6px 12px;line-height:1.7}
+.rv-info button{font-size:10px;padding:2px 8px;margin:2px 4px 2px 0;border-radius:4px;border:1px solid #7a6a58;background:transparent;color:#e8d8b8;cursor:pointer;font-family:inherit}
+.rv-info button.on{background:var(--gold);color:#1e1810;border-color:var(--gold)}
+.rv-stage{flex:1;overflow:auto;padding:12px;-webkit-overflow-scrolling:touch}
+.rv-scale{transform-origin:top left;margin:0 auto}
+#rcptPrintArea{display:none}
+@media print{
+  body.printing-rcpt > *:not(#rcptPrintArea){display:none!important}
+  body.printing-rcpt{background:#fff!important}
+  body.printing-rcpt #rcptPrintArea{display:block!important}
+  /* 印刷時はプリンタの余白（上下左右〜15mm）を見込んで少し縮小し、必ず1枚に収める */
+  body.printing-rcpt .rc-page{box-shadow:none!important;margin:0 auto!important;zoom:.9}
+}
+/* ===== 領収書 本体（A4縦 794×1122px＝210×297mm） ===== */
+.rc-page{width:794px;height:1122px;background:#fff;color:#111;position:relative;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.35);font-family:'Noto Sans JP',sans-serif;font-size:12.5px;line-height:1.5;padding:50px 58px 40px;box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.rc-top{display:flex;justify-content:space-between;align-items:flex-start;font-size:11.5px}
+.rc-reissue{display:inline-block;border:2px solid #b00;color:#b00;font-weight:700;padding:1px 10px;font-size:14px;letter-spacing:.2em;margin-bottom:4px}
+.rc-meta{text-align:right;line-height:1.75}
+.rc-meta b{font-family:'DM Mono',monospace;font-size:13px}
+.rc-title{text-align:center;font-family:'Shippori Mincho',serif;margin:6px 0 18px}
+.rc-title .t1{font-size:27px;font-weight:700;letter-spacing:.18em}
+.rc-title .t2{font-size:14px;font-weight:700;letter-spacing:.06em;margin-top:2px;display:inline-block;border:1.5px solid #111;padding:2px 14px}
+.rc-to{font-family:'Shippori Mincho',serif;font-size:22px;font-weight:700;border-bottom:1.5px solid #111;padding:0 4px 2px;display:inline-block;min-width:330px}
+.rc-to span{font-size:16px;margin-left:12px}
+.rc-amt-wrap{display:flex;align-items:stretch;gap:14px;margin:16px 0 4px}
+.rc-amt{flex:1;border:2.5px solid #111;display:flex;align-items:center;justify-content:center;gap:16px;padding:10px 12px;background:#faf7f0}
+.rc-amt .l{font-family:'Shippori Mincho',serif;font-size:17px;font-weight:700;letter-spacing:.3em}
+.rc-amt .v{font-family:'Shippori Mincho',serif;font-size:36px;font-weight:700;letter-spacing:.04em}
+.rc-amt .x{font-size:13px}
+.rc-stamp-tax{width:96px;border:1.5px dashed #555;display:flex;align-items:center;justify-content:center;text-align:center;font-size:10px;color:#444;line-height:1.4}
+.rc-tadashi{font-size:13px;margin:6px 2px 2px}
+.rc-tadashi2{font-size:12.5px;margin:0 2px 14px}
+.rc-h{font-size:12px;font-weight:700;border-left:4px solid #111;padding-left:7px;margin:12px 0 5px}
+.rc-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.rc-tbl th,.rc-tbl td{border:1px solid #444;padding:5px 8px}
+.rc-tbl th{background:#efebe3;font-weight:700;font-size:11px}
+.rc-info th{width:150px;text-align:left}
+.rc-lines th{text-align:center}
+.rc-lines td.n,.rc-calc td.n{text-align:right;font-family:'DM Mono',monospace;white-space:nowrap}
+.rc-calc td.k{width:28px;text-align:center;font-weight:700}
+.rc-calc tr.fk td{font-weight:700;background:#fff4e0;font-size:13px}
+.rc-calc tr.tot td{font-weight:700;font-size:13.5px;background:#efebe3}
+.rc-note{font-size:10.5px;margin:7px 2px 0;line-height:1.6}
+.rc-issuer{position:absolute;right:58px;bottom:44px;width:380px;display:flex;gap:12px;align-items:flex-start;justify-content:flex-end}
+.rc-issuer .tx{font-size:12px;line-height:1.7;text-align:left}
+.rc-issuer .fac{font-family:'Shippori Mincho',serif;font-size:17px;font-weight:700}
+.rc-seal{width:78px;height:78px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.rc-seal img{max-width:78px;max-height:78px}
+.rc-seal.frame{border:1.2px solid #777;font-size:10px;color:#777}
+.rc-foot{position:absolute;left:58px;bottom:44px;font-size:10px;color:#555;line-height:1.6;width:300px}
 </style>
 </head>
 <body>
@@ -290,6 +389,7 @@ td.c.bk:hover{filter:brightness(1.08)}
   <div class="tab" onclick="showTab('import')">📋 予約取込</div>
   <div class="tab" onclick="showTab('ledger')">📒 予約台帳</div>
   <div class="tab" onclick="showTab('checkout')">🧾 精算</div>
+  <div class="tab" onclick="showTab('fukko')">🎌 応援割 <span id="fkbadge" style="display:none;background:var(--red);color:#fff;border-radius:8px;padding:1px 6px;font-size:10px;margin-left:2px">0</span></div>
   <div class="tab" onclick="showTab('settings')">⚙️ 設定</div>
 </div>
 <!-- 同期バナー（廃止・互換性のため要素だけ残す） -->
@@ -445,8 +545,57 @@ td.c.bk:hover{filter:brightness(1.08)}
 </div>
 
 
+<!-- 鹿児島ふっこう応援割 -->
+<div class="sec" id="sec-fukko">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+    <div style="font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700">🎌 鹿児島ふっこう応援割</div>
+    <div style="font-size:11px;color:var(--ink3)">宿直割引（直接予約）・予約受付 2026/10/14〜・CI 2027/2/28まで</div>
+  </div>
+  <div id="fkSummary" class="fk-cards"></div>
+  <div class="fk-panel">
+    <div class="fk-panel-ttl">📮 実績報告がまだの予約（チェックアウト後3日以内が目安）</div>
+    <div id="fkPending"></div>
+  </div>
+  <div class="fk-panel">
+    <div class="fk-panel-ttl" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">📋 応援割を適用した予約
+      <select class="fsel" id="fkFilter" onchange="renderFukkoTab()" style="max-width:150px;font-size:11px;padding:5px 8px;margin-left:auto">
+        <option value="all">すべて</option><option value="upcoming">これから</option><option value="done">チェックアウト済</option>
+      </select>
+    </div>
+    <div id="fkList"></div>
+  </div>
+  <div style="font-size:10px;color:var(--ink3);line-height:1.7;margin-top:6px">
+    ・領収書の発行記録は予約を削除しても消えず、2032年3月31日まで保管します（発行記録 <span id="fkArchiveCount">0</span>件）。<br>
+    ・「報告済み」は事務局の管理システムに実績報告を入力したらチェックしてください。
+  </div>
+</div>
+
 <div class="sec" id="sec-settings">
   <div style="font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700;margin-bottom:16px">⚙️ 設定</div>
+
+  <!-- 領収書（鹿児島ふっこう応援割）発行者情報 -->
+  <div style="background:var(--paper);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow)">
+    <div style="font-size:13px;font-weight:700;margin-bottom:6px">🧾 領収書の発行者情報（応援割）</div>
+    <div style="font-size:11px;color:var(--ink2);margin-bottom:10px;line-height:1.7">一度登録すると、領収書に毎回自動で印字されます。全端末で共有されます。</div>
+    <div class="fg"><label class="fl">施設名 *</label><input class="fi" id="sFacName" placeholder="妙見楽園荘"></div>
+    <div class="fg"><label class="fl">住所 *</label><input class="fi" id="sFacAddr" placeholder="〒000-0000 鹿児島県霧島市..."></div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">電話番号 *</label><input class="fi" id="sFacTel" placeholder="0995-00-0000"></div>
+      <div class="fg"><label class="fl">既定の担当者名</label><input class="fi" id="sFacStaff" placeholder="例: 山田"></div>
+    </div>
+    <div class="fg"><label class="fl">インボイス登録番号（任意・未登録なら印字しません）</label><input class="fi" id="sFacInvoice" placeholder="T1234567890123"></div>
+    <div class="fg"><label class="fl">事務局から配分された割引額（円・任意。残りの管理用）</label><input class="fi" id="sFkBudget" type="number" min="0" placeholder="例: 2000000"></div>
+    <div class="fg">
+      <label class="fl">角印の画像（任意）</label>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div id="sStampPreview" style="width:70px;height:70px;border:1.5px dashed var(--border2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--ink3);background:#fff">未登録</div>
+        <label class="btn btn-out btn-sm" style="cursor:pointer">📷 画像を選ぶ<input type="file" accept="image/*" style="display:none" onchange="loadStampImage(this)"></label>
+        <button type="button" class="btn btn-out btn-sm" onclick="clearStampImage()">削除</button>
+      </div>
+      <div style="font-size:10px;color:var(--ink3);margin-top:4px">白い紙に押した角印を真上から撮った写真でOKです（白い部分は自動で透明にします）。未登録の場合は、領収書に押印用の枠が出ます。</div>
+    </div>
+    <button class="btn btn-gold" onclick="saveFukkoSettings()" style="width:100%;justify-content:center">💾 発行者情報を保存</button>
+  </div>
 
   <!-- クラウド同期 -->
   <div style="background:var(--paper);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px var(--shadow)">
@@ -517,8 +666,12 @@ td.c.bk:hover{filter:brightness(1.08)}
     </div>
 
     <div class="fg">
-      <label class="fl">お客様名 *</label>
+      <label class="fl">お客様名（漢字・領収書の宛名） *</label>
       <input class="fi" id="fName" placeholder="山田 太郎 様">
+    </div>
+    <div class="fg">
+      <label class="fl">フリガナ（全角カタカナ・フルネーム）<span id="fKanaReq" style="color:var(--red);display:none"> *応援割は必須</span></label>
+      <input class="fi" id="fNameKana" placeholder="ヤマダ タロウ" onblur="this.value=normalizeKana(this.value);updateFukkoUI()">
     </div>
     <div class="fr2">
       <div class="fg">
@@ -539,6 +692,7 @@ td.c.bk:hover{filter:brightness(1.08)}
         <div class="pax-row"><span class="pax-label">子供（布団なし）</span><input class="pax-input" id="fPaxChildNoBed" type="number" min="0" value="0" placeholder="0"></div>
         <div class="pax-row"><span class="pax-label">添い寝</span><input class="pax-input" id="fPaxBaby" type="number" min="0" value="0" placeholder="0"></div>
       </div>
+      <div style="font-size:10px;color:var(--ink3);margin-top:3px">領収書では「子供（布団なし）」と「添い寝」を幼児として数えます。</div>
     </div>
     <!-- 布団枚数 -->
     <div class="fg">
@@ -574,6 +728,37 @@ td.c.bk:hover{filter:brightness(1.08)}
         </select>
       </div>
     </div>
+    <!-- 鹿児島ふっこう応援割（料金明細・他の割引・適用判定） -->
+    <div class="fk-box" id="fFukkoBox">
+      <div class="fk-head">🎌 料金明細・鹿児島ふっこう応援割</div>
+      <div class="fl" style="margin-top:4px">料金明細（1人1泊あたり・税込・入湯税込み）</div>
+      <div id="fRateLines"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 8px">
+        <button type="button" class="btn btn-out btn-sm" onclick="addRateLine()">＋ 行を追加</button>
+        <button type="button" class="btn btn-out btn-sm" onclick="rateLinesFromPax()">👥 人数から行を作る</button>
+      </div>
+      <div style="font-size:10px;color:var(--ink3);margin:-4px 0 8px">日によって料金や人数が違う場合は、行を分けてください。明細を入れると「宿泊料金」は自動で合計になります。</div>
+      <div class="fr2">
+        <div class="fg">
+          <label class="fl">他の割引の名前（任意）</label>
+          <input class="fi" id="fOtherDiscLabel" placeholder="例: 霧島市宿泊割引" oninput="updateFukkoUI()">
+        </div>
+        <div class="fg">
+          <label class="fl">他の割引額（円・任意）</label>
+          <input class="fi" id="fOtherDisc" type="number" min="0" placeholder="0" oninput="updateFukkoUI()">
+        </div>
+      </div>
+      <label class="fk-chk"><input type="checkbox" id="fNotBusiness" onchange="updateFukkoUI()"> ビジネス利用・公費出張ではないことを確認した</label>
+      <label class="fk-chk fk-main"><input type="checkbox" id="fFukko" onchange="onFukkoToggle(this)"> ふっこう応援割を適用する</label>
+      <div id="fFukkoMsg" class="fk-msg"></div>
+      <div id="fFukkoCalc" class="fk-calc"></div>
+      <div class="fg" id="fFukkoStaffGroup" style="margin-top:8px">
+        <label class="fl">担当者名（領収書に印字）</label>
+        <input class="fi" id="fFukkoStaff" placeholder="設定画面の既定の担当者">
+      </div>
+      <div id="fFukkoRcptBtn" style="display:none;margin-top:6px"></div>
+    </div>
+
     <!-- 支払い方法・精算状況（現地払い⇔事前精算などの変更をここから反映できる） -->
     <div class="fg" id="fPayMethodGroup">
       <label class="fl">支払い方法（精算・伝票用）</label>
@@ -711,6 +896,23 @@ td.c.bk:hover{filter:brightness(1.08)}
     </div>
   </div>
 </div>
+
+<!-- 領収書 兼 ご宿泊明細書（鹿児島ふっこう応援割）ビューア -->
+<div class="rv-ov" id="rcptViewer">
+  <div class="rv-bar">
+    <button class="btn btn-out btn-sm" style="color:#f5f0e8;border-color:#7a6a58" onclick="closeRcptViewer()">✕ 閉じる</button>
+    <div class="rv-ttl" id="rvTitle">領収書 兼 ご宿泊明細書</div>
+    <div class="rv-actions">
+      <label class="rv-reissue" id="rvReissueWrap"><input type="checkbox" id="rvReissue" onchange="refreshRcptViewer()"> 再発行として出力</label>
+      <button class="btn btn-gold btn-sm" onclick="rcptPrint()">🖨️ 印刷</button>
+      <button class="btn btn-green btn-sm" onclick="rcptPdf()">📄 PDF保存・共有</button>
+    </div>
+  </div>
+  <div class="rv-info" id="rvInfo"></div>
+  <div class="rv-stage" id="rvStage"><div class="rv-scale" id="rvScale"></div></div>
+</div>
+<!-- 印刷専用（印刷時だけ表示） -->
+<div id="rcptPrintArea"></div>
 
 <div id="toast"></div>
 
@@ -911,21 +1113,35 @@ let _gasSaving=false, _gasSaveQueued=false;
 let lastKnownCloudTs=0;
 
 // ===== 受付番号 =====
-function genReceiptNo(src){
+// 受付番号は「鹿児島ふっこう応援割」の事務局システムにも同じ番号を入力するため、重複してはいけない。
+// 以前は端末ごと（ブラウザ内）に数えていたため、スマホとPCで同じ番号が出る恐れがあった。
+// → 端末内の記録に加えて、同期済みの全予約（割当済・未割当・キャンセル・発行記録）の最大番号＋1で採番する。
+function allUsedReceiptNos(){
+  const nos=[];
+  Object.values(bks).forEach(b=>{if(b&&b.isStart!==false&&b.no)nos.push(String(b.no));});
+  unassigned.forEach(u=>{if(u&&u.no)nos.push(String(u.no));});
+  cancelledBks.forEach(c=>{if(c&&c.no)nos.push(String(c.no));});
+  (typeof rcptArchive!=='undefined'?rcptArchive:[]).forEach(r=>{if(r&&r.no)nos.push(String(r.no));});
+  return nos;
+}
+function genReceiptNo(src,peek){
   // 直接予約（OTA以外）: 6400番台の通し番号
   const OTA_SRCS=['rakuten','jalan','yahoo','yukoyuko'];
+  const used=allUsedReceiptNos();
   if(!OTA_SRCS.includes(src)){
-    const stored=parseInt(localStorage.getItem('yado_direct_seq')||String(DIRECT_NO_START-1));
-    const seq=stored+1;
-    localStorage.setItem('yado_direct_seq',String(seq));
+    let maxNo=parseInt(localStorage.getItem('yado_direct_seq')||String(DIRECT_NO_START-1));
+    used.forEach(s=>{if(/^\d{1,6}$/.test(s)){const v=parseInt(s);if(v>=DIRECT_NO_START&&v>maxNo)maxNo=v;}});
+    const seq=maxNo+1;
+    if(!peek)localStorage.setItem('yado_direct_seq',String(seq));
     return String(seq);
   }
   // OTA: 年2桁+月2桁+連番3桁
   const n=new Date();
   const prefix=String(n.getFullYear()).slice(-2)+String(n.getMonth()+1).padStart(2,'0');
-  const stored=localStorage.getItem('yado_seq_'+prefix)||'0';
-  const seq=parseInt(stored)+1;
-  localStorage.setItem('yado_seq_'+prefix,String(seq));
+  let maxSeq=parseInt(localStorage.getItem('yado_seq_'+prefix)||'0');
+  used.forEach(s=>{if(s.length===7&&s.startsWith(prefix)){const v=parseInt(s.slice(4));if(v>maxSeq)maxSeq=v;}});
+  const seq=maxSeq+1;
+  if(!peek)localStorage.setItem('yado_seq_'+prefix,String(seq));
   return prefix+String(seq).padStart(3,'0');
 }
 
@@ -1145,6 +1361,7 @@ async function saveToSupabase(ts,forceOverwrite){
         applyMergedCo(mergeCoState(cloud.checkoutData,cloud.checkoutMeta));
         // 未割当リストも項目(id)ごとに安全マージ（丸ごと上書きしない）
         applyMergedUa(mergeUaState(cloud.unassigned,cloud.uaMeta,cloud.uaTomb));
+        mergeFkSettings(cloud.fukkoSettings);
         render();renderUnassigned();renderLedger();refreshCheckoutViewIfVisible();
         const cloudTs=parseInt(cloud.ts||'0');
         // ===== 競合検知 =====
@@ -1173,7 +1390,7 @@ async function saveToSupabase(ts,forceOverwrite){
     }
   }catch(e){console.error('保存前のマージ取得に失敗（オフライン等。ローカルの内容のみで保存を続行）',e);}
   localStorage.setItem('yado_ts',String(ts));
-  const payload={bks,bksMeta,bksTomb,unassigned,uaMeta,uaTomb,checkoutData,checkoutMeta,cancelledBks,ts};
+  const payload={bks,bksMeta,bksTomb,unassigned,uaMeta,uaTomb,checkoutData,checkoutMeta,cancelledBks,fukkoSettings,ts};
   fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.1',{
     method:'PATCH',
     headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
@@ -1203,6 +1420,7 @@ function loadFromSupabase(){
     applyMergedBks(mergeBksState(d.bks,d.bksMeta,d.bksTomb));
     applyMergedCo(mergeCoState(d.checkoutData,d.checkoutMeta));
     applyMergedUa(mergeUaState(d.unassigned,d.uaMeta,d.uaTomb));
+    mergeFkSettings(d.fukkoSettings);
     if(d.cancelledBks)cancelledBks=d.cancelledBks;
     normalizeDates();
     try{localStorage.setItem('yado_bks',JSON.stringify(bks));}catch(e){}
@@ -1266,7 +1484,7 @@ function load(){
   rebuildAllSpans();
 }
 function exportData(){
-  const data={bks,unassigned,checkoutData,cancelledBks,exportedAt:new Date().toISOString()};
+  const data={bks,unassigned,checkoutData,cancelledBks,fukkoSettings,rcptArchive,exportedAt:new Date().toISOString()};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;
@@ -1285,6 +1503,8 @@ function importData(e){
       if(data.unassigned){unassigned=data.unassigned;unassigned.forEach(u=>{if(u&&u.id!=null)touchUa(u.id);});}
       if(data.checkoutData){checkoutData=data.checkoutData;Object.keys(checkoutData).forEach(k=>touchCo(k));}
       if(data.cancelledBks)cancelledBks=data.cancelledBks;
+      if(data.fukkoSettings)mergeFkSettings(data.fukkoSettings);
+      if(data.rcptArchive&&mergeRcpt(data.rcptArchive))pushRcptArchive(); // 発行記録は追加のみ（消さない）
       normalizeDates();
       save();render();renderUnassigned();renderLedger();renderSettings();
       alert('インポートしました！');
@@ -1301,13 +1521,14 @@ function showToast(msg){
 // ===== タブ =====
 function showTab(id){
   document.querySelectorAll('.tab').forEach((t,i)=>{
-    t.classList.toggle('on',['assign','unassigned','import','ledger','checkout','settings'][i]===id);
+    t.classList.toggle('on',['assign','unassigned','import','ledger','checkout','fukko','settings'][i]===id);
   });
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
   document.getElementById('sec-'+id).classList.add('on');
   if(id==='ledger')renderLedger();
   if(id==='checkout'){renderCheckout();const n=new Date();if(!coMonthlyY){coMonthlyY=n.getFullYear();coMonthlyM=n.getMonth()+1;}}
   if(id==='settings')renderSettings();
+  if(id==='fukko'){renderFukkoTab();pullRcptArchive().then(renderFukkoTab);}
 }
 
 function selImportTab(name,el){
@@ -1522,11 +1743,13 @@ function setSrc(src,el){
   const prev=document.getElementById('directNoPreview');
   if(prev){
     if(!OTA_SRCS.includes(src)&&!editKey){
-      const stored=parseInt(localStorage.getItem('yado_direct_seq')||String(DIRECT_NO_START-1));
-      prev.textContent='受付番号: '+String(stored+1)+'（保存時に自動採番）';
+      prev.textContent='受付番号: '+genReceiptNo(src,true)+'（保存時に自動採番）';
       prev.style.display='block';
     }else{prev.style.display='none';}
   }
+  // 経路を押し直した＝確認済みとみなし、ねっぱんCSV取込の印を外す
+  document.getElementById('manualMod').dataset.importsrc='';
+  if(typeof updateFukkoUI==='function')updateFukkoUI();
 }
 
 function openManual(room,ds){
@@ -1567,6 +1790,7 @@ function openManual(room,ds){
   document.getElementById('fPrefHint').textContent='';
   refreshPayMethodOptions('');
   document.getElementById('fPaidStatus').checked=false;
+  setFukkoForm(null);
   document.getElementById('manualMod').classList.add('on');
   setTimeout(()=>document.getElementById('fName').focus(),100);
 }
@@ -1704,6 +1928,7 @@ function editBk(room,ds){
   updateDiscountVisibility();
   setPrefCountryForm(bk);
   setPayMethodFormFromBk(room,ds,bk);
+  setFukkoForm(bk,refOf('bk',key));
   document.getElementById('manualMod').classList.add('on');
 }
 
@@ -1718,7 +1943,9 @@ function refreshCheckoutViewIfVisible(){
 }
 
 function saveBk(){
-  const name=document.getElementById('fName').value.trim();
+  let name=document.getElementById('fName').value.trim();
+  const _kanaIn=normalizeKana(document.getElementById('fNameKana').value);
+  if(!name&&_kanaIn)name=_kanaIn; // 漢字名が無い場合はカナ名をお客様名として使う
   if(!name){alert('お客様名を入力してください');return;}
   const room=document.getElementById('fRoom').value;
   const dsRaw=document.getElementById('fCI').value.trim();
@@ -1758,11 +1985,14 @@ function saveBk(){
     bookDate:document.getElementById('fBookDate').value,
     ciDate:ds, isStart:true
   };
+  // 鹿児島ふっこう応援割（カナ名・料金明細・他の割引・適用判定）。条件を満たさず保存を中止した場合はnull
+  if(!applyFukkoFormToData(data))return;
 
   if(editKey){
     // 編集
     const oldBk=bks[editKey];
     data.no=oldBk.no;
+    carryFukkoFields(oldBk,data);
     clearSpan(editKey);           // まず旧スパンを全消し
     delete bks[editKey];          // 旧キーを削除（部屋・日付が変わった場合も漏れなく）
     tombBk(editKey);
@@ -1796,6 +2026,7 @@ function saveBk(){
   }else if(room){
     // 新規 部屋あり
     data.no=genReceiptNo(srcVal);
+    data.uid=newBkUid();
     const key=room+"_"+ds;
     // 重複チェック：既存予約がある場合は警告（連泊中の途中日＝ゴーストセルの場合は、その本体予約を衝突相手とする）
     {
@@ -1813,23 +2044,29 @@ function saveBk(){
   }else{
     // 未割当 - ciDateをハイフン形式に正規化
     data.ciDate=ds; // saveBkで既にfmt()処理済みのdsを使う
-    data.no=genReceiptNo(srcVal);
     if(uindex!==''){
       const ui=parseInt(uindex);
+      // 編集の場合は受付番号を引き継ぐ（以前は保存のたびに番号が振り直される不具合があった）
+      const _old=unassigned[ui]||{};
+      data.no=_old.no||genReceiptNo(srcVal);
+      carryFukkoFields(_old,data);
       // 編集の場合は既存のidを引き継ぐ（idが変わると同期時に別項目として扱われてしまうため）
       data.id=(unassigned[ui]&&unassigned[ui].id!=null)?unassigned[ui].id:Date.now();
       unassigned[ui]={...unassigned[ui],...data};
     }else{
+      data.no=genReceiptNo(srcVal);
+      data.uid=newBkUid();
       data.id=Date.now();
       unassigned.push(data);
     }
     touchUa(data.id);
-    save();closeManual();renderUnassigned();renderLedger();
-    showToast('📥 未割当リストに追加しました');
+    save();closeManual();renderUnassigned();renderLedger();renderFukkoBadge();
+    showToast(data.fukko?'🧾 未割当に追加しました（応援割の領収書を作成しました）':'📥 未割当リストに追加しました');
     return;
   }
   save();closeManual();render();renderUnassigned();renderLedger();
-  refreshCheckoutViewIfVisible();
+  refreshCheckoutViewIfVisible();renderFukkoBadge();
+  if(data.fukko)showToast('🧾 保存しました（応援割の領収書を作成・更新しました）');
 }
 
 // 上書きで消える予約を必ずキャンセル台帳へ退避する（データ消失防止）
@@ -1877,6 +2114,8 @@ function confirmOverwrite(existing,room,ds){
 
 function delBk(){
   if(!editKey)return;
+  {const _b=bks[editKey];
+   if(_b&&_b.uid&&rcptArchive.some(r=>r.uid===_b.uid)&&!confirm('⚠️ この予約は「鹿児島ふっこう応援割」の領収書を発行済みです。\n\n予約を消しても、発行記録は2032年3月31日まで残ります（応援割タブの件数からは外れます）。\n実績報告の取り消しが必要な場合は、事務局にも連絡してください。\n\n続けますか？'))return;}
   // まずキャンセルか完全削除かを選択
   const keep=confirm('この予約をキャンセルとして台帳に残しますか？\n\n[OK] → キャンセル記録として残す（推奨）\n[キャンセル] → 完全に削除する');
   // 未割当のキャンセルにも対応
@@ -1971,6 +2210,11 @@ function editUnassigned(i){
   document.getElementById('fOtaNo').value=u.otaNo||'';
   document.getElementById('fMemo').value=u.memo||'';
   document.getElementById('btnDel').style.display='none';
+  // 受付日・割引も読み込む（以前は読み込まれず、前に開いた予約の値のまま保存される恐れがあった）
+  document.getElementById('fBookDate').value=u.bookDate||'';
+  document.getElementById('fDiscount').value=u.discount||'0';
+  document.getElementById('fSubsidy').value=u.subsidy||'';
+  updateDiscountVisibility();
   setPrefCountryForm(u);
   refreshPayMethodOptions('');
   document.getElementById('fPaidStatus').checked=false;
@@ -1978,6 +2222,7 @@ function editUnassigned(i){
   document.querySelectorAll('.src-btn').forEach(b=>b.classList.remove('on'));
   const sb=document.querySelector(`.src-btn[onclick*="'${u.src||'tel'}'"]`);
   if(sb)sb.classList.add('on');
+  setFukkoForm(u,u.id!=null?refOf('ua',u.id):null);
   document.getElementById('manualMod').classList.add('on');
 }
 
@@ -2445,7 +2690,7 @@ function importCsvSelected(){
     if(skipDup&&r.otaNo&&existingOtaNos.has(r.otaNo))return;
     const _pc=guessPrefCountry(r.addr||'');
     const _id=Date.now()+count;
-    unassigned.push({name:r.name,src:r.src,nights:r.nights,ci:r.ci,co:r.co,paxAdult:r.paxAdult,price:r.price,tel:r.tel,addr:r.addr,memo:r.memo,otaNo:r.otaNo,ciDate:r.ciDate,isStart:true,no:genReceiptNo(),id:_id,futon:'',pet:'',guestType:_pc.guestType,pref:_pc.pref,country:_pc.country,transport:false});
+    unassigned.push({name:r.name,src:r.src,nights:r.nights,ci:r.ci,co:r.co,paxAdult:r.paxAdult,price:r.price,tel:r.tel,addr:r.addr,memo:r.memo,otaNo:r.otaNo,ciDate:r.ciDate,isStart:true,no:genReceiptNo(),id:_id,importSrc:'neppan',futon:'',pet:'',guestType:_pc.guestType,pref:_pc.pref,country:_pc.country,transport:false});
     touchUa(_id);
     count++;
   });
@@ -2514,7 +2759,7 @@ function renderLedger(){
     const isCancel=b.cancelled;
     h+=`<tr class="${isCancel?'cancel-row':b.assigned?'':'unassigned-row'}" data-idx="${bi}" onclick="editFromLedgerIdx(this)" style="cursor:pointer${isCancel?';opacity:.6':''}">
       <td><span class="no-badge">${b.no||'–'}</span>${isCancel?'<span style="font-size:9px;margin-left:3px;background:#e57373;color:#fff;border-radius:3px;padding:1px 4px">ｷｬﾝｾﾙ</span>':''}</td>
-      <td style="font-weight:500${isCancel?';text-decoration:line-through':''}">${esc(b.name)}</td>
+      <td style="font-weight:500${isCancel?';text-decoration:line-through':''}">${esc(b.name)}${b.fukko?'<span class="fk-mark">応援割</span>':''}</td>
       <td style="font-size:11px;color:var(--ink3)">${b.bookDate||'–'}</td>
       <td style="font-family:'DM Mono',monospace">${b.ciDate||'未定'}</td>
       <td>${b.nights||1}泊</td>
@@ -2891,7 +3136,7 @@ function renderCheckout(){
     }
     // 直接予約で補助金（discount）がある場合は自動的にsubsidyをセット
     const isDirectBk=!['rakuten','jalan','yahoo','yukoyuko'].includes(bk.src||'');
-    if(isDirectBk && parseInt(bk.discount||0)>0 && !cd.payMethod){
+    if(isDirectBk && !bk.fukko && parseInt(bk.discount||0)>0 && !cd.payMethod){
       cd.payMethod='subsidy';
     }
     const basePrice=parseInt(bk.price||0);
@@ -2932,7 +3177,7 @@ function renderCheckout(){
       </div>
       <div style="font-size:10px;font-weight:700;color:var(--ink2);margin-bottom:6px">支払方法</div>
       <div class="pay-btns">${payMethods.map(m=>`<button class="pay-btn ${cd.payMethod===m?'sel':''}" onclick="setPayMethod('${key}','${m}')">${PAY_LABELS_GLOBAL[m]||m}</button>`).join('')}</div>
-      <div class="checkout-actions"><button class="btn ${cd.paid?'btn-out':'btn-gold'}" onclick="togglePaid('${key}')" style="flex:1">${cd.paid?'精算取消':'✅ 精算完了'}</button></div>
+      <div class="checkout-actions"><button class="btn ${cd.paid?'btn-out':'btn-gold'}" onclick="togglePaid('${key}')" style="flex:1">${cd.paid?'精算取消':'✅ 精算完了'}</button>${bk.fukko?`<button class="btn btn-green" onclick="openRcptViewer('bk:${key}')">🧾 応援割 領収書</button>`:''}</div>
     </div>`;
   }).join('');
 
@@ -3035,6 +3280,7 @@ function renderSettings(){
   const uc=document.getElementById('uaCount');if(uc)uc.textContent=unassigned.length;
   const cc=document.getElementById('cancelCount');if(cc)cc.textContent=cancelledBks.length;
   initGasUrlInput();
+  fillFukkoSettingsForm();
   updateSyncStatus(localStorage.getItem('yado_ts')?'ok':'offline');
 }
 
@@ -3121,11 +3367,755 @@ function resetAll(){
 // ===== 同期バナー（廃止済み・互換性のみ） =====
 function syncBannerAccept(){/* 廃止 - 自動同期に変更 */}
 function syncBannerDismiss(){/* 廃止 - 自動同期に変更 */}
+// ===================================================================
+// ===== 鹿児島ふっこう応援割：領収書 兼 ご宿泊明細書 =====
+// ===================================================================
+// ・宿直割引（宿への直接予約）用。予約の保存時に帳票の内容を作り、予約を変えれば作り直す。
+// ・印刷／PDF保存した時点を「発行」として記録（発行記録）。発行後に内容が変わって再出力すると「再発行」。
+// ・発行記録はPDFではなく発行時の内容（小さなデータ）を保存し、いつでも同じ帳票を作り直せる。
+//   予約データとは別枠（Supabase の id=2 の行）に保存し、削除機能は持たない（2032/3/31まで保管）。
+const FK={
+  NAME:'鹿児島ふっこう応援割',
+  RATE:60,              // 割引率（%）
+  CAP:20000,            // 1旅行1人あたりの上限（円）
+  BOOK_FROM:'2026-10-14',
+  CI_FROM:'2026-10-14',
+  LAST_NIGHT:'2027-02-28', // 対象となる最後の夜（2027/3/1チェックアウト分まで）
+  EX_FROM:'2026-12-26', EX_TO:'2027-01-03', // この期間の夜が1泊でもあれば対象外
+  RETAIN_UNTIL:'2032-03-31'
+};
+const FK_OTA=['rakuten','jalan','yahoo','yukoyuko'];
+const RCPT_ROW_ID=2; // 発行記録を置く Supabase の行
+let fukkoSettings={facName:'妙見楽園荘',facAddr:'',facTel:'',facStaff:'',facInvoice:'',budget:0,stamp:'',ts:0};
+var rcptArchive=[]; // 発行記録（削除しない）
+let _pendingStamp=null; // 設定画面で選んだ角印（保存前）
+
+// ---------- 小さな道具 ----------
+function fkToday(){const n=new Date();return fmt(n.getFullYear(),n.getMonth()+1,n.getDate());}
+function addDaysStr(ds,n){const [y,m,d]=ds.split('-').map(Number);const t=new Date(y,m-1,d+n);return fmt(t.getFullYear(),t.getMonth()+1,t.getDate());}
+function daysBetween(a,b){const [y1,m1,d1]=a.split('-').map(Number),[y2,m2,d2]=b.split('-').map(Number);return Math.round((new Date(y2,m2-1,d2)-new Date(y1,m1-1,d1))/86400000);}
+function escAttr(s){return esc(String(s==null?'':s)).replace(/"/g,'&quot;');}
+function yen(n){return '¥'+Number(n||0).toLocaleString();}
+function newBkUid(){return 'b'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+// フリガナ：半角カナ→全角、ひらがな→カタカナ、空白を1つにそろえる
+function normalizeKana(v){
+  if(!v)return '';
+  let s=String(v).normalize('NFKC');
+  s=s.replace(/[ぁ-ゖ]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60));
+  return s.replace(/\s+/g,' ').trim();
+}
+function isKatakana(s){return /^[ァ-ヺ・ー ]+$/.test(s||'');}
+function bkCoDate(b){return b&&b.ciDate?addDaysStr(b.ciDate.replace(/\//g,'-'),parseInt(b.nights)||1):'';}
+// 人数：大人／子ども（布団あり）／幼児（子供布団なし＋添い寝）
+function fkPax(b){
+  const adult=parseInt(b.paxAdult||0)||0;
+  const child=parseInt(b.paxChild||0)||0;
+  const infant=(parseInt(b.paxChildNoBed||0)||0)+(parseInt(b.paxBaby||0)||0);
+  return {adult,child,infant,total:adult+child+infant};
+}
+function hashStr(s){let h=5381;for(let i=0;i<s.length;i++){h=((h<<5)+h+s.charCodeAt(i))|0;}return (h>>>0).toString(36);}
+
+// ---------- 計算 ----------
+// ① 明細合計 ② 他の割引 ③ 基準額 ④ 応援割適用額 ⑤ お支払額
+function fkCalc(lines,other,pax){
+  const a1=(lines||[]).reduce((s,l)=>s+(parseInt(l.rate)||0)*(parseInt(l.pax)||0)*(parseInt(l.nights)||0),0);
+  const a2=Math.min(Math.max(0,parseInt(other)||0),a1);
+  const a3=a1-a2;
+  const byRate=Math.floor(a3*FK.RATE/100); // 1円未満切り捨て
+  const byCap=FK.CAP*(parseInt(pax)||0);
+  const a4=Math.min(byRate,byCap);
+  return {a1,a2,a3,a4,a5:a3-a4,byRate,byCap};
+}
+
+// ---------- 対象かどうかの判定（理由の一覧を返す。空なら対象） ----------
+function fkCheck(b){
+  const r=[];
+  if(FK_OTA.includes(b.src))r.push('OTA・旅行会社経由の予約は対象外です（宿への直接予約のみ）');
+  else if(b.importSrc==='neppan')r.push('ねっぱんCSVから取り込んだ予約です。直接予約なら予約経路のボタンを押し直してください');
+  if(!b.bookDate)r.push('予約受付日が未入力です');
+  else if(b.bookDate<FK.BOOK_FROM)r.push('予約受付日が2026年10月13日以前です（10月14日以降の受付が対象）');
+  if(!b.ciDate)r.push('チェックイン日が未入力です');
+  else{
+    const ci=b.ciDate.replace(/\//g,'-');
+    const n=parseInt(b.nights)||1;
+    if(ci<FK.CI_FROM)r.push('チェックインが2026年10月13日以前です');
+    let ex=false,late=false;
+    for(let i=0;i<n;i++){
+      const d=addDaysStr(ci,i);
+      if(d>=FK.EX_FROM&&d<=FK.EX_TO)ex=true;
+      if(d>FK.LAST_NIGHT)late=true;
+    }
+    if(late)r.push('2027年3月1日より後のチェックアウトは対象外です（3/1チェックアウト分まで）');
+    if(ex)r.push('年末年始（12/26〜1/3の夜）に1泊でもかかる宿泊は対象外です');
+  }
+  if(!b.notBusiness)r.push('「ビジネス利用・公費出張ではない」の確認にチェックがありません');
+  if(!b.nameKana)r.push('フリガナ（全角カタカナのフルネーム）が未入力です');
+  else if(!isKatakana(b.nameKana))r.push('フリガナは全角カタカナで入力してください');
+  if(b.guestType==='inbound'?!b.country:!b.pref)r.push('居住地（都道府県／海外の方は国名）が未入力です');
+  const p=fkPax(b);
+  if(p.total<1)r.push('人数が0名です');
+  if(fkCalc(b.rateLines,0,p.total).a1<=0)r.push('料金明細が未入力です');
+  return r;
+}
+// 判定には関係しないが、入力ミスの可能性があるものを知らせる
+function fkHints(b){
+  const h=[];const lines=b.rateLines||[];const n=parseInt(b.nights)||1;
+  if(lines.length&&lines.every(l=>(parseInt(l.nights)||0)!==n)&&lines.every(l=>l.nights===lines[0].nights))
+    h.push('明細の泊数（'+lines[0].nights+'泊）が宿泊日数（'+n+'泊）と違います');
+  if(lines.length&&lines.every(l=>(parseInt(l.nights)||0)===n)){
+    const sp=lines.reduce((s,l)=>s+(parseInt(l.pax)||0),0);const tp=fkPax(b).total;
+    if(sp!==tp)h.push('明細の人数の合計（'+sp+'名）が人数欄の合計（'+tp+'名）と違います');
+  }
+  return h;
+}
+
+// ---------- 予約画面：料金明細 ----------
+function readRateLinesRaw(){
+  return [...document.querySelectorAll('#fRateLines .rl-row[data-line]')].map(r=>({
+    label:r.querySelector('.rl-l').value.trim(),
+    rate:r.querySelector('.rl-r').value===''?'':(parseInt(r.querySelector('.rl-r').value)||0),
+    pax:parseInt(r.querySelector('.rl-p').value)||0,
+    nights:parseInt(r.querySelector('.rl-n').value)||0
+  }));
+}
+function readRateLines(){
+  return readRateLinesRaw().filter(l=>l.label||l.rate!==''||l.pax).map(l=>({...l,rate:parseInt(l.rate)||0}));
+}
+function renderRateLines(lines){
+  const el=document.getElementById('fRateLines');if(!el)return;
+  if(!lines.length){el.innerHTML='<div style="font-size:11px;color:var(--ink3);margin-bottom:4px">明細なし</div>';return;}
+  el.innerHTML='<div class="rl-row"><span class="rl-hd">区分</span><span class="rl-hd">1人1泊（円）</span><span class="rl-hd">人数</span><span class="rl-hd">泊数</span><span></span></div>'
+    +lines.map((l,i)=>`<div class="rl-row" data-line="${i}">
+      <input class="rl-l" value="${escAttr(l.label)}" placeholder="大人" oninput="updateFukkoUI()">
+      <input class="rl-r" type="number" min="0" inputmode="numeric" value="${l.rate===''?'':escAttr(l.rate)}" placeholder="15000" oninput="updateFukkoUI()">
+      <input class="rl-p" type="number" min="0" inputmode="numeric" value="${escAttr(l.pax)}" oninput="updateFukkoUI()">
+      <input class="rl-n" type="number" min="0" inputmode="numeric" value="${escAttr(l.nights)}" oninput="updateFukkoUI()">
+      <button type="button" class="rl-del" onclick="delRateLine(${i})">✕</button>
+      <div class="rl-sub" data-sub="${i}"></div>
+    </div>`).join('');
+}
+function addRateLine(){
+  const lines=readRateLinesRaw();
+  lines.push({label:lines.length?'':'大人',rate:'',pax:parseInt(document.getElementById('fPaxAdult').value)||1,nights:parseInt(document.getElementById('fNights').value)||1});
+  renderRateLines(lines);updateFukkoUI();
+}
+function delRateLine(i){const lines=readRateLinesRaw();lines.splice(i,1);renderRateLines(lines);updateFukkoUI();}
+// 人数欄から明細行を作る（既に入っている同じ区分の料金は引き継ぐ）
+function rateLinesFromPax(){
+  const cur=readRateLines();
+  if(cur.length&&!confirm('今の明細を、人数欄から作り直しますか？（同じ区分の料金は引き継ぎます）'))return;
+  const p=fkPax({paxAdult:document.getElementById('fPaxAdult').value,paxChild:document.getElementById('fPaxChild').value,paxChildNoBed:document.getElementById('fPaxChildNoBed').value,paxBaby:document.getElementById('fPaxBaby').value});
+  const n=parseInt(document.getElementById('fNights').value)||1;
+  const rateOf=(lbl,def)=>{const f=cur.find(l=>l.label===lbl);return f?f.rate:def;};
+  const lines=[];
+  if(p.adult)lines.push({label:'大人',rate:rateOf('大人',''),pax:p.adult,nights:n});
+  if(p.child)lines.push({label:'子ども',rate:rateOf('子ども',''),pax:p.child,nights:n});
+  if(p.infant)lines.push({label:'幼児（添い寝）',rate:rateOf('幼児（添い寝）',0),pax:p.infant,nights:n});
+  if(!lines.length){alert('先に人数欄を入力してください');return;}
+  renderRateLines(lines);updateFukkoUI();
+}
+
+// ---------- 予約画面：入力内容の読み取り・反映 ----------
+function getFukkoFormState(){
+  const pc=getPrefCountryFromForm();
+  const ciRaw=document.getElementById('fCI').value.trim();
+  return {
+    src:document.getElementById('fSrc').value,
+    importSrc:document.getElementById('manualMod').dataset.importsrc||'',
+    bookDate:document.getElementById('fBookDate').value,
+    ciDate:normDate(ciRaw)||ciRaw,
+    nights:parseInt(document.getElementById('fNights').value)||1,
+    notBusiness:document.getElementById('fNotBusiness').checked,
+    nameKana:normalizeKana(document.getElementById('fNameKana').value),
+    guestType:pc.guestType,pref:pc.pref,country:pc.country,
+    paxAdult:document.getElementById('fPaxAdult').value,
+    paxChild:document.getElementById('fPaxChild').value,
+    paxChildNoBed:document.getElementById('fPaxChildNoBed').value,
+    paxBaby:document.getElementById('fPaxBaby').value,
+    rateLines:readRateLines(),
+    otherDiscount:parseInt(document.getElementById('fOtherDisc').value)||0,
+    otherDiscountLabel:document.getElementById('fOtherDiscLabel').value.trim()
+  };
+}
+function fkCalcTableHTML(c,otherLabel,pax){
+  return `<table>
+    <tr><td>① 補助金適用前の宿泊代金</td><td>${yen(c.a1)}</td></tr>
+    <tr><td>② 他の割引${otherLabel?'（'+esc(otherLabel)+'）':''}</td><td>−${yen(c.a2)}</td></tr>
+    <tr><td>③ 基準額（①−②）</td><td>${yen(c.a3)}</td></tr>
+    <tr class="b"><td>④ 鹿児島ふっこう応援割適用額<br><span style="font-size:10px;font-weight:400;color:var(--ink2)">③×60%＝${yen(c.byRate)} と 20,000円×${pax}名＝${yen(c.byCap)} の低い方</span></td><td>−${yen(c.a4)}</td></tr>
+    <tr class="t"><td>⑤ お支払額（領収金額）</td><td>${yen(c.a5)}</td></tr>
+  </table>`;
+}
+function updateFukkoUI(){
+  if(!document.getElementById('fFukkoBox'))return;
+  const st=getFukkoFormState();
+  // 行ごとの小計
+  document.querySelectorAll('#fRateLines .rl-row[data-line]').forEach(r=>{
+    const rate=parseInt(r.querySelector('.rl-r').value)||0,p=parseInt(r.querySelector('.rl-p').value)||0,n=parseInt(r.querySelector('.rl-n').value)||0;
+    const sub=r.querySelector('.rl-sub');if(sub)sub.textContent='小計 '+yen(rate*p*n);
+  });
+  const pax=fkPax(st).total;
+  const c=fkCalc(st.rateLines,st.otherDiscount,pax);
+  // 明細があれば宿泊料金欄は明細の合計（自動）
+  const priceEl=document.getElementById('fPrice');
+  if(st.rateLines.length&&c.a1>0){priceEl.value=c.a1;priceEl.readOnly=true;priceEl.style.background='#f3efe6';}
+  else{priceEl.readOnly=false;priceEl.style.background='';}
+  const on=document.getElementById('fFukko').checked;
+  const reasons=fkCheck(st);
+  const hints=fkHints(st);
+  document.getElementById('fKanaReq').style.display=on?'inline':'none';
+  const msg=document.getElementById('fFukkoMsg');
+  let mh='';
+  if(on){
+    mh=reasons.length?'<div class="ng">⚠️ 条件を満たしていません：<br>・'+reasons.map(esc).join('<br>・')+'</div>':'<div class="ok">✅ 応援割の条件を満たしています</div>';
+  }else if(!FK_OTA.includes(st.src)){
+    mh=reasons.length?'<div style="color:var(--ink3)">適用するには：'+reasons.map(esc).join('／')+'</div>':'<div style="color:var(--green)">条件を満たしています。適用する場合はチェックしてください。</div>';
+  }
+  if(hints.length)mh+='<div style="color:#e65100">💡 '+hints.map(esc).join('<br>💡 ')+'</div>';
+  msg.innerHTML=mh;
+  document.getElementById('fFukkoCalc').innerHTML=on?fkCalcTableHTML(c,st.otherDiscountLabel,pax):'';
+  document.getElementById('fFukkoStaffGroup').style.display=on?'block':'none';
+  // 応援割オンのとき、割引欄は「②＋④」を自動セット（精算画面の現地受取額＝⑤になる）
+  const dEl=document.getElementById('fDiscount'),sEl=document.getElementById('fSubsidy');
+  if(on){
+    dEl.value=c.a2+c.a4;dEl.readOnly=true;dEl.style.background='#f3efe6';
+    sEl.value=FK.NAME+(c.a2?'＋'+(st.otherDiscountLabel||'他の割引'):'');sEl.readOnly=true;sEl.style.background='#f3efe6';
+  }else{dEl.readOnly=false;sEl.readOnly=false;dEl.style.background='';sEl.style.background='';}
+}
+function onFukkoToggle(el){
+  if(el.checked){
+    const reasons=fkCheck(getFukkoFormState());
+    if(reasons.length){
+      el.checked=false;
+      alert('鹿児島ふっこう応援割を適用できません。\n\n・'+reasons.join('\n・'));
+    }else{
+      const sf=document.getElementById('fFukkoStaff');
+      if(!sf.value&&fukkoSettings.facStaff)sf.value=fukkoSettings.facStaff;
+    }
+  }else{
+    // オフにしたら割引欄を「他の割引」だけに戻す
+    document.getElementById('fDiscount').value=parseInt(document.getElementById('fOtherDisc').value)||0;
+    document.getElementById('fSubsidy').value=document.getElementById('fOtherDiscLabel').value.trim();
+  }
+  updateFukkoUI();
+}
+// 予約データ → 予約画面
+function setFukkoForm(b,refStr){
+  b=b||{};
+  document.getElementById('fNameKana').value=b.nameKana||'';
+  document.getElementById('fOtherDisc').value=b.otherDiscount||'';
+  document.getElementById('fOtherDiscLabel').value=b.otherDiscountLabel||'';
+  document.getElementById('fNotBusiness').checked=!!b.notBusiness;
+  document.getElementById('fFukko').checked=!!b.fukko;
+  document.getElementById('fFukkoStaff').value=b.fukkoStaff||'';
+  document.getElementById('manualMod').dataset.importsrc=b.importSrc||'';
+  renderRateLines((b.rateLines||[]).map(l=>({...l})));
+  const rb=document.getElementById('fFukkoRcptBtn');
+  if(b.fukko&&refStr){
+    rb.style.display='block';
+    rb.innerHTML=`<button type="button" class="btn btn-green btn-sm" onclick="openRcptViewer('${escAttr(refStr)}')">🧾 領収書 兼 ご宿泊明細書を表示</button> <span style="font-size:10px;color:var(--ink3)">内容を変えた場合は、先に保存してください</span>`;
+  }else{rb.style.display='none';rb.innerHTML='';}
+  updateFukkoUI();
+}
+// 予約画面 → 予約データ（saveBkから呼ぶ）。保存を中止する場合はfalse
+function applyFukkoFormToData(data){
+  const st=getFukkoFormState();
+  data.nameKana=st.nameKana;
+  data.rateLines=st.rateLines;
+  data.otherDiscount=st.otherDiscount;
+  data.otherDiscountLabel=st.otherDiscountLabel;
+  data.notBusiness=st.notBusiness;
+  data.fukkoStaff=document.getElementById('fFukkoStaff').value.trim();
+  if(st.importSrc)data.importSrc=st.importSrc;
+  const pax=fkPax(data).total;
+  const c=fkCalc(st.rateLines,st.otherDiscount,pax);
+  if(st.rateLines.length&&c.a1>0)data.price=String(c.a1);
+  let on=document.getElementById('fFukko').checked;
+  if(on){
+    const reasons=fkCheck(data);
+    if(reasons.length){
+      if(!confirm('⚠️ 鹿児島ふっこう応援割の条件を満たしていません。\n\n・'+reasons.join('\n・')+'\n\n[OK] → 応援割をオフにして保存する\n[キャンセル] → 保存せずに入力に戻る'))return false;
+      on=false;
+      data.discount=st.otherDiscount;data.subsidy=st.otherDiscountLabel;
+    }
+  }
+  data.fukko=on;
+  if(on){
+    data.discount=c.a2+c.a4;
+    data.subsidy=FK.NAME+(c.a2?'＋'+(st.otherDiscountLabel||'他の割引'):'');
+    data.fukkoCalc={a1:c.a1,a2:c.a2,a3:c.a3,a4:c.a4,a5:c.a5,pax};
+  }else{
+    data.fukkoCalc=null;
+  }
+  return true;
+}
+// 予約を編集して保存し直すとき、画面に出ていない項目を引き継ぐ
+function carryFukkoFields(oldB,data){
+  data.uid=(oldB&&oldB.uid)||newBkUid();
+  if(oldB&&oldB.fukkoReportedAt)data.fukkoReportedAt=oldB.fukkoReportedAt;
+}
+
+// ---------- 予約の参照（'bk:部屋_日付' または 'ua:未割当id'） ----------
+function refOf(kind,k){return kind+':'+k;}
+function getRefBk(ref){
+  if(!ref)return null;
+  const i=ref.indexOf(':');const kind=ref.slice(0,i),k=ref.slice(i+1);
+  if(kind==='bk'){const b=bks[k];if(!isRealBk(b))return null;return {obj:b,room:k.substring(0,k.indexOf('_')),ciDate:b.ciDate||k.substring(k.indexOf('_')+1),kind,k};}
+  if(kind==='ua'){const u=unassigned.find(x=>String(x.id)===k);if(!u)return null;return {obj:u,room:'',ciDate:u.ciDate,kind,k};}
+  return null;
+}
+function listFukkoBookings(){
+  const out=[];
+  Object.entries(bks).forEach(([k,b])=>{
+    if(!isRealBk(b)||!b.fukko)return;
+    out.push({ref:refOf('bk',k),bk:{...b,room:k.substring(0,k.indexOf('_')),ciDate:b.ciDate||k.substring(k.indexOf('_')+1)}});
+  });
+  unassigned.forEach(u=>{if(u&&u.fukko&&u.id!=null)out.push({ref:refOf('ua',u.id),bk:{...u,room:'未割当'}});});
+  out.sort((a,b)=>(a.bk.ciDate||'').localeCompare(b.bk.ciDate||''));
+  return out;
+}
+// 古い予約で uid が無い場合は付けておく（発行記録とのひも付けに使う）
+function ensureUid(r){
+  if(r.obj.uid)return r.obj.uid;
+  r.obj.uid=newBkUid();
+  if(r.kind==='bk')touchBk(r.k);else touchUa(r.obj.id);
+  save();
+  return r.obj.uid;
+}
+
+// ---------- 帳票の内容（発行記録として保存する単位） ----------
+function buildRcptData(b){
+  const pax=fkPax(b);
+  const lines=(b.rateLines||[]).map(l=>({label:l.label||'',rate:parseInt(l.rate)||0,pax:parseInt(l.pax)||0,nights:parseInt(l.nights)||0}));
+  lines.forEach(l=>l.sub=l.rate*l.pax*l.nights);
+  const c=fkCalc(lines,b.otherDiscount,pax.total);
+  const kana=b.nameKana||'';
+  const kanji=(b.name&&b.name!==kana)?b.name.replace(/\s*(様|さま)\s*$/,''):'';
+  const ci=(b.ciDate||'').replace(/\//g,'-');
+  return {
+    no:String(b.no||''),uid:b.uid||'',
+    nameKana:kana,nameKanji:kanji,addressee:kanji||kana||b.name||'',
+    ciDate:ci,coDate:bkCoDate(b),nights:parseInt(b.nights)||1,
+    pax,lines,
+    calc:{a1:c.a1,a2:c.a2,a3:c.a3,a4:c.a4,a5:c.a5,byRate:c.byRate,byCap:c.byCap},
+    otherLabel:b.otherDiscountLabel||'',
+    fac:{name:fukkoSettings.facName||'',addr:fukkoSettings.facAddr||'',tel:fukkoSettings.facTel||'',invoice:fukkoSettings.facInvoice||''},
+    staff:b.fukkoStaff||fukkoSettings.facStaff||''
+  };
+}
+function rcptHash(d){return hashStr(JSON.stringify(d));}
+function rcptRecordsOf(uid){return rcptArchive.filter(r=>r.uid===uid).sort((a,b)=>(a.issuedAt||'').localeCompare(b.issuedAt||''));}
+// 発行状態：none（未発行）／issued（発行済み・内容同じ）／changed（発行後に内容が変わった）
+function rcptStatus(b){
+  if(!b.uid)return {state:'none',recs:[]};
+  const recs=rcptRecordsOf(b.uid);
+  if(!recs.length)return {state:'none',recs};
+  const last=recs[recs.length-1];
+  return {state:last.hash===rcptHash(buildRcptData(b))?'issued':'changed',recs,last};
+}
+function rcptFileStem(d){
+  const nm=(d.addressee||d.nameKana||'').replace(/[\\\/:*?"<>|\s　]/g,'');
+  return `${d.no}_領収書兼明細書_${nm}`;
+}
+
+// ---------- 帳票のHTML（A4縦） ----------
+function jDate(ds,withYear){if(!ds)return '';const [y,m,d]=ds.split('-').map(Number);return (withYear?y+'年':'')+m+'月'+d+'日';}
+function rcptHTML(d,o){
+  o=o||{};
+  const c=d.calc,p=d.pax;
+  const coYear=d.coDate&&d.ciDate&&d.coDate.slice(0,4)!==d.ciDate.slice(0,4);
+  const stay=`${jDate(d.ciDate,true)} 〜 ${jDate(d.coDate,coYear)}（${d.nights}泊）`;
+  const paxTxt=`大人${p.adult}名・子ども${p.child}名・幼児${p.infant}名、計${p.total}名`;
+  const nameRow=d.nameKanji?`${esc(d.nameKana)}（${esc(d.nameKanji)}）`:esc(d.nameKana||d.addressee);
+  const lines=d.lines.map(l=>`<tr><td>${esc(l.label)}</td><td class="n">${yen(l.rate)}</td><td class="n">${l.pax}名</td><td class="n">${l.nights}泊</td><td class="n">${yen(l.sub)}</td></tr>`).join('');
+  const seal=fukkoSettings.stamp?`<div class="rc-seal"><img src="${fukkoSettings.stamp}" alt=""></div>`:'<div class="rc-seal frame">印</div>';
+  const taxStamp=c.a5>=50000?'<div class="rc-stamp-tax">収入印紙<br>貼付欄</div>':'';
+  return `<div class="rc-page">
+    <div class="rc-top">
+      <div>${o.reissue?'<div class="rc-reissue">再発行</div>':''}</div>
+      <div class="rc-meta">No. <b>${esc(d.no)}</b><br>発行日　${jDate(o.issueDate||fkToday(),true)}</div>
+    </div>
+    <div class="rc-title"><div class="t1">領収書 兼 ご宿泊明細書</div><div class="t2">鹿児島ふっこう応援割 適用</div></div>
+    <div class="rc-to">${esc(d.addressee)}<span>様</span></div>
+    <div class="rc-amt-wrap">
+      <div class="rc-amt"><span class="l">領収金額</span><span class="v">${yen(c.a5)}－</span><span class="x">（税込）</span></div>
+      ${taxStamp}
+    </div>
+    <div class="rc-tadashi">但し　宿泊代として（入湯税を含む）</div>
+    <div class="rc-tadashi2">上記の金額を正に領収いたしました。</div>
+    <div class="rc-h">ご宿泊内容</div>
+    <table class="rc-tbl rc-info">
+      <tr><th>宿泊施設名</th><td>${esc(d.fac.name)}</td></tr>
+      <tr><th>宿泊代表者</th><td>${nameRow}</td></tr>
+      <tr><th>宿泊日</th><td>${stay}</td></tr>
+      <tr><th>補助金適用人数</th><td>${paxTxt}</td></tr>
+    </table>
+    <div class="rc-h">宿泊代金の内訳（素泊まり・1人1泊あたり料金は税込・入湯税込み）</div>
+    <table class="rc-tbl rc-lines">
+      <tr><th>区分</th><th>1人1泊あたり料金</th><th>人数</th><th>泊数</th><th>小計</th></tr>
+      ${lines}
+    </table>
+    <div class="rc-h">ご請求額の計算</div>
+    <table class="rc-tbl rc-calc">
+      <tr><td class="k">①</td><td>補助金適用前の宿泊代金</td><td class="n">${yen(c.a1)}</td></tr>
+      <tr><td class="k">②</td><td>他の割引${d.otherLabel?'（'+esc(d.otherLabel)+'）':''}</td><td class="n">${c.a2?'−'+yen(c.a2):yen(0)}</td></tr>
+      <tr><td class="k">③</td><td>基準額（① − ②）</td><td class="n">${yen(c.a3)}</td></tr>
+      <tr class="fk"><td class="k">④</td><td>鹿児島ふっこう応援割適用額<div style="font-size:10px;font-weight:400;margin-top:1px">③×60%（1円未満切り捨て）${yen(c.byRate)} と 上限20,000円×${p.total}名＝${yen(c.byCap)} の低い方</div></td><td class="n">−${yen(c.a4)}</td></tr>
+      <tr class="tot"><td class="k">⑤</td><td>お支払額（③ − ④）＝ 領収金額</td><td class="n">${yen(c.a5)}</td></tr>
+    </table>
+    <div class="rc-note">※ ④は、観光庁「令和八年熊本地震観光支援事業」による「鹿児島ふっこう応援割」の補助金を適用した額です。</div>
+    <div class="rc-foot">宿泊料金はすべて入湯税を含む金額です。</div>
+    <div class="rc-issuer">
+      <div class="tx">
+        <div class="fac">${esc(d.fac.name)}</div>
+        ${d.fac.addr?esc(d.fac.addr)+'<br>':''}
+        ${d.fac.tel?'TEL '+esc(d.fac.tel)+'<br>':''}
+        ${d.fac.invoice?'登録番号 '+esc(d.fac.invoice)+'<br>':''}
+        ${d.staff?'担当 '+esc(d.staff):''}
+      </div>
+      ${seal}
+    </div>
+  </div>`;
+}
+
+// ---------- 発行（印刷・PDFの時点で記録） ----------
+// 内容が直前の発行と同じなら、その発行をそのまま使う（同じ領収書の印刷とPDF化で別の発行にしない）
+function issueRcpt(r,forceReissue){
+  const uid=ensureUid(r);
+  const b={...r.obj,ciDate:r.ciDate,uid};
+  const d=buildRcptData(b);const h=rcptHash(d);
+  const recs=rcptRecordsOf(uid);
+  const last=recs[recs.length-1];
+  if(last&&last.hash===h&&!forceReissue)return last;
+  const rec={rid:uid+'_'+(recs.length+1)+'_'+Date.now().toString(36),uid,no:d.no,seq:recs.length+1,reissue:recs.length>0,
+    issuedAt:new Date().toISOString(),issueDate:fkToday(),hash:h,data:d};
+  rcptArchive.push(rec);saveRcptLocal();pushRcptArchive();
+  return rec;
+}
+
+// ---------- 発行記録の保存・同期（Supabase id=2 の行。追記のみ・削除しない） ----------
+function saveRcptLocal(){try{localStorage.setItem('yado_rcpt',JSON.stringify(rcptArchive));}catch(e){console.error('save rcpt',e);showToast('⚠️ 端末の保存容量が不足しています（発行記録）');}}
+function loadRcptLocal(){try{const r=localStorage.getItem('yado_rcpt');if(r)rcptArchive=JSON.parse(r)||[];}catch(e){rcptArchive=[];}}
+function mergeRcpt(arr){
+  let ch=false;const seen=new Set(rcptArchive.map(r=>r.rid));
+  (arr||[]).forEach(r=>{if(r&&r.rid&&!seen.has(r.rid)){rcptArchive.push(r);seen.add(r.rid);ch=true;}});
+  if(ch){rcptArchive.sort((a,b)=>(a.issuedAt||'').localeCompare(b.issuedAt||''));saveRcptLocal();}
+  return ch;
+}
+async function fetchRcptCloud(){
+  const r=await fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.'+RCPT_ROW_ID+'&select=payload',{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const rows=await r.json();
+  if(rows&&rows.length&&rows[0].payload){const d=JSON.parse(rows[0].payload);return d.records||[];}
+  return [];
+}
+async function pullRcptArchive(){try{mergeRcpt(await fetchRcptCloud());}catch(e){console.error('発行記録の取得に失敗',e);}}
+let _rcptPushing=false,_rcptPushAgain=false;
+async function pushRcptArchive(){
+  if(_rcptPushing){_rcptPushAgain=true;return;}
+  _rcptPushing=true;
+  localStorage.setItem('yado_rcpt_unsent','1');
+  try{
+    mergeRcpt(await fetchRcptCloud()); // 他端末の発行記録を先に取り込んでから書く（消さない）
+    const payload=JSON.stringify({records:rcptArchive,ts:Date.now()});
+    const hd={'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY};
+    const r=await fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?id=eq.'+RCPT_ROW_ID,{method:'PATCH',headers:{...hd,'Prefer':'return=representation'},body:JSON.stringify({payload})});
+    let done=false;
+    if(r.ok){try{const rows=await r.json();done=Array.isArray(rows)&&rows.length>0;}catch(e){done=false;}}
+    if(!done){
+      const r2=await fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE,{method:'POST',headers:{...hd,'Prefer':'return=minimal'},body:JSON.stringify({id:RCPT_ROW_ID,payload})});
+      if(!r2.ok)throw new Error('HTTP '+r2.status);
+    }
+    localStorage.removeItem('yado_rcpt_unsent');
+  }catch(e){
+    console.error('発行記録のクラウド保存に失敗',e);
+    showToast('⚠️ 発行記録のクラウド保存に失敗しました（端末内には保存済み・後で自動再送）');
+  }
+  _rcptPushing=false;
+  if(_rcptPushAgain){_rcptPushAgain=false;pushRcptArchive();}
+}
+
+// ---------- 発行者情報（設定）：予約データと一緒にクラウド同期（新しい方を採用） ----------
+function saveFkSettingsLocal(){try{localStorage.setItem('yado_fk_settings',JSON.stringify(fukkoSettings));}catch(e){}}
+function loadFkSettingsLocal(){try{const s=localStorage.getItem('yado_fk_settings');if(s)fukkoSettings={...fukkoSettings,...JSON.parse(s)};}catch(e){}}
+function mergeFkSettings(cloud){
+  if(cloud&&typeof cloud==='object'&&(cloud.ts||0)>(fukkoSettings.ts||0)){
+    fukkoSettings={...fukkoSettings,...cloud};saveFkSettingsLocal();return true;
+  }
+  return false;
+}
+function fillFukkoSettingsForm(){
+  const s=fukkoSettings;const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v==null?'':v;};
+  set('sFacName',s.facName);set('sFacAddr',s.facAddr);set('sFacTel',s.facTel);set('sFacStaff',s.facStaff);
+  set('sFacInvoice',s.facInvoice);set('sFkBudget',s.budget||'');
+  _pendingStamp=null;showStampPreview(s.stamp);
+}
+function showStampPreview(src){
+  const el=document.getElementById('sStampPreview');if(!el)return;
+  el.innerHTML=src?`<img src="${src}" style="max-width:66px;max-height:66px">`:'未登録';
+}
+function saveFukkoSettings(){
+  const g=id=>document.getElementById(id).value.trim();
+  if(!g('sFacName')||!g('sFacAddr')||!g('sFacTel')){alert('施設名・住所・電話番号を入力してください（領収書に必要です）');return;}
+  const inv=g('sFacInvoice').replace(/\s/g,'');
+  if(inv&&!/^T\d{13}$/.test(inv)&&!confirm('インボイス登録番号は「T＋13桁の数字」の形式です。このまま保存しますか？'))return;
+  fukkoSettings={...fukkoSettings,facName:g('sFacName'),facAddr:g('sFacAddr'),facTel:g('sFacTel'),facStaff:g('sFacStaff'),
+    facInvoice:inv,budget:parseInt(g('sFkBudget'))||0,stamp:_pendingStamp!==null?_pendingStamp:fukkoSettings.stamp,ts:Date.now()};
+  _pendingStamp=null;
+  saveFkSettingsLocal();saveToSupabase();
+  showToast('✅ 発行者情報を保存しました');
+}
+// 角印の写真 → 白い部分を透明にした小さなPNGにする
+function loadStampImage(input){
+  const f=input.files&&input.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const max=260,sc=Math.min(1,max/Math.max(img.width,img.height));
+      const w=Math.round(img.width*sc),h=Math.round(img.height*sc);
+      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+      const ctx=cv.getContext('2d');ctx.drawImage(img,0,0,w,h);
+      const id=ctx.getImageData(0,0,w,h),px=id.data;
+      for(let i=0;i<px.length;i+=4){const r=px[i],g=px[i+1],b=px[i+2];if(r>200&&g>200&&b>200)px[i+3]=0;else if(r>170&&g>170&&b>170)px[i+3]=Math.round(px[i+3]*0.4);}
+      ctx.putImageData(id,0,0);
+      _pendingStamp=cv.toDataURL('image/png');
+      showStampPreview(_pendingStamp);
+      showToast('角印を読み込みました。「発行者情報を保存」を押してください');
+    };
+    img.src=e.target.result;
+  };
+  rd.readAsDataURL(f);input.value='';
+}
+function clearStampImage(){_pendingStamp='';showStampPreview('');showToast('「発行者情報を保存」を押すと角印が削除されます');}
+
+// ---------- 帳票ビューア ----------
+let rvState={ref:null,viewRid:null};
+let _lastPdfFile=null;
+function openRcptViewer(ref){
+  const r=getRefBk(ref);
+  if(!r){alert('予約が見つかりません（保存されていない可能性があります）');return;}
+  if(!r.obj.fukko){alert('この予約は鹿児島ふっこう応援割の適用になっていません');return;}
+  if(!fukkoSettings.facName||!fukkoSettings.facAddr||!fukkoSettings.facTel){
+    if(confirm('領収書の発行者情報（施設名・住所・電話番号）が未登録です。\n設定画面で登録しますか？')){closeManual();showTab('settings');return;}
+  }
+  ensureUid(r);
+  rvState={ref,viewRid:null};_lastPdfFile=null;
+  document.getElementById('rvReissue').checked=false;
+  document.getElementById('rcptViewer').classList.add('on');
+  refreshRcptViewer();
+}
+function closeRcptViewer(){document.getElementById('rcptViewer').classList.remove('on');}
+// いま画面に出すもの：過去の発行記録 or 現在の内容（下書き／発行済み）
+function currentRcptView(){
+  const r=getRefBk(rvState.ref);if(!r)return null;
+  const b={...r.obj,ciDate:r.ciDate};
+  const recs=rcptRecordsOf(b.uid);
+  if(rvState.viewRid){
+    const rec=recs.find(x=>x.rid===rvState.viewRid);
+    if(rec)return {r,b,recs,archived:rec,data:rec.data,opts:{issueDate:rec.issueDate,reissue:rec.reissue}};
+  }
+  const d=buildRcptData(b);const h=rcptHash(d);
+  const last=recs[recs.length-1];
+  const forceRe=document.getElementById('rvReissue').checked;
+  if(last&&last.hash===h){
+    if(!forceRe)return {r,b,recs,same:last,data:last.data,opts:{issueDate:last.issueDate,reissue:last.reissue}};
+    return {r,b,recs,draft:true,forceReissue:true,data:d,opts:{issueDate:fkToday(),reissue:true}};
+  }
+  return {r,b,recs,draft:true,data:d,opts:{issueDate:fkToday(),reissue:recs.length>0}};
+}
+function refreshRcptViewer(){
+  const v=currentRcptView();if(!v){closeRcptViewer();return;}
+  document.getElementById('rvTitle').textContent='No.'+v.data.no+'　'+v.data.addressee+' 様';
+  document.getElementById('rvReissueWrap').style.display=(v.recs.length&&!v.archived)?'flex':'none';
+  let info='';
+  if(v.archived)info=`📁 過去の発行記録を表示中（${jDate(v.archived.issueDate,true)}発行${v.archived.reissue?'・再発行':''}）。この内容のまま印刷・PDF化できます。`;
+  else if(v.forceReissue)info='🔁 「再発行」として出力します（今日の日付で新しい発行記録を作ります）。';
+  else if(v.same)info=`✅ 発行済み（${jDate(v.same.issueDate,true)}）。印刷・PDFは同じ発行として扱います。紛失などで出し直すときは「再発行として出力」にチェック。`;
+  else if(v.recs.length)info='✏️ 前回の発行から内容が変わっています。印刷またはPDF保存すると「再発行」として記録されます。';
+  else info='📝 まだ発行していません。印刷またはPDF保存した時点で「発行」として記録されます（記録は2032年3月31日まで保管）。';
+  if(v.recs.length){
+    info+='<br>発行履歴：<button class="'+(!rvState.viewRid?'on':'')+'" onclick="rvView(null)">現在の内容</button>'
+      +v.recs.map(x=>`<button class="${rvState.viewRid===x.rid?'on':''}" onclick="rvView('${escAttr(x.rid)}')">${jDate(x.issueDate)} ${x.reissue?'再発行':'初回'}</button>`).join('');
+  }
+  if(_lastPdfFile)info+=`<br>📄 PDFができました → <button class="on" onclick="rcptShareLast()">📤 共有・保存する</button>`;
+  document.getElementById('rvInfo').innerHTML=info;
+  const sc=document.getElementById('rvScale');
+  sc.innerHTML=rcptHTML(v.data,v.opts);
+  fitRcptViewer();
+}
+function rvView(rid){rvState.viewRid=rid;_lastPdfFile=null;refreshRcptViewer();}
+function fitRcptViewer(){
+  const st=document.getElementById('rvStage'),sc=document.getElementById('rvScale');
+  const avail=st.clientWidth-24;const k=Math.min(1,avail/794);
+  sc.style.transform='scale('+k+')';sc.style.width='794px';sc.style.height=(1122*k)+'px';
+  sc.style.marginLeft=Math.max(0,(avail-794*k)/2)+'px';
+}
+window.addEventListener('resize',()=>{if(document.getElementById('rcptViewer').classList.contains('on'))fitRcptViewer();});
+// 出力する内容を確定（必要なら発行記録を作る）
+function rcptForOutput(){
+  const v=currentRcptView();if(!v)return null;
+  if(v.archived)return {data:v.data,opts:v.opts};
+  const rec=issueRcpt(v.r,!!v.forceReissue);
+  document.getElementById('rvReissue').checked=false;
+  return {data:rec.data,opts:{issueDate:rec.issueDate,reissue:rec.reissue}};
+}
+function rcptPrint(){
+  const o=rcptForOutput();if(!o)return;
+  refreshRcptViewer();
+  const area=document.getElementById('rcptPrintArea');
+  area.innerHTML=rcptHTML(o.data,o.opts);
+  const oldTitle=document.title;
+  document.title=rcptFileStem(o.data); // PCのChromeでは「PDFに保存」のファイル名になる
+  document.body.classList.add('printing-rcpt');
+  let restored=false;
+  const restore=()=>{if(restored)return;restored=true;document.body.classList.remove('printing-rcpt');document.title=oldTitle;area.innerHTML='';};
+  window.addEventListener('afterprint',restore,{once:true});
+  setTimeout(()=>{window.print();setTimeout(restore,1500);},100);
+  renderFukkoTab();
+}
+function loadScriptOnce(src,test){
+  return new Promise((ok,ng)=>{
+    if(test())return ok();
+    const s=document.createElement('script');s.src=src;s.onload=()=>ok();s.onerror=()=>ng(new Error('load '+src));document.head.appendChild(s);
+  });
+}
+async function rcptPdf(){
+  const o=rcptForOutput();if(!o)return;
+  refreshRcptViewer();renderFukkoTab();
+  showToast('📄 PDFを作成中...');
+  let holder=null;
+  try{
+    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',()=>!!window.html2canvas);
+    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',()=>!!(window.jspdf&&window.jspdf.jsPDF));
+    holder=document.createElement('div');
+    holder.style.cssText='position:fixed;left:-10000px;top:0;width:794px;height:1122px;';
+    holder.innerHTML=rcptHTML(o.data,o.opts);
+    document.body.appendChild(holder);
+    const page=holder.querySelector('.rc-page');page.style.boxShadow='none';
+    if(document.fonts&&document.fonts.ready)await document.fonts.ready;
+    await Promise.all([...holder.querySelectorAll('img')].map(im=>im.complete?0:new Promise(r=>{im.onload=im.onerror=r;})));
+    const canvas=await window.html2canvas(page,{scale:2.5,backgroundColor:'#ffffff',useCORS:true,logging:false,width:794,height:1122,windowWidth:794});
+    const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'portrait',compress:true});
+    pdf.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',0,0,210,297);
+    pdf.setProperties({title:rcptFileStem(o.data)});
+    const fname=rcptFileStem(o.data)+'.pdf';
+    const file=new File([pdf.output('blob')],fname,{type:'application/pdf'});
+    _lastPdfFile=file;
+    await rcptShareOrDownload(file);
+  }catch(e){
+    console.error(e);
+    alert('PDFの作成に失敗しました（インターネット接続を確認してください）。\n代わりに「印刷」から「PDFとして保存」もできます。\n\n'+e.message);
+  }finally{if(holder)holder.remove();}
+}
+// スマホは共有メニュー（ファイルに保存・アップロード）、PCはダウンロード
+async function rcptShareOrDownload(file){
+  const touch=window.matchMedia&&window.matchMedia('(pointer:coarse)').matches;
+  if(touch&&navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:file.name});_lastPdfFile=null;refreshRcptViewer();return;}
+    catch(e){
+      if(e&&e.name==='AbortError'){refreshRcptViewer();return;}
+      // 作成に時間がかかると共有がブロックされることがある → ボタンを押して共有し直してもらう
+      refreshRcptViewer();showToast('📄 PDFができました。「共有・保存する」を押してください');return;
+    }
+  }
+  const url=URL.createObjectURL(file);
+  const a=document.createElement('a');a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+  _lastPdfFile=null;refreshRcptViewer();
+  showToast('📄 '+file.name+' を保存しました');
+}
+function rcptShareLast(){if(_lastPdfFile)rcptShareOrDownload(_lastPdfFile);}
+
+// ---------- 応援割タブ ----------
+function fkReportInfo(b){
+  const co=bkCoDate(b);const t=fkToday();
+  if(!co||co>t)return null;
+  const after=daysBetween(co,t);
+  return {co,after,late:after>3};
+}
+function renderFukkoBadge(){
+  const el=document.getElementById('fkbadge');if(!el)return;
+  const n=listFukkoBookings().filter(x=>!x.bk.fukkoReportedAt&&fkReportInfo(x.bk)).length;
+  el.textContent=n;el.style.display=n?'inline':'none';
+}
+function fkIssueTag(b){
+  const s=rcptStatus(b);
+  if(s.state==='issued')return '<span class="fk-tag iss">🧾 発行済</span>';
+  if(s.state==='changed')return '<span class="fk-tag due">✏️ 内容変更・未再発行</span>';
+  return '<span class="fk-tag" style="background:#f5f0e8;color:var(--ink2)">未発行</span>';
+}
+function fkRowHTML(x,withReport){
+  const b=x.bk;const c=fkCalc(b.rateLines,b.otherDiscount,fkPax(b).total);
+  const ri=fkReportInfo(b);
+  let tag='';
+  if(b.fukkoReportedAt)tag='<span class="fk-tag done">✅ 報告済</span>';
+  else if(ri)tag=ri.late?`<span class="fk-tag late">⚠️ CO後${ri.after}日・期限超過</span>`:`<span class="fk-tag due">${ri.after===0?'本日CO':'CO後'+ri.after+'日'}</span>`;
+  const coYear=bkCoDate(b).slice(0,4)!==(b.ciDate||'').slice(0,4);
+  return `<div class="fk-row">
+    <div style="min-width:170px">
+      <div><span class="no-badge">${esc(String(b.no||'–'))}</span> <span class="nm">${esc(b.name||'')}</span> <span class="sub">${esc(b.nameKana||'')}</span></div>
+      <div class="sub">${jDate(b.ciDate)}〜${jDate(bkCoDate(b),coYear)}・${b.nights||1}泊・${fkPax(b).total}名・${b.room==='未割当'?'未割当':esc(b.room)+'号室'}</div>
+      <div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">${fkIssueTag(b)}${tag}</div>
+    </div>
+    <div class="amt">①${c.a1.toLocaleString()}<br><b style="color:#7a4a10">④−${c.a4.toLocaleString()}</b><br>⑤${c.a5.toLocaleString()}</div>
+    <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
+      <button class="btn btn-green btn-sm" onclick="openRcptViewer('${escAttr(x.ref)}')">🧾 領収書</button>
+      ${withReport||ri||b.fukkoReportedAt?`<label class="fk-rep"><input type="checkbox" ${b.fukkoReportedAt?'checked':''} onchange="toggleFukkoReported('${escAttr(x.ref)}',this.checked)"> 報告済み</label>`:''}
+    </div>
+  </div>`;
+}
+function renderFukkoTab(){
+  const sec=document.getElementById('sec-fukko');if(!sec)return;
+  const all=listFukkoBookings();const t=fkToday();
+  const sum=(arr,f)=>arr.reduce((s,x)=>s+f(x),0);
+  const calcOf=x=>fkCalc(x.bk.rateLines,x.bk.otherDiscount,fkPax(x.bk).total);
+  const totA4=sum(all,x=>calcOf(x).a4);
+  const doneArr=all.filter(x=>bkCoDate(x.bk)&&bkCoDate(x.bk)<=t);
+  const doneA4=sum(doneArr,x=>calcOf(x).a4);
+  const repA4=sum(all.filter(x=>x.bk.fukkoReportedAt),x=>calcOf(x).a4);
+  const pending=all.filter(x=>!x.bk.fukkoReportedAt&&fkReportInfo(x.bk));
+  const budget=parseInt(fukkoSettings.budget)||0;
+  const card=(l,v,s,col)=>`<div class="fk-card"><div class="l">${l}</div><div class="v"${col?' style="color:'+col+'"':''}>${v}</div>${s?'<div class="s">'+s+'</div>':''}</div>`;
+  document.getElementById('fkSummary').innerHTML=
+    card('応援割の予約',all.length+'件',sum(all,x=>fkPax(x.bk).total)+'名')
+    +card('割引額（④）の合計',yen(totA4),'予約中も含む','#7a4a10')
+    +card('うちチェックアウト済',yen(doneA4),doneArr.length+'件')
+    +card('うち報告済み',yen(repA4),all.filter(x=>x.bk.fukkoReportedAt).length+'件','var(--green)')
+    +(budget?card('配分額の残り',yen(budget-totA4),'配分 '+yen(budget)+'（予約中を含めて差し引き）',budget-totA4<0?'var(--red)':'#2a5fa8'):card('配分額の残り','—','設定画面で配分額を入力すると表示'))
+    +card('報告待ち',pending.length+'件',pending.filter(x=>fkReportInfo(x.bk).late).length+'件が3日超過',pending.length?'var(--red)':'');
+  document.getElementById('fkPending').innerHTML=pending.length?pending.map(x=>fkRowHTML(x,true)).join(''):'<div class="empty-msg" style="padding:14px">✅ 報告待ちの予約はありません</div>';
+  const f=(document.getElementById('fkFilter')||{}).value||'all';
+  const list=all.filter(x=>f==='all'||(f==='done'?bkCoDate(x.bk)<=t:bkCoDate(x.bk)>t));
+  document.getElementById('fkList').innerHTML=list.length?list.map(x=>fkRowHTML(x,false)).join(''):'<div class="empty-msg" style="padding:14px">該当する予約はありません</div>';
+  const ac=document.getElementById('fkArchiveCount');if(ac)ac.textContent=rcptArchive.length;
+  renderFukkoBadge();
+}
+function toggleFukkoReported(ref,checked){
+  const r=getRefBk(ref);if(!r)return;
+  if(checked)r.obj.fukkoReportedAt=new Date().toISOString();else delete r.obj.fukkoReportedAt;
+  if(r.kind==='bk')touchBk(r.k);else touchUa(r.obj.id);
+  save();renderFukkoTab();
+  showToast(checked?'✅ 報告済みにしました':'報告済みを取り消しました');
+}
+// 初期化（init から呼ぶ）
+function initFukko(){
+  loadFkSettingsLocal();loadRcptLocal();
+  ['fPaxAdult','fPaxChild','fPaxChildNoBed','fPaxBaby','fCI','fNights','fBookDate','fPref','fCountry','fCountryOther','fGuestTypeDomestic','fGuestTypeInbound'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    el.addEventListener('input',updateFukkoUI);el.addEventListener('change',updateFukkoUI);
+  });
+  pullRcptArchive().then(()=>{if(localStorage.getItem('yado_rcpt_unsent'))pushRcptArchive();renderFukkoBadge();});
+  window.addEventListener('online',()=>{if(localStorage.getItem('yado_rcpt_unsent'))pushRcptArchive();});
+  renderFukkoBadge();
+}
+
 // ===== 初期化 =====
 function init(){
   const n=new Date();cy=n.getFullYear();cm=n.getMonth();
   initPrefCountrySelects();
   load();
+  initFukko();
   render();renderUnassigned();renderLedger();
   // 起動時インジケーター初期化
   updateSyncStatus(hasUnsent()?'unsent':localStorage.getItem('yado_ts')?'ok':'offline');
@@ -3157,6 +4147,7 @@ function init(){
       const uaBefore=JSON.stringify(unassigned);
       applyMergedUa(mergeUaState(d.unassigned,d.uaMeta,d.uaTomb));
       const uaChanged=JSON.stringify(unassigned)!==uaBefore;
+      if(mergeFkSettings(d.fukkoSettings)&&document.getElementById('sec-settings').classList.contains('on'))fillFukkoSettingsForm();
 
       // それ以外のデータ（キャンセル記録等）は従来通り、クラウドが明確に新しい場合のみ反映
       const localTs=parseInt(localStorage.getItem('yado_ts')||'0');
@@ -3173,6 +4164,7 @@ function init(){
       normalizeDates();
       try{localStorage.setItem('yado_cancelled',JSON.stringify(cancelledBks));}catch(e){}
       rebuildAllSpans();render();renderUnassigned();renderLedger();refreshCheckoutViewIfVisible();
+      renderFukkoBadge();if(document.getElementById('sec-fukko').classList.contains('on'))renderFukkoTab();
       updateSyncStatus('synced');
     }).catch(e=>console.error('sync check error',e));
   }

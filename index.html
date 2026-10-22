@@ -2489,6 +2489,8 @@ function parseOta(){
     }
     m=text.match(/ペットの有無\s*\n?([^\n]+)/)||text.match(/\[ペットの有無\]\s*(.+)/);if(m&&!m[1].match(/ではありません/))d.pet=m[1].trim();
     m=text.match(/備考[　\s]*ご希望など\s*\n([^\n]*)/);if(m&&m[1].trim())d.memo=m[1].trim();
+    // ===== 鹿児島ふっこう応援割用：フリガナ・予約受付日・人数内訳・料金明細も読み取る =====
+    applyHpFukkoParse(text,d);
   }
   // 住所から都道府県／国・地域を自動推定（あくまで提案。取込後に編集画面で修正可能）
   // ただしYahoo等ですでに都道府県が直接判明している場合はそれを優先し、上書きしない
@@ -2520,6 +2522,7 @@ function parseOta(){
     ${d.addr?`<div class="pr-row"><span class="pr-label">住所</span><span class="pr-val">${esc(d.addr.substring(0,40))}</span></div>`:''}
     <div class="pr-row"><span class="pr-label">都道府県/国（観光課用）</span><span class="pr-val ${(d.pref||d.country)?'':'pr-err'}">${d.pref||d.country||'不明（後で編集画面から入力できます）'}</span></div>
     ${d.memo?`<div class="pr-row"><span class="pr-label">備考</span><span class="pr-val">${esc(d.memo.substring(0,80))}</span></div>`:''}
+    ${hpFukkoPreviewHTML(d)}
     <div style="margin-top:6px;font-size:10px;color:var(--ink3)">※読み取れなかった項目は追加後に編集できます</div>`;
   document.getElementById('parseResult').classList.add('show');
 }
@@ -2543,6 +2546,7 @@ function addToUnassigned(){
       touchUa(entry.id);
     });
   }else{
+    delete parsedData._rateWarn;
     parsedData.id=Date.now();
     parsedData.no=genReceiptNo();
     unassigned.push({...parsedData});
@@ -2551,6 +2555,98 @@ function addToUnassigned(){
   save();renderUnassigned();renderLedger();clearPaste();showTab('unassigned');
 }
 
+
+// ===== 自社HP（まめわざ）予約メール → フリガナ・受付日・人数内訳・料金明細 =====
+// メール例：[受付番号] 33966-179-260622-201206 ／ [お名前] 林田法子（ハヤシダノリコ） 様
+//   2026/8/23 大人 8,200 円 x 1 人 = 8,200 円 子供（３~12才）布団あり 3,200 円 x 1 人 = 3,200 円 合計 11,400 円
+// 改行が消えて1行になったメールでも読めるようにしている。
+function hpSection(text,from,to){
+  const s=text.indexOf(from);if(s<0)return '';
+  const rest=text.slice(s+from.length);
+  const e=to?rest.search(to):-1;
+  return e>=0?rest.slice(0,e):rest;
+}
+function parseHpRateLines(text,stayNights){
+  let blk=hpSection(text,'[プラン・料金]',/\[チェックイン時間\]|\[お名前\]/);
+  if(!blk)return null;
+  const dash=blk.search(/-{3,}/);if(dash>=0)blk=blk.slice(dash); // プラン名を除く
+  blk=blk.replace(/-{3,}/g,'\n').replace(/(\d{4}\/\d{1,2}\/\d{1,2})/g,'\n$1\n').replace(/(=\s*[\d,]+\s*円)/g,'$1\n').replace(/合計/g,'\n合計');
+  const items={},order=[];let dates=0,total=0;
+  blk.split('\n').map(x=>x.trim()).filter(Boolean).forEach(line=>{
+    if(/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(line)){dates++;return;}
+    let m=line.match(/^合計\s*([\d,]+)\s*円/);if(m){total=parseInt(m[1].replace(/,/g,''));return;}
+    m=line.match(/^(.*?)\s*([\d,]+)\s*円\s*[x×✕]\s*(\d+)\s*人\s*=\s*([\d,]+)\s*円/);
+    if(!m)return;
+    const label=(m[1]||'').trim()||'大人',rate=parseInt(m[2].replace(/,/g,'')),pax=parseInt(m[3]);
+    const key=label+'|'+rate+'|'+pax;
+    if(!items[key]){items[key]={label,rate,pax,nights:0};order.push(key);}
+    items[key].nights++;
+  });
+  let lines=order.map(k=>items[k]);
+  if(!lines.length)return null;
+  const sum=ls=>ls.reduce((s,l)=>s+l.rate*l.pax*l.nights,0);
+  // 日付ごとの内訳が無いメールで連泊の場合：泊数を掛けると合計に合うならそうする
+  if(!dates&&stayNights>1&&total&&sum(lines)!==total){
+    const alt=lines.map(l=>({...l,nights:l.nights*stayNights}));
+    if(sum(alt)===total)lines=alt;
+  }
+  return {lines,total,ok:!total||sum(lines)===total};
+}
+function applyHpFukkoParse(text,d){
+  // 受付番号の3つ目のかたまり（YYMMDD）＝予約受付日
+  let m=text.match(/\d{5}-\d{3}-(\d{2})(\d{2})(\d{2})-\d{6}/);
+  if(m){d.bookDate=fmt(2000+parseInt(m[1]),parseInt(m[2]),parseInt(m[3]));d.otaNo=m[0];} // 受付番号もこの形だけを使う（後ろの文字を巻き込まない）
+  // お名前（フリガナ）
+  m=text.match(/\[お名前\]\s*[^\n（(]*[（(]([^）)\n]+)[）)]/)||text.match(/お名前\s*\n?[^\n（(]*[（(]([^）)\n]+)[）)]/);
+  if(m)d.nameKana=normalizeKana(m[1]);
+  // お名前（漢字）：改行が消えたメールでも「（」の前までを使う
+  m=text.match(/\[お名前\]\s*([^\n（(\[]+)/);
+  if(m){const nm=cleanName(m[1]);if(nm)d.name=nm;}
+  // 住所・電話・チェックイン時間・ペット：「[項目]」の次の行に値が来る形式でも読めるようにする
+  m=text.match(/\[住所\]\s*([^\n\[]+)/);if(m&&m[1].trim())d.addr=m[1].trim();
+  m=text.match(/\[電話番号\]\s*([^\n\[]+)/);if(m&&m[1].trim())d.tel=m[1].trim();
+  m=text.match(/\[チェックイン時間\]\s*(\d{1,2}:\d{2})/);if(m)d.ci=m[1];
+  m=text.match(/\[ペットの有無\]\s*([^\n\[]+)/);if(m){const pv=m[1].trim();d.pet=(!pv||/ではありません/.test(pv))?'':pv;}
+  // 人数の内訳
+  const paxBlk=hpSection(text,'[人数]',/\[プラン|\[部屋|\[チェックイン/)||'';
+  if(paxBlk){
+    m=paxBlk.match(/大人\s*(\d+)/);if(m)d.paxAdult=m[1];
+    m=paxBlk.match(/布団あり\s*(\d+)/);if(m)d.paxChild=m[1];
+    m=paxBlk.match(/布団なし\s*(\d+)/);if(m)d.paxChildNoBed=m[1];
+    m=paxBlk.match(/(?:添い寝|幼児)[^\d、,\n]*?(\d+)/);if(m&&!/布団/.test(m[0]))d.paxBaby=m[1];
+  }
+  // 料金明細
+  const r=parseHpRateLines(text,parseInt(d.nights)||1);
+  if(r){
+    d.rateLines=r.lines;
+    const a1=r.lines.reduce((s,l)=>s+l.rate*l.pax*l.nights,0);
+    d.price=String(r.total||a1);
+    if(!r.ok)d._rateWarn='明細の合計（'+a1.toLocaleString()+'円）がメールの合計（'+r.total.toLocaleString()+'円）と合いません。取込後に明細を確認してください';
+  }
+}
+
+// 読み取り結果に、応援割に使う項目（フリガナ・受付日・明細）と、適用できそうかを表示する
+function hpFukkoPreviewHTML(d){
+  if(d.src!=='hp')return '';
+  const row=(l,v,err)=>`<div class="pr-row"><span class="pr-label">${l}</span><span class="pr-val${err?' pr-err':''}">${v}</span></div>`;
+  let h='<div style="margin-top:8px;padding-top:6px;border-top:1px dashed #a8dbb8;font-weight:700;font-size:12px;color:#7a4a10">🎌 ふっこう応援割の項目</div>';
+  h+=row('フリガナ',d.nameKana?esc(d.nameKana)+(isKatakana(d.nameKana)?'':'（カタカナ以外が含まれています）'):'読み取れず（取込後に入力）',!d.nameKana||!isKatakana(d.nameKana));
+  h+=row('予約受付日',d.bookDate?d.bookDate+'（受付番号から）':'読み取れず',!d.bookDate);
+  const pax=fkPax(d);
+  h+=row('人数内訳',`大人${pax.adult}・子ども${pax.child}・幼児${pax.infant}（計${pax.total}名）`);
+  if(d.rateLines&&d.rateLines.length){
+    h+=row('料金明細',d.rateLines.map(l=>`${esc(l.label)} ${l.rate.toLocaleString()}円×${l.pax}名×${l.nights}泊`).join('<br>'));
+  }else h+=row('料金明細','読み取れず（取込後に入力）',true);
+  if(d._rateWarn)h+=row('⚠️ 注意',esc(d._rateWarn),true);
+  // ビジネス利用の確認はお客様に確かめてから人がチェックするので、判定から外して表示
+  const reasons=fkCheck({...d,notBusiness:true});
+  if(reasons.length)h+=row('応援割',reasons.map(esc).join('<br>'),true);
+  else{
+    const c=fkCalc(d.rateLines,0,pax.total);
+    h+=row('応援割',`<span style="color:var(--green);font-weight:700">対象になります</span>（④${c.a4.toLocaleString()}円引き → お支払${c.a5.toLocaleString()}円）<br><span style="font-size:10px;color:var(--ink2)">取込後、予約画面で「ビジネス利用ではない」と「応援割を適用する」にチェックしてください</span>`);
+  }
+  return h;
+}
 // ===== ねっぱんCSV =====
 function siteToSrc(s){
   if(!s)return 'hp';

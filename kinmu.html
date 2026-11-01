@@ -21,6 +21,7 @@
 <title>勤怠管理 — 妙見楽園荘</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Shippori+Mincho:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -222,6 +223,19 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--ink)
       <button class="btn btn-red btn-sm" id="qDelBtn" onclick="deleteRecord()" style="display:none;margin-right:auto">削除</button>
       <button class="btn btn-out" onclick="closeQuick()">キャンセル</button>
       <button class="btn btn-gold" onclick="saveRecord()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 明細画像モーダル（ホーム画面アプリ用の印刷代替） -->
+<div class="ov" id="shareMod">
+  <div class="modal">
+    <div class="mttl">🖨️ 給与明細（画像）</div>
+    <div style="font-size:11px;color:var(--ink2);margin-bottom:10px;line-height:1.7">下の「共有／プリント」を押し、メニューから<strong>「プリント」</strong>（または「ファイルに保存」「LINE」など）を選んでください。</div>
+    <div id="shareImgs" style="max-height:52vh;overflow-y:auto"></div>
+    <div class="mact">
+      <button class="btn btn-out" onclick="document.getElementById('shareMod').classList.remove('on')">閉じる</button>
+      <button class="btn btn-blue" onclick="doShare()">📤 共有／プリント</button>
     </div>
   </div>
 </div>
@@ -442,7 +456,41 @@ function renderPayslip(){
   });
   el.innerHTML=html||'<div class="ps-empty">スタッフが登録されていません</div>';
 }
+function isStandalone(){
+  try{return navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches;}catch(e){return false;}
+}
+let shareFiles=[];
+async function makeSlipImages(staffId){
+  if(typeof html2canvas==='undefined'){alert('画像を作る部品を読み込めませんでした。通信状況を確認してもう一度お試しください。');return;}
+  showToast('🖼️ 明細を作成中...');
+  const cards=[...document.querySelectorAll('.payslip-card')].filter(el=>!staffId||el.dataset.staffId===staffId);
+  shareFiles=[];
+  const box=document.getElementById('shareImgs');box.innerHTML='';
+  try{
+    for(const el of cards){
+      const cv=await html2canvas(el,{scale:3,backgroundColor:'#ffffff',ignoreElements:n=>n.classList&&n.classList.contains('force-hide-print')});
+      const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
+      const nm=((el.querySelector('.ps-name')||{}).textContent||'明細')+'_'+cy+'-'+pad(cm)+'.png';
+      shareFiles.push(new File([blob],nm,{type:'image/png'}));
+      const img=document.createElement('img');
+      img.src=URL.createObjectURL(blob);
+      img.style.cssText='width:100%;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;background:#fff';
+      box.appendChild(img);
+    }
+  }catch(e){console.error(e);alert('明細画像の作成に失敗しました: '+e.message);return;}
+  document.getElementById('shareMod').classList.add('on');
+}
+function doShare(){
+  // 画像は作成済みなので、ボタンを押した直後に共有メニューを開ける
+  if(navigator.canShare&&navigator.canShare({files:shareFiles})){
+    navigator.share({files:shareFiles}).catch(()=>{});
+  }else{
+    alert('この環境では共有メニューを開けません。画像を長押しして「写真に追加」などで保存してください。');
+  }
+}
 function printOne(staffId){
+  // ホーム画面から起動したアプリ（iPhone）では印刷命令が効かないため、画像＋共有メニュー方式にする
+  if(isStandalone()){makeSlipImages(staffId);return;}
   if(staffId){
     document.querySelectorAll('.payslip-card').forEach(el=>{
       el.classList.toggle('force-hide-print', el.dataset.staffId!==staffId);

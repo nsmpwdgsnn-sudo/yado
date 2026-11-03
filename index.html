@@ -1153,10 +1153,11 @@ function localDate(ds){const [y,m,d]=ds.split('-').map(Number);return new Date(y
 function fmtPrice(p){return p?Number(p).toLocaleString()+'円':''}
 function paxSummary(bk){
   const parts=[];
-  if(bk.paxAdult)parts.push(`大人${bk.paxAdult}`);
-  if(bk.paxChild)parts.push(`子(布団)${bk.paxChild}`);
-  if(bk.paxChildNoBed)parts.push(`子(添)${bk.paxChildNoBed}`);
-  if(bk.paxBaby)parts.push(`添い寝${bk.paxBaby}`);
+  const n=v=>parseInt(v||0)||0;
+  if(n(bk.paxAdult))parts.push(`大人${n(bk.paxAdult)}`);
+  if(n(bk.paxChild))parts.push(`子(布団)${n(bk.paxChild)}`);
+  if(n(bk.paxChildNoBed))parts.push(`子(添)${n(bk.paxChildNoBed)}`);
+  if(n(bk.paxBaby))parts.push(`添い寝${n(bk.paxBaby)}`);
   if(parts.length)return parts.join('・')+'名';
   return bk.pax?bk.pax+'名':'';
 }
@@ -2291,6 +2292,37 @@ function normDate(s){if(!s)return '';const m=s.match(/(\d{4})[年\/\-](\d{1,2})[
 function normTime(s){if(!s)return '15:00';const m=s.match(/(\d{1,2})[時:](\d{0,2})/);if(!m)return '15:00';return `${String(m[1]).padStart(2,'0')}:${String(m[2]||'00').padStart(2,'0')}`;}
 function cleanName(s){if(!s)return '';return s.replace(/^[\s\]\[】【「」、。・\-―─]+/,'').replace(/[（(][^）)]*[）)]/g,'').replace(/\s*(様|さま)\s*$/,'').replace(/　/g,' ').trim();}
 
+// じゃらんの「料金詳細」を部屋ごとに読み取る。
+// 例） 1泊目［2026年12月27日］
+//        1部屋目
+//          7,880円（大人：男 1、女 1）× 2名＝ 15,760円
+//          3,940円（小学生）          × 1名＝  3,940円
+//        2部屋目
+//          11,020円（大人：男 0、女 1）× 1名＝ 11,020円
+// 改行が消えて1行になったメールでも読めるよう、行ではなく出現順に読む。
+// 料金は全泊分を合算、人数は最初の泊の分だけ数える。
+function parseJalanRooms(text){
+  const re=/(\d+)\s*泊目|(\d+)\s*部屋目|([\d,]+)\s*円\s*[（(]([^）)]*)[）)]\s*[×xX✕]\s*(\d+)\s*名\s*[=＝]\s*([\d,]+)\s*円/g;
+  const rooms={};let night=1,firstNight=null,room=1,found=false;
+  for(const m of text.matchAll(re)){
+    if(m[1]){night=parseInt(m[1]);if(firstNight===null)firstNight=night;continue;}
+    if(m[2]){room=parseInt(m[2]);continue;}
+    found=true;
+    if(!rooms[room])rooms[room]={price:0,paxAdult:0,paxChild:0,paxChildNoBed:0,paxBaby:0};
+    const r=rooms[room];
+    r.price+=parseInt(m[6].replace(/,/g,''))||0;
+    if(night!==(firstNight===null?night:firstNight))continue; // 人数は1泊目だけ数える
+    const cat=m[4]||'',n=parseInt(m[5])||0;
+    if(/大人/.test(cat))r.paxAdult+=n;
+    else if(/幼児/.test(cat)&&/食事・?布団なし|食事布団なし|添い寝/.test(cat))r.paxBaby+=n;
+    else if(/幼児/.test(cat)&&/布団なし|布団無|食事のみ/.test(cat))r.paxChildNoBed+=n;
+    else r.paxChild+=n; // 小学生・幼児（布団あり）など
+  }
+  if(!found)return null;
+  const keys=Object.keys(rooms).map(Number).sort((a,b)=>a-b);
+  return keys.map(k=>rooms[k]);
+}
+
 function parseOta(){
   const text=document.getElementById('pasteArea').value;
   if(!text.trim()){alert('メール本文を貼り付けてください');return;}
@@ -2347,11 +2379,10 @@ function parseOta(){
       if(tm)d.ci=tm[1];
     }
     m=text.match(/泊数\s*[：:]\s*(\d+)/)||text.match(/(\d+)\s*泊/);if(m)d.nights=parseInt(m[1]);
-    // 部屋数を検出（複数部屋対応）
-    const roomCountM=text.match(/部屋数\s*[：:]\s*(\d+)室/)||text.match(/(\d+)室/);
-    const roomCount=roomCountM?parseInt(roomCountM[1]):1;
-    // 各部屋の人数を取得（「1部屋目：大人：1名」形式）
-    const roomPaxMatches=[...text.matchAll(/(\d+)部屋目[^\n]*大人[：:]?\s*(\d+)名?/g)];
+    // 部屋ごとの料金・人数を「料金詳細」から読み取る（1部屋目／2部屋目…、連泊は全泊分を合算）
+    const jRooms=parseJalanRooms(text);
+    const roomCountM=text.match(/部屋数\s*[：:]\s*(\d+)\s*室/);
+    const roomCount=Math.max(jRooms?jRooms.length:0,roomCountM?parseInt(roomCountM[1]):1);
     // 全体の大人人数
     m=text.match(/大人\s*[：:]?\s*(\d+)\s*名?/);if(m)d.paxAdult=m[1];
     // 料金：定価（宿泊全体の合計）を取得 ※「宿泊者への請求額」は割引後なので使わない
@@ -2378,21 +2409,28 @@ function parseOta(){
       const memoText=m[1].replace(/\n/g,' ').replace(/■残室情報[^■]*/,'').trim();
       if(memoText)d.memo=memoText;
     }
-    // 複数部屋の場合：各部屋の料金を計算して複数データに分割
+    // 1部屋の場合も、料金詳細から人数の内訳（大人・子ども・幼児）を反映
+    if(jRooms&&jRooms.length===1){
+      const r=jRooms[0];
+      if(r.paxAdult||r.paxChild||r.paxChildNoBed||r.paxBaby){
+        d.paxAdult=String(r.paxAdult);d.paxChild=String(r.paxChild);d.paxChildNoBed=String(r.paxChildNoBed);d.paxBaby=String(r.paxBaby);
+      }
+    }
+    // 複数部屋の場合：部屋ごとに料金・人数を分けて、部屋数分の予約にする
     if(roomCount>1){
-      // 部屋ごとの料金を取得（「1部屋目　8,200円」形式）
-      const roomPriceMatches=[...text.matchAll(/(\d+)部屋目[^\n]*?([\d,]+)円[^\n]*×\s*(\d+)名/g)];
-      const totalPrice=parseInt((d.price||'0').replace(/,/g,''));
-      const pricePerRoom=roomPriceMatches.length>=roomCount
-        ? null // 部屋ごとに取れた
-        : Math.round(totalPrice/roomCount); // 均等割り
+      const totalPrice=parseInt(String(d.price||'0').replace(/,/g,''))||0;
+      const okRooms=jRooms&&jRooms.length===roomCount;
+      const sumRooms=okRooms?jRooms.reduce((s,r)=>s+r.price,0):0;
       d._multiRoom={
         count:roomCount,
+        warn:!okRooms?'部屋ごとの内訳が読み取れなかったため、料金を均等に分け、人数は仮に大人1名にしています。追加後に必ず編集してください'
+          :(totalPrice&&sumRooms!==totalPrice?'部屋ごとの料金の合計（'+sumRooms.toLocaleString()+'円）がメールの合計（'+totalPrice.toLocaleString()+'円）と合いません。追加後に確認してください':''),
         rooms:Array.from({length:roomCount},(_,i)=>{
-          const rp=roomPriceMatches[i];
-          const price=rp?parseInt(rp[2].replace(/,/g,'')):pricePerRoom;
-          const pax=roomPaxMatches[i]?roomPaxMatches[i][2]:'1';
-          return {price:String(price),paxAdult:pax};
+          if(okRooms){
+            const r=jRooms[i];
+            return {price:String(r.price),paxAdult:String(r.paxAdult),paxChild:String(r.paxChild),paxChildNoBed:String(r.paxChildNoBed),paxBaby:String(r.paxBaby)};
+          }
+          return {price:String(Math.round(totalPrice/roomCount)),paxAdult:'1',paxChild:'0',paxChildNoBed:'0',paxBaby:'0'};
         })
       };
     }
@@ -2510,7 +2548,7 @@ function parseOta(){
     <div class="pr-row"><span class="pr-label">宿泊日数</span><span class="pr-val">${d.nights}泊</span></div>
     ${isMulti?`<div class="pr-row"><span class="pr-label">部屋数</span><span class="pr-val" style="color:#2a5fa8;font-weight:700">⚠️ ${d._multiRoom.count}部屋 → ${d._multiRoom.count}件に分けて追加</span></div>`
     :`<div class="pr-row"><span class="pr-label">大人人数</span><span class="pr-val">${d.paxAdult?d.paxAdult+'名':'<span class="pr-err">読み取れず</span>'}</span></div>`}
-    ${isMulti?d._multiRoom.rooms.map((r,i)=>`<div class="pr-row"><span class="pr-label">${i+1}部屋目</span><span class="pr-val">大人${r.paxAdult}名　${parseInt(r.price).toLocaleString()}円</span></div>`).join('')
+    ${isMulti?d._multiRoom.rooms.map((r,i)=>`<div class="pr-row"><span class="pr-label">${i+1}部屋目</span><span class="pr-val">${paxSummary(r)||'人数不明'}　${parseInt(r.price).toLocaleString()}円</span></div>`).join('')+`<div class="pr-row"><span class="pr-label">合計</span><span class="pr-val">${d._multiRoom.rooms.reduce((s,r)=>s+(parseInt(r.price)||0),0).toLocaleString()}円</span></div>`+(d._multiRoom.warn?`<div class="pr-row"><span class="pr-label">⚠️ 注意</span><span class="pr-val pr-err">${esc(d._multiRoom.warn)}</span></div>`:'')
     :`<div class="pr-row"><span class="pr-label">料金</span><span class="pr-val">${d.price?fmtPrice(d.price):'<span class="pr-err">読み取れず</span>'}</span></div>`}
     ${d.suggestedRoom?`<div class="pr-row"><span class="pr-label">部屋</span><span class="pr-val" style="color:#2a5fa8;font-weight:700">🏠 ${esc(d.suggestedRoom)}号室（割当時に自動選択）</span></div>`:''}
     ${d.suggestedArea?`<div class="pr-row"><span class="pr-label">部屋エリア</span><span class="pr-val" style="color:#2a5fa8;font-weight:700">🏠 ${esc(d.suggestedArea)}</span></div>`:''}
@@ -2538,6 +2576,10 @@ function addToUnassigned(){
         no:genReceiptNo(),
         price:r.price,
         paxAdult:r.paxAdult,
+        paxChild:r.paxChild||'0',
+        paxChildNoBed:r.paxChildNoBed||'0',
+        paxBaby:r.paxBaby||'0',
+        discount:i===0?(d.discount||''):'', // ポイント・クーポンは予約全体の分なので1部屋目にだけ付ける
         _multiRoom:undefined, // 子エントリには不要
         memo:(d.memo?d.memo+' ':'')+(d._multiRoom.count+'部屋のうち'+(i+1)+'部屋目'),
       };
